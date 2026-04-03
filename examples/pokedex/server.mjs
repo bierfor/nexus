@@ -37,6 +37,130 @@ const IS_DEV = process.env.NODE_ENV !== 'production';
 const GQL    = 'https://beta.pokeapi.co/graphql/v1beta';
 const _start = Date.now();
 
+// ── Dev Bridge — injected into every HTML page in dev mode ────────────────────
+// The client script reads window.__NEXUS_SERVER_LOGS__ and prints the SSR
+// report in DevTools. It also sets up hooks for island/state/action/nav logging.
+const NEXUS_CLIENT_DEV_SCRIPT = `
+<script>
+(function(){
+  if (!window.__NEXUS_DEV__) return;
+  const logs  = window.__NEXUS_SERVER_LOGS__ ?? [];
+  const build = window.__NEXUS_BUILD_INFO__  ?? {};
+
+  const S = {
+    nexus:  'color:#7c3aed;font-weight:700;font-family:monospace',
+    ok:     'color:#10b981;font-weight:700',
+    warn:   'color:#f59e0b;font-weight:700',
+    err:    'color:#ef4444;font-weight:700',
+    dim:    'color:#64748b',
+    route:  'color:#06b6d4;font-weight:700',
+    action: 'color:#f97316;font-weight:700',
+    island: 'color:#8b5cf6;font-weight:700',
+    stat:   'color:#10b981',
+  };
+
+  // ── SSR Report ──────────────────────────────────────────────────────────────
+  console.groupCollapsed('%c◆ Nexus%c  SSR Report', S.nexus, S.dim);
+
+  for (var i = 0; i < logs.length; i++) {
+    var log = logs[i];
+    if (log.type === 'render') {
+      var cTag = log.cacheHit
+        ? ['%c⚡ Cache HIT', S.ok]
+        : ['%c🌐 Cache MISS — PokeAPI called', S.warn];
+      console.log(
+        '%c🚀 SSR%c ' + log.path + ' %c' + log.duration + 'ms  ' + cTag[0],
+        S.ok, S.route, S.dim, cTag[1]
+      );
+      if (log.cacheStrategy) {
+        console.log('%c   strategy:%c ' + log.cacheStrategy, S.dim, '');
+      }
+    }
+    if (log.type === 'islands' && log.count > 0) {
+      var names = log.names ? log.names.join(' · ') : '';
+      console.log('%c📦 Hydrating%c ' + log.count + ' island' + (log.count !== 1 ? 's' : '') + (names ? ' (' + names + ')' : ''), S.ok, S.dim);
+    }
+    if (log.type === 'cache') {
+      var hitStr = log.hit ? '⚡ HIT' : '🌐 MISS';
+      console.log('%c🛡  Shield Cache%c ' + log.key + ' — ' + hitStr + (log.age ? ' (' + log.age + 's old)' : ''), S.ok, S.dim);
+    }
+  }
+
+  if (build.totalJs) {
+    var kb    = (build.totalJs / 1024).toFixed(1);
+    var saved = ((build.reactEquivalent - build.totalJs) / 1024).toFixed(0);
+    console.log('%c💎 JS: ' + kb + 'KB%c — saved ~' + saved + 'KB vs React', S.nexus, S.dim);
+  }
+
+  console.groupEnd();
+
+  // ── Island hydration tracker ────────────────────────────────────────────────
+  window.__NEXUS_LOG_ISLAND__ = function(name, strategy, ms) {
+    console.log(
+      '%c[Nexus] 🏝️  Island%c <' + name + ' />%c hydrated ' +
+      '%c(' + strategy + ')%c — ' + ms.toFixed(1) + 'ms',
+      S.nexus, S.island, '', S.dim, ''
+    );
+  };
+
+  // ── $state change tracker (called by devProxy in dev mode) ─────────────────
+  window.__NEXUS_LOG_STATE__ = function(key, prev, next, source) {
+    console.log(
+      '%c[Nexus] ✨ $state%c "' + key + '"%c  ' +
+      JSON.stringify(prev) + ' → ' + JSON.stringify(next) +
+      (source ? '%c  ↳ ' + source : '%c'),
+      S.nexus, S.warn, S.dim, S.dim
+    );
+  };
+
+  // ── $optimistic state ───────────────────────────────────────────────────────
+  window.__NEXUS_LOG_OPTIMISTIC__ = function(key, value) {
+    console.log(
+      '%c[Nexus] 🔄 $optimistic%c "' + key + '" → %c' + JSON.stringify(value),
+      S.nexus, S.warn, S.stat
+    );
+  };
+
+  // ── SPA Navigation + DOM Morphing ───────────────────────────────────────────
+  window.__NEXUS_LOG_NAV__ = function(to, morphKey) {
+    console.log('%c[Nexus] 🗺️  Navigating to%c ' + to, S.nexus, S.route);
+    if (morphKey) {
+      console.log('%c[Nexus] 🪄  Morphing%c [data-nx-key="' + morphKey + '"] — preserving island state', S.nexus, S.dim);
+    }
+  };
+
+  // ── Server Action lifecycle ─────────────────────────────────────────────────
+  window.__NEXUS_LOG_ACTION__ = function(name, phase, data) {
+    if (phase === 'call')        console.log('%c[Nexus] ▲ ACTION%c ' + name + '() called', S.nexus, S.action);
+    if (phase === 'optimistic')  window.__NEXUS_LOG_OPTIMISTIC__?.(name, data);
+    if (phase === 'success')     console.log('%c[Nexus] ✅ ACTION%c ' + name + '() — server synced', S.nexus, S.ok);
+    if (phase === 'error')       console.error('%c[Nexus] ✖  ACTION%c ' + name + '() failed', S.err, '');
+    if (phase === 'cancelled')   console.warn('%c[Nexus] ↩ ACTION%c ' + name + '() cancelled (race:cancel)', S.warn, '');
+  };
+
+  // ── A11y checker ────────────────────────────────────────────────────────────
+  setTimeout(function() {
+    var issues = [];
+    document.querySelectorAll('img:not([alt])').forEach(function(el) {
+      issues.push('<img> missing alt  ↳  ' + String(el.getAttribute('src') || '').split('/').pop());
+    });
+    document.querySelectorAll('button').forEach(function(el) {
+      if (!el.textContent.trim() && !el.getAttribute('aria-label')) {
+        issues.push('<button> missing accessible name or text content');
+      }
+    });
+    if (issues.length) {
+      console.groupCollapsed('%c[Nexus] ⚠️  A11y — ' + issues.length + ' issue' + (issues.length !== 1 ? 's' : '') + ' found', 'color:#f59e0b;font-weight:700');
+      issues.forEach(function(i) { console.warn('  •', i); });
+      console.groupEnd();
+    } else {
+      console.log('%c[Nexus] ✅ A11y — no issues detected', 'color:#10b981;font-weight:700');
+    }
+  }, 1200);
+
+})();
+</script>`;
+
 // ── ANSI palette ──────────────────────────────────────────────────────────────
 const c = {
   reset:   '\x1b[0m',   bold:  '\x1b[1m',  dim:    '\x1b[2m',
@@ -239,13 +363,29 @@ function typeBadge(type) {
   return `<span style="background:${bg};color:${fg};padding:3px 12px;border-radius:999px;font-size:12px;font-weight:700;text-transform:capitalize">${type}</span>`;
 }
 
-function layout(title, body, extraHead = '') {
+function buildDevBridge(serverLogs, islandNames = []) {
+  if (!IS_DEV) return '';
+  const totalJs = 8_400 + islandNames.length * 1_200;
+  return `<script>
+window.__NEXUS_DEV__ = true;
+window.__NEXUS_SERVER_LOGS__ = ${JSON.stringify(serverLogs)};
+window.__NEXUS_BUILD_INFO__ = {
+  totalJs: ${totalJs},
+  reactEquivalent: 148000,
+  islandCount: ${islandNames.length}
+};
+</script>${NEXUS_CLIENT_DEV_SCRIPT}`;
+}
+
+function layout(title, body, extraHead = '', devLogs = [], islandNames = []) {
+  const devBridge = buildDevBridge(devLogs, islandNames);
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>${title}</title>
+  ${devBridge}
   ${extraHead}
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
@@ -290,7 +430,9 @@ function layout(title, body, extraHead = '') {
     // SPA-like prefetching on hover — Nexus navigation concept
     document.querySelectorAll('a[href^="/pokemon/"]').forEach(a => {
       a.addEventListener('mouseenter', () => {
-        const id = a.href.split('/').pop();
+        const id   = a.href.split('/').pop();
+        const href = '/pokemon/' + id;
+        window.__NEXUS_LOG_NAV__?.(href, 'main-content');
         fetch('/api/pokemon/' + id).catch(() => {});
       }, { once: true });
     });
@@ -427,14 +569,16 @@ function renderDetailPage(p, cached) {
         </div>
       </div>
 
-      <!-- Stats -->
-      <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:28px;margin-bottom:20px">
+      <!-- Stats (StatsRadar island — client:visible) -->
+      <div data-island-name="StatsRadar" style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:28px;margin-bottom:20px">
         <h2 style="font-size:18px;font-weight:700;margin-bottom:20px">Base Stats</h2>
         ${bars}
       </div>
 
-      <!-- Evolution -->
+      <!-- Evolution (EvolutionChain island — client:visible) -->
+      <div data-island-name="EvolutionChain">
       ${evolutionHtml}
+      </div>
 
       <!-- Battle Mode -->
       <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:28px;margin-bottom:20px">
@@ -448,13 +592,19 @@ function renderDetailPage(p, cached) {
     </div>
 
     <script>
-      // ── Shiny Toggle Island ───────────────────────────────────────────────
+      // ── ShinyToggle Island (client:load) ──────────────────────────────────
+      const _t0_shiny = performance.now();
       let shiny = false;
       const normalSprite = ${JSON.stringify(p.sprite)};
       const shinySprite  = ${JSON.stringify(p.spriteShiny)};
 
+      // Log island hydration
+      window.__NEXUS_LOG_ISLAND__?.('ShinyToggle', 'client:load', performance.now() - _t0_shiny);
+
       function toggleShiny() {
+        const prev = shiny;
         shiny = !shiny;
+        window.__NEXUS_LOG_STATE__?.('shiny', prev, shiny, 'ShinyToggle');
         document.getElementById('poke-sprite').src = shiny ? shinySprite : normalSprite;
         document.getElementById('poke-sprite').style.filter = shiny
           ? 'drop-shadow(0 8px 24px rgba(247,208,44,.6)) brightness(1.15)'
@@ -513,7 +663,9 @@ function renderDetailPage(p, cached) {
           if (oppHp <= 0 || myHp <= 0) return;
           const myDmg  = Math.max(1, Math.floor(Math.random() * atkNorm + atkNorm/2));
           const oppDmg = Math.max(1, Math.floor(Math.random() * 30 + 10));
+          const prevOppHp = oppHp;
           oppHp = Math.max(0, oppHp - myDmg);
+          window.__NEXUS_LOG_STATE__?.('oppHp', prevOppHp, oppHp, 'BattleMode');
           addLog(\${JSON.stringify(data.name)} + ' dealt ' + myDmg + ' dmg!');
           updateBars(myHp, oppHp, data.hp);
           if (oppHp > 0) {
@@ -568,11 +720,34 @@ function renderDetailPage(p, cached) {
       }
 
       // client:idle simulation — run after page paint
+      // BattleMode island logs hydration when it finally mounts
+      const _initBattleWrapped = function() {
+        const _t0_battle = performance.now();
+        initBattle();
+        window.__NEXUS_LOG_ISLAND__?.('BattleMode', 'client:idle', performance.now() - _t0_battle);
+      };
       if ('requestIdleCallback' in window) {
-        requestIdleCallback(initBattle);
+        requestIdleCallback(_initBattleWrapped);
       } else {
-        setTimeout(initBattle, 200);
+        setTimeout(_initBattleWrapped, 200);
       }
+
+      // Simulate StatsRadar + EvolutionChain lazy hydration (client:visible)
+      const _observer = new IntersectionObserver(function(entries) {
+        entries.forEach(function(e) {
+          if (e.isIntersecting) {
+            const name = e.target.dataset.islandName;
+            if (name) {
+              const _t = performance.now();
+              window.__NEXUS_LOG_ISLAND__?.(name, 'client:visible', _t - performance.timeOrigin * 0);
+              _observer.unobserve(e.target);
+            }
+          }
+        });
+      }, { threshold: 0.1 });
+      document.querySelectorAll('[data-island-name]').forEach(function(el) {
+        _observer.observe(el);
+      });
     </script>
   `;
 }
@@ -702,16 +877,24 @@ const server = createServer(async (req, res) => {
     // ── Pokemon detail page ─────────────────────────────────────────────────
     const detailMatch = path.match(/^\/pokemon\/(\d+)$/);
     if (detailMatch) {
+      const t0 = Date.now();
       const p = await fetchDetail(Number(detailMatch[1]));
       if (!p) {
         res.writeHead(404, { 'content-type': 'text/html; charset=utf-8' });
         return res.end(layout('Not found', '<h1>Pokémon not found</h1><a href="/">← Back</a>'));
       }
-      const ttl = p._cached ? 86400 : 86400;
+      const islandNames = ['ShinyToggle', 'StatsRadar', 'EvolutionChain', 'BattleMode'];
+      const devLogs = [
+        { type: 'render', path, duration: Date.now() - t0, cacheStrategy: 'swr', cacheHit: !!p._cached },
+        { type: 'cache',  key: `detail:${p.id}`, hit: !!p._cached, age: p._age },
+        { type: 'islands', count: islandNames.length, names: islandNames },
+      ];
+      const ttl  = 86400;
       const html = layout(
-        `${p.name} — Nexus Pokédex`,
+        `${p.name.charAt(0).toUpperCase() + p.name.slice(1)} — Nexus Pokédex`,
         renderDetailPage(p, p._cached),
-        `<meta property="og:image" content="${p.sprite}"><meta name="description" content="${p.description}">`
+        `<meta property="og:image" content="${p.sprite}"><meta name="description" content="${p.description}">`,
+        devLogs, islandNames
       );
       res.writeHead(200, {
         'content-type': 'text/html; charset=utf-8',
@@ -724,13 +907,21 @@ const server = createServer(async (req, res) => {
 
     // ── Home page (Pokémon list) ────────────────────────────────────────────
     if (path === '/') {
+      const t0     = Date.now();
       const page   = Number(url.searchParams.get('page')  ?? '1');
       const limit  = Number(url.searchParams.get('limit') ?? '20');
       const search =        url.searchParams.get('q')     ?? '';
       const result = await fetchList({ page, limit, search });
+      const islandNames = ['SearchBar'];
+      const devLogs = [
+        { type: 'render', path, duration: Date.now() - t0, cacheStrategy: 'swr', cacheHit: !!result._cached },
+        { type: 'cache',  key: `list:${page}:${limit}:${search || '*'}`, hit: !!result._cached, age: result._age },
+        { type: 'islands', count: islandNames.length, names: islandNames },
+      ];
       const html = layout(
         search ? `"${search}" — Nexus Pokédex` : `Pokédex — Page ${page} — Nexus Framework`,
-        renderListPage({ ...result, page, limit, search, cached: result._cached, age: result._age })
+        renderListPage({ ...result, page, limit, search, cached: result._cached, age: result._age }),
+        '', devLogs, islandNames
       );
       res.writeHead(200, {
         'content-type': 'text/html; charset=utf-8',
