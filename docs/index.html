@@ -1,1190 +1,1776 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Nexus — The Definitive Full-Stack Framework</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Unbounded:wght@400;700;900&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
-<style>
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-  :root {
-    --bg: #050508;
-    --surface: #0d0d14;
-    --surface2: #111120;
-    --border: #1a1a2e;
-    --nexus: #00d4aa;
-    --nexus2: #00a8ff;
-    --sv: #ff3e00;
-    --next: #0070f3;
-    --astro: #9333ea;
-    --text: #e2e2f0;
-    --muted: #5a5a78;
-    --dim: #2a2a44;
-  }
-
-  html { scroll-behavior: smooth; }
-  body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: 'DM Sans', system-ui, sans-serif;
-    overflow-x: hidden;
-    line-height: 1.6;
-  }
-
-  /* ── Grain texture ── */
-  body::after {
-    content: '';
-    position: fixed;
-    inset: 0;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
-    pointer-events: none;
-    z-index: 9999;
-  }
-
-  /* ── LANGUAGE SWITCHER ── */
-  .lang-bar {
-    position: fixed;
-    top: 0;
-    right: 0;
-    z-index: 100;
-    display: flex;
-    gap: 0;
-    padding: 0.75rem 1.5rem;
-  }
-
-  .lang-btn {
-    background: none;
-    border: 1px solid var(--border);
-    color: var(--muted);
-    padding: 5px 12px;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.65rem;
-    letter-spacing: 0.1em;
-    cursor: pointer;
-    transition: all 0.15s;
-    text-transform: uppercase;
-  }
-
-  .lang-btn:first-child { border-radius: 6px 0 0 6px; }
-  .lang-btn:last-child { border-radius: 0 6px 6px 0; border-left: none; }
-  .lang-btn:not(:first-child):not(:last-child) { border-left: none; }
-  .lang-btn.active { background: var(--nexus); color: #000; border-color: var(--nexus); font-weight: 700; }
-  .lang-btn:hover:not(.active) { color: var(--text); border-color: var(--dim); }
-
-  /* ── NAV ── */
-  nav {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    z-index: 50;
-    display: flex;
-    align-items: center;
-    padding: 1.25rem 3rem;
-    border-bottom: 1px solid transparent;
-    transition: border-color 0.3s, background 0.3s;
-  }
-
-  nav.scrolled {
-    background: rgba(5,5,8,0.9);
-    backdrop-filter: blur(20px);
-    border-bottom-color: var(--border);
-  }
-
-  .nav-logo {
-    font-family: 'Unbounded', sans-serif;
-    font-weight: 900;
-    font-size: 1.1rem;
-    color: var(--nexus);
-    text-decoration: none;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-right: auto;
-  }
-
-  .nav-links { display: flex; gap: 2rem; align-items: center; }
-  .nav-links a {
-    color: var(--muted);
-    text-decoration: none;
-    font-size: 0.85rem;
-    transition: color 0.15s;
-  }
-  .nav-links a:hover { color: var(--text); }
-
-  .nav-cta {
-    background: var(--nexus);
-    color: #000;
-    padding: 7px 18px;
-    border-radius: 6px;
-    font-size: 0.8rem;
-    font-weight: 700;
-    text-decoration: none;
-    transition: filter 0.15s;
-  }
-  .nav-cta:hover { filter: brightness(1.1); color: #000; }
-
-  /* ── HERO ── */
-  .hero {
-    min-height: 100vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    position: relative;
-    overflow: hidden;
-    padding: 8rem 2rem 6rem;
-  }
-
-  .hero-rays {
-    position: absolute;
-    inset: 0;
-    background:
-      conic-gradient(from 180deg at 30% 40%, rgba(0,212,170,0.07) 0deg, transparent 60deg),
-      conic-gradient(from 0deg at 70% 30%, rgba(0,168,255,0.06) 0deg, transparent 80deg),
-      conic-gradient(from 270deg at 50% 70%, rgba(147,51,234,0.05) 0deg, transparent 60deg);
-  }
-
-  .hero-lines {
-    position: absolute;
-    inset: 0;
-    background-image:
-      linear-gradient(rgba(0,212,170,0.04) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(0,212,170,0.04) 1px, transparent 1px);
-    background-size: 80px 80px;
-    mask-image: radial-gradient(ellipse 80% 60% at 50% 50%, black, transparent);
-  }
-
-  .hero-inner {
-    position: relative;
-    z-index: 1;
-    text-align: center;
-    max-width: 960px;
-  }
-
-  .hero-eyebrow {
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-    border: 1px solid var(--border);
-    background: var(--surface);
-    padding: 6px 16px;
-    border-radius: 100px;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.7rem;
-    color: var(--muted);
-    letter-spacing: 0.08em;
-    margin-bottom: 2.5rem;
-    animation: fadeIn 0.5s ease both;
-  }
-
-  .hero-eyebrow span { color: var(--nexus); }
-
-  .hero-title {
-    font-family: 'Unbounded', sans-serif;
-    font-size: clamp(3.5rem, 9vw, 8rem);
-    font-weight: 900;
-    line-height: 0.9;
-    letter-spacing: -0.04em;
-    margin-bottom: 2rem;
-    animation: fadeUp 0.6s 0.1s ease both;
-  }
-
-  .hero-title .line1 { display: block; color: var(--text); }
-  .hero-title .line2 {
-    display: block;
-    background: linear-gradient(135deg, var(--nexus), var(--nexus2));
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-  }
-
-  .hero-desc {
-    font-size: 1.15rem;
-    color: var(--muted);
-    max-width: 560px;
-    margin: 0 auto 3rem;
-    line-height: 1.7;
-    font-weight: 300;
-    animation: fadeUp 0.6s 0.2s ease both;
-  }
-
-  .hero-actions {
-    display: flex;
-    gap: 12px;
-    justify-content: center;
-    flex-wrap: wrap;
-    animation: fadeUp 0.6s 0.3s ease both;
-  }
-
-  .btn-primary {
-    background: var(--nexus);
-    color: #000;
-    padding: 13px 28px;
-    border-radius: 8px;
-    font-weight: 700;
-    font-size: 0.95rem;
-    text-decoration: none;
-    transition: all 0.2s;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-
-  .btn-primary:hover { filter: brightness(1.1); transform: translateY(-1px); }
-
-  .btn-ghost {
-    background: none;
-    color: var(--text);
-    padding: 13px 28px;
-    border-radius: 8px;
-    font-size: 0.95rem;
-    text-decoration: none;
-    border: 1px solid var(--border);
-    transition: all 0.2s;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-
-  .btn-ghost:hover { border-color: var(--nexus); color: var(--nexus); }
-
-  .hero-stats {
-    display: flex;
-    gap: 3rem;
-    justify-content: center;
-    margin-top: 4rem;
-    animation: fadeUp 0.6s 0.4s ease both;
-  }
-
-  .stat { text-align: center; }
-  .stat-val {
-    font-family: 'Unbounded', sans-serif;
-    font-size: 1.8rem;
-    font-weight: 900;
-    color: var(--nexus);
-    line-height: 1;
-    margin-bottom: 4px;
-  }
-  .stat-label { font-size: 0.72rem; color: var(--muted); font-family: 'JetBrains Mono', monospace; letter-spacing: 0.06em; }
-
-  /* ── SECTIONS ── */
-  section { padding: 7rem 2rem; }
-  .container { max-width: 1080px; margin: 0 auto; }
-
-  .section-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.65rem;
-    letter-spacing: 0.15em;
-    text-transform: uppercase;
-    color: var(--nexus);
-    margin-bottom: 1rem;
-  }
-
-  .section-chip::before { content: '◆'; font-size: 0.5rem; }
-
-  h2 {
-    font-family: 'Unbounded', sans-serif;
-    font-size: clamp(2rem, 4vw, 3.5rem);
-    font-weight: 900;
-    line-height: 1.05;
-    letter-spacing: -0.03em;
-    margin-bottom: 1rem;
-  }
-
-  .section-lead { color: var(--muted); font-size: 1rem; font-weight: 300; max-width: 500px; margin-bottom: 4rem; }
-
-  /* ── THREE PILLARS ── */
-  .pillars {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 1px;
-    background: var(--border);
-    border: 1px solid var(--border);
-    border-radius: 16px;
-    overflow: hidden;
-  }
-
-  .pillar {
-    background: var(--surface);
-    padding: 2.5rem;
-    transition: background 0.2s;
-    position: relative;
-    overflow: hidden;
-  }
-
-  .pillar::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    opacity: 0;
-    transition: opacity 0.3s;
-  }
-
-  .pillar.sv::after { background: radial-gradient(ellipse at 0% 0%, rgba(255,62,0,0.1), transparent 70%); }
-  .pillar.nx::after { background: radial-gradient(ellipse at 0% 0%, rgba(0,112,243,0.1), transparent 70%); }
-  .pillar.as::after { background: radial-gradient(ellipse at 0% 0%, rgba(147,51,234,0.1), transparent 70%); }
-  .pillar:hover::after { opacity: 1; }
-
-  .pillar-num {
-    font-family: 'Unbounded', sans-serif;
-    font-size: 3rem;
-    font-weight: 900;
-    opacity: 0.06;
-    line-height: 1;
-    position: absolute;
-    top: 1.5rem;
-    right: 1.5rem;
-  }
-
-  .pillar-icon {
-    font-size: 2rem;
-    margin-bottom: 1.25rem;
-    display: block;
-  }
-
-  .pillar-source {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.62rem;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    margin-bottom: 0.5rem;
-  }
-
-  .pillar.sv .pillar-source { color: var(--sv); }
-  .pillar.nx .pillar-source { color: var(--next); }
-  .pillar.as .pillar-source { color: var(--astro); }
-
-  .pillar-title { font-family: 'Unbounded', sans-serif; font-size: 1.1rem; font-weight: 700; margin-bottom: 0.75rem; line-height: 1.2; }
-  .pillar-desc { font-size: 0.875rem; color: var(--muted); line-height: 1.7; font-weight: 300; }
-
-  .pillar-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 1.25rem; }
-  .tag {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.6rem;
-    padding: 3px 8px;
-    border-radius: 3px;
-    letter-spacing: 0.04em;
-  }
-
-  .sv .tag { background: rgba(255,62,0,0.1); color: var(--sv); }
-  .nx .tag { background: rgba(0,112,243,0.1); color: var(--next); }
-  .as .tag { background: rgba(147,51,234,0.1); color: var(--astro); }
-
-  /* ── CODE SHOWCASE ── */
-  .code-showcase {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 16px;
-    overflow: hidden;
-  }
-
-  .code-tabs-bar {
-    display: flex;
-    background: rgba(0,0,0,0.4);
-    border-bottom: 1px solid var(--border);
-    padding: 0 1rem;
-    overflow-x: auto;
-  }
-
-  .code-tab {
-    padding: 12px 18px;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.72rem;
-    color: var(--muted);
-    cursor: pointer;
-    border-bottom: 2px solid transparent;
-    white-space: nowrap;
-    transition: all 0.15s;
-  }
-
-  .code-tab.on { color: var(--nexus); border-bottom-color: var(--nexus); }
-  .code-tab:hover:not(.on) { color: var(--text); }
-
-  .code-pane { display: none; padding: 2rem; overflow-x: auto; }
-  .code-pane.on { display: block; }
-
-  pre { font-family: 'JetBrains Mono', monospace; font-size: 0.78rem; line-height: 1.9; }
-  .kw { color: #c792ea; }
-  .str { color: #c3e88d; }
-  .cmt { color: #546e7a; font-style: italic; }
-  .fn { color: #82aaff; }
-  .var { color: #ffcb6b; }
-  .tag-h { color: #80cbc4; }
-  .attr { color: #89ddff; }
-  .rune { color: #00d4aa; font-weight: 700; }
-  .action { color: #ff3e00; font-style: italic; }
-
-  /* ── INTERACTIVE DEMO ── */
-  .demo-box {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 16px;
-    padding: 3rem;
-    text-align: center;
-  }
-
-  .demo-label {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.65rem;
-    letter-spacing: 0.12em;
-    color: var(--nexus);
-    text-transform: uppercase;
-    margin-bottom: 2rem;
-  }
-
-  .count-num {
-    font-family: 'Unbounded', sans-serif;
-    font-size: 5rem;
-    font-weight: 900;
-    color: var(--nexus);
-    line-height: 1;
-    margin-bottom: 0.5rem;
-    transition: transform 0.1s, color 0.2s;
-  }
-
-  .count-derived {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.9rem;
-    color: var(--muted);
-    margin-bottom: 2rem;
-  }
-
-  .count-derived em { color: var(--nexus2); font-style: normal; }
-
-  .btn-rune {
-    background: none;
-    border: 1.5px solid var(--nexus);
-    color: var(--nexus);
-    padding: 10px 28px;
-    border-radius: 8px;
-    font-family: 'DM Sans', sans-serif;
-    font-size: 0.95rem;
-    font-weight: 700;
-    cursor: pointer;
-    transition: all 0.15s;
-  }
-
-  .btn-rune:hover { background: rgba(0,212,170,0.1); }
-  .btn-rune:active { transform: scale(0.97); }
-
-  /* ── COMPARISON ── */
-  .compare-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 0.875rem;
-  }
-
-  .compare-table th {
-    padding: 1rem 1.5rem;
-    text-align: left;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.62rem;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: var(--muted);
-    border-bottom: 1px solid var(--border);
-    background: rgba(0,0,0,0.3);
-  }
-
-  .compare-table td {
-    padding: 0.875rem 1.5rem;
-    border-bottom: 1px solid rgba(26,26,46,0.6);
-  }
-
-  .compare-table tr:last-child td { border-bottom: none; }
-  .compare-table tr:hover td { background: rgba(255,255,255,0.015); }
-  .ck { color: var(--nexus); font-weight: 700; }
-  .no { color: var(--muted); }
-  .nx-col { color: var(--nexus); font-weight: 700; }
-
-  .origin {
-    display: inline-block;
-    padding: 2px 8px;
-    border-radius: 4px;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.6rem;
-    font-weight: 700;
-    letter-spacing: 0.05em;
-  }
-
-  /* ── INSTALL ── */
-  .install-box {
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    overflow: hidden;
-  }
-
-  .install-tabs { display: flex; border-bottom: 1px solid var(--border); background: rgba(0,0,0,0.3); }
-  .install-tab {
-    padding: 10px 20px;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.7rem;
-    color: var(--muted);
-    cursor: pointer;
-    border-bottom: 2px solid transparent;
-    transition: all 0.15s;
-  }
-  .install-tab.on { color: var(--nexus); border-bottom-color: var(--nexus); }
-
-  .install-pane { display: none; }
-  .install-pane.on { display: block; }
-
-  .install-cmd {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    padding: 1.5rem 2rem;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.9rem;
-  }
-
-  .install-prompt { color: var(--nexus); }
-  .install-copy {
-    margin-left: auto;
-    background: none;
-    border: 1px solid var(--border);
-    color: var(--muted);
-    padding: 5px 12px;
-    border-radius: 6px;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.65rem;
-    cursor: pointer;
-    transition: all 0.15s;
-  }
-  .install-copy:hover { color: var(--nexus); border-color: var(--nexus); }
-  .install-copy.copied { color: var(--nexus); border-color: var(--nexus); }
-
-  /* ── FOOTER ── */
-  footer {
-    border-top: 1px solid var(--border);
-    padding: 3rem 2rem;
-    text-align: center;
-    color: var(--muted);
-    font-size: 0.78rem;
-  }
-
-  .footer-logo {
-    font-family: 'Unbounded', sans-serif;
-    font-weight: 900;
-    font-size: 1.5rem;
-    color: var(--nexus);
-    margin-bottom: 1rem;
-    display: block;
-  }
-
-  footer a { color: var(--muted); text-decoration: none; }
-  footer a:hover { color: var(--nexus); }
-
-  /* ── ANIMATIONS ── */
-  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-  @keyframes fadeUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-
-  /* ── RESPONSIVE ── */
-  @media (max-width: 768px) {
-    nav { padding: 1rem 1.5rem; }
-    .nav-links { display: none; }
-    .pillars { grid-template-columns: 1fr; }
-    .hero-stats { gap: 2rem; flex-wrap: wrap; }
-    .compare-table { font-size: 0.78rem; }
-    .compare-table th, .compare-table td { padding: 0.75rem; }
-  }
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Nexus Framework — Documentation</title>
+  <meta name="description" content="The Definitive Full-Stack Framework. Islands Architecture + Svelte 5 Runes + Server Actions + Edge-First.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <!-- Prism.js for syntax highlighting -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css">
+  <style>
+    :root {
+      --bg:       #08080f;
+      --bg2:      #0e0e1a;
+      --surface:  #13131f;
+      --border:   #1e1e30;
+      --accent:   #7c3aed;
+      --accent2:  #06b6d4;
+      --green:    #10b981;
+      --amber:    #f59e0b;
+      --red:      #ef4444;
+      --text:     #e2e8f0;
+      --muted:    #64748b;
+      --mono:     'JetBrains Mono', monospace;
+      --sans:     'Space Grotesk', system-ui, sans-serif;
+      --sidebar-w: 260px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      font-size: 15px;
+      line-height: 1.7;
+      display: flex;
+      min-height: 100vh;
+    }
+
+    /* ── Sidebar ───────────────────────────────────────────────────────── */
+    aside {
+      width: var(--sidebar-w);
+      min-height: 100vh;
+      background: var(--bg2);
+      border-right: 1px solid var(--border);
+      position: fixed;
+      top: 0; left: 0;
+      overflow-y: auto;
+      padding: 24px 0 40px;
+      z-index: 10;
+    }
+
+    .sidebar-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 0 20px 24px;
+      border-bottom: 1px solid var(--border);
+      text-decoration: none;
+    }
+
+    .logo-mark {
+      width: 32px; height: 32px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border-radius: 8px;
+      display: grid;
+      place-items: center;
+      font-size: 16px;
+      font-weight: 700;
+      color: #fff;
+      font-family: var(--mono);
+      flex-shrink: 0;
+    }
+
+    .logo-text {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .logo-version {
+      font-size: 10px;
+      background: rgba(124,58,237,.2);
+      color: var(--accent);
+      border: 1px solid rgba(124,58,237,.3);
+      border-radius: 4px;
+      padding: 1px 5px;
+      margin-left: auto;
+      font-family: var(--mono);
+    }
+
+    nav {
+      padding: 16px 0;
+    }
+
+    .nav-section {
+      padding: 4px 20px 2px;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-top: 16px;
+    }
+
+    nav a {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 20px;
+      color: var(--muted);
+      text-decoration: none;
+      font-size: 14px;
+      border-left: 2px solid transparent;
+      transition: all .15s;
+    }
+
+    nav a:hover { color: var(--text); background: rgba(255,255,255,.03); }
+    nav a.active {
+      color: var(--accent2);
+      border-left-color: var(--accent2);
+      background: rgba(6,182,212,.06);
+    }
+
+    /* ── Main ──────────────────────────────────────────────────────────── */
+    main {
+      margin-left: var(--sidebar-w);
+      flex: 1;
+      max-width: calc(100% - var(--sidebar-w));
+    }
+
+    /* ── Hero ──────────────────────────────────────────────────────────── */
+    .hero {
+      background: radial-gradient(ellipse 80% 60% at 50% -10%, rgba(124,58,237,.25) 0%, transparent 60%),
+                  var(--bg);
+      border-bottom: 1px solid var(--border);
+      padding: 80px 80px 60px;
+      text-align: center;
+    }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(124,58,237,.15);
+      border: 1px solid rgba(124,58,237,.3);
+      border-radius: 999px;
+      padding: 4px 14px;
+      font-size: 12px;
+      color: var(--accent2);
+      font-family: var(--mono);
+      margin-bottom: 24px;
+    }
+
+    .hero h1 {
+      font-size: clamp(36px, 5vw, 60px);
+      font-weight: 700;
+      line-height: 1.1;
+      background: linear-gradient(135deg, #fff 30%, rgba(124,58,237,.8));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 16px;
+    }
+
+    .hero p {
+      font-size: 18px;
+      color: var(--muted);
+      max-width: 560px;
+      margin: 0 auto 32px;
+    }
+
+    .hero-actions {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 22px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      text-decoration: none;
+      transition: all .2s;
+      cursor: pointer;
+      border: none;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+    }
+    .btn-primary:hover { background: #6d28d9; transform: translateY(-1px); }
+
+    .btn-outline {
+      background: transparent;
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+    .btn-outline:hover { border-color: var(--accent); color: var(--accent2); }
+
+    .hero-stats {
+      display: flex;
+      justify-content: center;
+      gap: 48px;
+      margin-top: 48px;
+      padding-top: 32px;
+      border-top: 1px solid var(--border);
+    }
+
+    .stat { text-align: center; }
+    .stat-num {
+      font-size: 28px;
+      font-weight: 700;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .stat-label { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+    /* ── Content ───────────────────────────────────────────────────────── */
+    .content {
+      padding: 0 80px 80px;
+      max-width: 900px;
+    }
+
+    section {
+      padding-top: 60px;
+    }
+
+    section:first-of-type { padding-top: 48px; }
+
+    .section-label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 8px;
+      font-family: var(--mono);
+    }
+
+    h2 {
+      font-size: 30px;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 12px;
+      line-height: 1.2;
+    }
+
+    h3 {
+      font-size: 20px;
+      font-weight: 600;
+      color: var(--text);
+      margin: 32px 0 12px;
+    }
+
+    h4 {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--accent2);
+      margin: 24px 0 8px;
+    }
+
+    p { color: #94a3b8; margin-bottom: 16px; }
+
+    .lead {
+      font-size: 17px;
+      color: var(--muted);
+      margin-bottom: 32px;
+    }
+
+    /* ── Code blocks ───────────────────────────────────────────────────── */
+    pre[class*="language-"] {
+      background: var(--surface) !important;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 20px 24px !important;
+      margin: 20px 0;
+      overflow-x: auto;
+      font-size: 13px !important;
+      line-height: 1.6 !important;
+    }
+
+    code[class*="language-"] {
+      font-family: var(--mono) !important;
+      font-size: 13px !important;
+    }
+
+    .code-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--border);
+      padding: 8px 16px;
+      border-radius: 8px 8px 0 0;
+      font-size: 12px;
+      color: var(--muted);
+      font-family: var(--mono);
+      margin-bottom: -1px;
+    }
+
+    .code-title + pre[class*="language-"] {
+      border-radius: 0 0 10px 10px;
+      margin-top: 0;
+    }
+
+    .code-lang {
+      font-size: 10px;
+      background: rgba(124,58,237,.2);
+      color: var(--accent);
+      padding: 2px 8px;
+      border-radius: 4px;
+    }
+
+    /* Inline code */
+    :not(pre) > code {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: var(--mono);
+      font-size: 13px;
+      color: var(--accent2);
+    }
+
+    /* ── Cards ─────────────────────────────────────────────────────────── */
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 16px;
+      margin: 24px 0;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 20px;
+      transition: border-color .2s;
+    }
+    .card:hover { border-color: var(--accent); }
+
+    .card-icon {
+      font-size: 22px;
+      margin-bottom: 10px;
+    }
+    .card h4 { margin: 0 0 6px; font-size: 14px; }
+    .card p { font-size: 13px; margin: 0; }
+
+    /* ── Directive table ───────────────────────────────────────────────── */
+    .dir-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 20px 0;
+      font-size: 14px;
+    }
+
+    .dir-table th {
+      text-align: left;
+      padding: 10px 16px;
+      background: var(--surface);
+      border-bottom: 2px solid var(--border);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: var(--muted);
+    }
+
+    .dir-table td {
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--border);
+      color: #94a3b8;
+    }
+
+    .dir-table tr:hover td { background: rgba(255,255,255,.02); }
+
+    .dir-table code { font-size: 12px; }
+
+    /* ── Badges ────────────────────────────────────────────────────────── */
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+      font-family: var(--mono);
+    }
+    .badge-purple { background: rgba(124,58,237,.15); color: var(--accent); }
+    .badge-cyan   { background: rgba(6,182,212,.15);  color: var(--accent2); }
+    .badge-green  { background: rgba(16,185,129,.15); color: var(--green); }
+    .badge-amber  { background: rgba(245,158,11,.15); color: var(--amber); }
+    .badge-red    { background: rgba(239,68,68,.15);  color: var(--red); }
+
+    /* ── Callouts ──────────────────────────────────────────────────────── */
+    .callout {
+      border-left: 3px solid var(--accent);
+      background: rgba(124,58,237,.08);
+      padding: 14px 18px;
+      border-radius: 0 8px 8px 0;
+      margin: 20px 0;
+      font-size: 14px;
+      color: #94a3b8;
+    }
+    .callout.tip  { border-color: var(--green);  background: rgba(16,185,129,.08); }
+    .callout.warn { border-color: var(--amber);  background: rgba(245,158,11,.08); }
+    .callout.info { border-color: var(--accent2); background: rgba(6,182,212,.08); }
+    .callout strong { display: block; margin-bottom: 4px; }
+
+    /* ── Steps ─────────────────────────────────────────────────────────── */
+    .steps { counter-reset: step; margin: 24px 0; }
+    .step {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    .step-num {
+      counter-increment: step;
+      width: 28px; height: 28px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      color: #fff;
+      font-size: 13px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+    .step-content h4 { margin: 0 0 6px; }
+
+    /* ── Divider ────────────────────────────────────────────────────────── */
+    hr {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 48px 0;
+    }
+
+    /* ── Comparison table ───────────────────────────────────────────────── */
+    .cmp-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 20px 0;
+      font-size: 13px;
+    }
+    .cmp-table th {
+      padding: 10px 14px;
+      background: var(--surface);
+      text-align: center;
+      font-weight: 600;
+      font-size: 12px;
+      border: 1px solid var(--border);
+    }
+    .cmp-table th:first-child { text-align: left; }
+    .cmp-table td {
+      padding: 9px 14px;
+      border: 1px solid var(--border);
+      text-align: center;
+      color: var(--muted);
+    }
+    .cmp-table td:first-child { text-align: left; color: var(--text); font-weight: 500; }
+    .cmp-table tr:hover td { background: rgba(255,255,255,.015); }
+    .check { color: var(--green); font-size: 16px; }
+    .cross { color: var(--red);   font-size: 16px; }
+    .partial { color: var(--amber); font-size: 14px; }
+
+    /* ── Lang switcher ──────────────────────────────────────────────────── */
+    .lang-bar {
+      position: fixed;
+      top: 16px; right: 24px;
+      display: flex;
+      gap: 6px;
+      z-index: 100;
+    }
+    .lang-btn {
+      padding: 4px 12px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all .15s;
+    }
+    .lang-btn.active, .lang-btn:hover {
+      border-color: var(--accent);
+      color: var(--accent2);
+    }
+
+    /* ── Scrollbar ───────────────────────────────────────────────────────── */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    @media (max-width: 900px) {
+      aside { display: none; }
+      main { margin-left: 0; max-width: 100%; }
+      .hero, .content { padding-left: 24px; padding-right: 24px; }
+    }
+  </style>
 </head>
 <body>
 
-<!-- Language Switcher -->
+<!-- ── Language switcher ──────────────────────────────────────────────────── -->
 <div class="lang-bar">
   <button class="lang-btn active" onclick="setLang('en')">EN</button>
   <button class="lang-btn" onclick="setLang('es')">ES</button>
   <button class="lang-btn" onclick="setLang('pt')">PT</button>
 </div>
 
-<!-- Nav -->
-<nav id="main-nav">
-  <a href="#" class="nav-logo">◆ Nexus</a>
-  <div class="nav-links">
-    <a href="#pillars" data-i18n="nav.docs">Docs</a>
-    <a href="#code" data-i18n="nav.guide">Guide</a>
-    <a href="#compare" data-i18n="nav.compare">Compare</a>
-    <a href="https://github.com/nexus-framework/nexus" data-i18n="nav.github">GitHub</a>
-    <a href="#install" class="nav-cta" data-i18n="nav.start">Get Started</a>
-  </div>
-</nav>
+<!-- ── Sidebar ────────────────────────────────────────────────────────────── -->
+<aside>
+  <a href="#top" class="sidebar-logo">
+    <div class="logo-mark">N</div>
+    <span class="logo-text">Nexus</span>
+    <span class="logo-version">v0.1</span>
+  </a>
+  <nav id="sidebar-nav">
+    <div class="nav-section" data-i18n="nav.gettingStarted">Getting Started</div>
+    <a href="#install" class="active">⚡ Installation</a>
+    <a href="#quickstart">🚀 Quick Start</a>
+    <a href="#project-structure">📁 Project Structure</a>
 
-<!-- Hero -->
-<section class="hero">
-  <div class="hero-rays"></div>
-  <div class="hero-lines"></div>
-  <div class="hero-inner">
-    <div class="hero-eyebrow">v0.1.0 · <span data-i18n="hero.badge">Open Source · MIT License</span></div>
-    <h1 class="hero-title">
-      <span class="line1">◆ Nexus</span>
-      <span class="line2" data-i18n="hero.sub">Framework</span>
-    </h1>
-    <p class="hero-desc" data-i18n="hero.desc">
-      Islands Architecture + Svelte 5 Runes + Server Actions.
-      Zero JS by default. Maximum performance. First-class DX.
-    </p>
+    <div class="nav-section" data-i18n="nav.core">Core Concepts</div>
+    <a href="#nx-format">📄 .nx Format</a>
+    <a href="#routing">🗺️ File Routing</a>
+    <a href="#islands">🏝️ Islands</a>
+    <a href="#runes">⚡ Runes</a>
+
+    <div class="nav-section" data-i18n="nav.data">Data & Server</div>
+    <a href="#server-actions">⚙️ Server Actions</a>
+    <a href="#cache">💾 Cache & Revalidate</a>
+    <a href="#database">🗄️ Database</a>
+    <a href="#streaming">🌊 Streaming SSR</a>
+
+    <div class="nav-section" data-i18n="nav.advanced">Advanced</div>
+    <a href="#store">🌐 Global Store</a>
+    <a href="#navigation">↔️ SPA Navigation</a>
+    <a href="#middleware">🔒 Middleware</a>
+    <a href="#seo">🔍 SEO & Head</a>
+    <a href="#assets">🖼️ Assets</a>
+
+    <div class="nav-section" data-i18n="nav.tooling">Tooling</div>
+    <a href="#cli">🛠️ CLI Reference</a>
+    <a href="#studio">🎛️ Nexus Studio</a>
+    <a href="#testing">🧪 Testing</a>
+    <a href="#deployment">🚀 Deployment</a>
+
+    <div class="nav-section" data-i18n="nav.reference">Reference</div>
+    <a href="#comparison">⚖️ Comparison</a>
+    <a href="#packages">📦 Packages</a>
+  </nav>
+</aside>
+
+<!-- ── Main ───────────────────────────────────────────────────────────────── -->
+<main>
+
+  <!-- Hero -->
+  <div class="hero" id="top">
+    <div class="hero-badge">
+      <span>◆</span>
+      <span data-i18n="hero.badge">Islands Architecture + Svelte 5 Runes + Server Actions</span>
+    </div>
+    <h1 data-i18n="hero.title">The Definitive<br>Full-Stack Framework</h1>
+    <p data-i18n="hero.subtitle">Zero JS by default. Progressive hydration where you need it. Server Actions that are type-safe, race-condition-safe, and edge-ready.</p>
     <div class="hero-actions">
-      <a href="#install" class="btn-primary">
-        ◆ <span data-i18n="hero.cta1">Get Started</span>
-      </a>
-      <a href="#code" class="btn-ghost">
-        → <span data-i18n="hero.cta2">See the code</span>
-      </a>
+      <a href="#quickstart" class="btn btn-primary" data-i18n="hero.cta1">Get Started →</a>
+      <a href="https://github.com/bierfor/nexus" class="btn btn-outline" target="_blank" data-i18n="hero.cta2">GitHub ↗</a>
     </div>
     <div class="hero-stats">
-      <div class="stat">
-        <div class="stat-val">0</div>
-        <div class="stat-label" data-i18n="stat.js">KB JS Default</div>
-      </div>
-      <div class="stat">
-        <div class="stat-val">100</div>
-        <div class="stat-label" data-i18n="stat.lh">Lighthouse Score</div>
-      </div>
-      <div class="stat">
-        <div class="stat-val">3</div>
-        <div class="stat-label" data-i18n="stat.fw">Best Frameworks Fused</div>
-      </div>
-      <div class="stat">
-        <div class="stat-val">∞</div>
-        <div class="stat-label" data-i18n="stat.dx">DX Potential</div>
-      </div>
+      <div class="stat"><div class="stat-num">13</div><div class="stat-label" data-i18n="hero.stat1">Packages</div></div>
+      <div class="stat"><div class="stat-num">0kb</div><div class="stat-label" data-i18n="hero.stat2">JS by Default</div></div>
+      <div class="stat"><div class="stat-num">100%</div><div class="stat-label" data-i18n="hero.stat3">TypeScript</div></div>
+      <div class="stat"><div class="stat-num">Edge</div><div class="stat-label" data-i18n="hero.stat4">Ready</div></div>
     </div>
   </div>
-</section>
 
-<!-- Three Pillars -->
-<section id="pillars" style="padding-top: 0;">
-  <div class="container">
-    <div class="section-chip" data-i18n="pillars.chip">Architecture</div>
-    <h2 data-i18n="pillars.title">Three engines.<br>One vision.</h2>
-    <p class="section-lead" data-i18n="pillars.lead">Each layer of Nexus inherits the best paradigm from its source.</p>
+  <div class="content">
 
-    <div class="pillars">
-      <div class="pillar as">
-        <div class="pillar-num">01</div>
-        <span class="pillar-icon">🏝️</span>
-        <div class="pillar-source" data-i18n="pillar1.source">From Astro</div>
-        <div class="pillar-title" data-i18n="pillar1.title">Islands Architecture</div>
-        <p class="pillar-desc" data-i18n="pillar1.desc">Zero JavaScript shipped by default. PPR for instant static shells with dynamic holes. Only components that need interactivity load JS.</p>
-        <div class="pillar-tags">
-          <span class="tag">Zero JS</span>
-          <span class="tag">PPR</span>
-          <span class="tag">client:visible</span>
-          <span class="tag">SSG + SSR</span>
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- GETTING STARTED                                                    -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+
+    <section id="install">
+      <div class="section-label">Getting Started</div>
+      <h2 data-i18n="install.title">Installation</h2>
+      <p class="lead" data-i18n="install.lead">Nexus requires Node.js ≥ 20 and pnpm ≥ 9. It works on any OS.</p>
+
+      <h3 data-i18n="install.prereq">Prerequisites</h3>
+      <div class="code-title"><span>terminal</span><span class="code-lang">bash</span></div>
+      <pre><code class="language-bash">node --version   # Must be ≥ 20.0.0
+npm install -g pnpm
+pnpm --version   # Must be ≥ 9.0.0</code></pre>
+    </section>
+
+    <section id="quickstart">
+      <div class="section-label">Getting Started</div>
+      <h2 data-i18n="qs.title">Quick Start</h2>
+      <p class="lead" data-i18n="qs.lead">Create a new Nexus project in seconds with the official scaffolder.</p>
+
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-content">
+            <h4 data-i18n="qs.step1">Scaffold a new project</h4>
+            <div class="code-title"><span>terminal</span><span class="code-lang">bash</span></div>
+            <pre><code class="language-bash">pnpm create nexus@latest my-app
+cd my-app</code></pre>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-content">
+            <h4 data-i18n="qs.step2">Install dependencies</h4>
+            <div class="code-title"><span>terminal</span><span class="code-lang">bash</span></div>
+            <pre><code class="language-bash">pnpm install</code></pre>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-content">
+            <h4 data-i18n="qs.step3">Start the dev server</h4>
+            <div class="code-title"><span>terminal</span><span class="code-lang">bash</span></div>
+            <pre><code class="language-bash">pnpm dev
+# → http://localhost:3000</code></pre>
+          </div>
         </div>
       </div>
 
-      <div class="pillar sv">
-        <div class="pillar-num">02</div>
-        <span class="pillar-icon">⚡</span>
-        <div class="pillar-source" data-i18n="pillar2.source">From Svelte 5</div>
-        <div class="pillar-title" data-i18n="pillar2.title">Runes Reactivity</div>
-        <p class="pillar-desc" data-i18n="pillar2.desc">Fine-grained reactive primitives ($state, $derived, $effect) compiled ahead-of-time. No Virtual DOM — surgically updates only what changed.</p>
-        <div class="pillar-tags">
-          <span class="tag">$state</span>
-          <span class="tag">$derived</span>
-          <span class="tag">No VDOM</span>
-          <span class="tag">AOT Compile</span>
-        </div>
+      <div class="callout tip">
+        <strong>💡 Syntax Highlighting</strong>
+        Add <code>"*.nx": "html"</code> to your <code>.vscode/settings.json</code> → <code>files.associations</code>. Nexus already includes this in every scaffolded project.
       </div>
+    </section>
 
-      <div class="pillar nx">
-        <div class="pillar-num">03</div>
-        <span class="pillar-icon">🔧</span>
-        <div class="pillar-source" data-i18n="pillar3.source">From Next.js</div>
-        <div class="pillar-title" data-i18n="pillar3.title">Full-Stack Core</div>
-        <p class="pillar-desc" data-i18n="pillar3.desc">Server Actions 2.0 with auto type-safety. File-based routing with nested layouts. Edge-ready with native middleware for CDN personalization.</p>
-        <div class="pillar-tags">
-          <span class="tag">Server Actions</span>
-          <span class="tag">Edge Runtime</span>
-          <span class="tag">File Routing</span>
-          <span class="tag">Type-safe</span>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
+    <section id="project-structure">
+      <div class="section-label">Getting Started</div>
+      <h2 data-i18n="struct.title">Project Structure</h2>
+      <p class="lead" data-i18n="struct.lead">A typical Nexus app looks like this:</p>
 
-<!-- Code Showcase -->
-<section id="code" style="padding-top: 0;">
-  <div class="container">
-    <div class="section-chip" data-i18n="code.chip">Syntax</div>
-    <h2 data-i18n="code.title">Write less.<br>Ship faster.</h2>
-    <p class="section-lead" data-i18n="code.lead">One file, three execution contexts. Server, client and database — unified.</p>
+      <div class="code-title"><span>my-app/</span><span class="code-lang">tree</span></div>
+      <pre><code class="language-bash">my-app/
+├── src/
+│   ├── routes/
+│   │   ├── +layout.nx        # Root layout (wraps every page)
+│   │   ├── +page.nx          # → /
+│   │   ├── blog/
+│   │   │   ├── +layout.nx    # Blog layout
+│   │   │   ├── +page.nx      # → /blog
+│   │   │   └── [slug]/
+│   │   │       ├── +page.nx  # → /blog/:slug
+│   │   │       ├── +server.nx # API: GET/POST /blog/:slug
+│   │   │       └── error.nx  # Error boundary for this route
+│   │   └── (auth)/           # Route group (no URL segment)
+│   │       ├── login/+page.nx
+│   │       └── signup/+page.nx
+│   └── components/
+│       ├── Header.nx
+│       └── Counter.nx
+├── public/                   # Static files served as-is
+├── nexus.config.ts           # Framework configuration
+├── tsconfig.json
+└── package.json</code></pre>
+    </section>
 
-    <div class="code-showcase">
-      <div class="code-tabs-bar">
-        <div class="code-tab on" onclick="showCode('page')">+page.nx</div>
-        <div class="code-tab" onclick="showCode('action')">actions.ts</div>
-        <div class="code-tab" onclick="showCode('layout')">+layout.nx</div>
-        <div class="code-tab" onclick="showCode('config')">nexus.config.ts</div>
-      </div>
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- CORE CONCEPTS                                                       -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
 
-      <div class="code-pane on" id="code-page">
-<pre><span class="cmt">---</span>
-<span class="cmt">// 1. SERVER BLOCK — runs per-request, never sent to browser</span>
-<span class="kw">import</span> { db } <span class="kw">from</span> <span class="str">'$lib/db'</span>;
-<span class="kw">const</span> <span class="var">user</span> = <span class="kw">await</span> db.user.<span class="fn">findFirst</span>();
-<span class="cmt">---</span>
+    <section id="nx-format">
+      <div class="section-label">Core Concepts</div>
+      <h2 data-i18n="nx.title">The .nx Component Format</h2>
+      <p class="lead" data-i18n="nx.lead">Every Nexus page and component is a <code>.nx</code> file with up to four sections.</p>
 
-<span class="tag-h">&lt;script&gt;</span>
-  <span class="cmt">// 2. CLIENT ISLAND — Svelte 5 Runes, compiled AOT</span>
-  <span class="kw">let</span> <span class="var">count</span> = <span class="rune">$state</span>(0);
-  <span class="kw">let</span> <span class="var">doubled</span> = <span class="rune">$derived</span>(<span class="var">count</span> * 2);
+      <div class="code-title"><span>src/routes/+page.nx</span><span class="code-lang">.nx</span></div>
+      <pre><code class="language-html">---
+// ① SERVER BLOCK — runs ONLY on the server, never sent to browser
+// Fetch data, access env vars, call the DB
+import { cache } from '@nexus/runtime';
+import { defineHead } from '@nexus/head';
 
-  <span class="cmt">// 3. SERVER ACTION — type-safe mutation, auto-extracted</span>
-  <span class="kw">async function</span> <span class="fn">updateProfile</span>(<span class="var">formData</span>: FormData) {
-    <span class="action">"use server"</span>;
-    <span class="kw">await</span> db.user.<span class="fn">update</span>({ <span class="attr">data</span>: { <span class="attr">name</span>: <span class="var">formData</span>.<span class="fn">get</span>(<span class="str">'name'</span>) } });
-  }
-<span class="tag-h">&lt;/script&gt;</span>
+const posts = await cache(() => fetch('/api/posts').then(r => r.json()), {
+  ttl: 60,        // Cache for 60 seconds
+  tags: ['post'], // Invalidate with revalidate(['post'])
+});
 
-<span class="tag-h">&lt;h1&gt;</span>Hello, {<span class="var">user</span>.name}<span class="tag-h">&lt;/h1&gt;</span>
+defineHead({
+  title: 'My Blog — Nexus',
+  description: 'The best articles on the web',
+  og: { image: '/og.png' },
+});
+---
 
-<span class="cmt">&lt;!-- client:visible — only hydrates when entering viewport --&gt;</span>
-<span class="tag-h">&lt;div</span> <span class="rune">client:visible</span><span class="tag-h">&gt;</span>
-  <span class="tag-h">&lt;button</span> <span class="attr">onclick</span>={() => <span class="var">count</span>++}>
-    Clicks: {<span class="var">count</span>} · Doubled: {<span class="var">doubled</span>}
-  <span class="tag-h">&lt;/button&gt;</span>
-<span class="tag-h">&lt;/div&gt;</span>
+&lt;script&gt;
+// ② ISLAND BLOCK — reactive code, runs in the browser
+// Uses Svelte 5 Rune syntax for fine-grained reactivity
+let { initialCount = 0 } = $props();
+let count = $state(initialCount);
+let doubled = $derived(count * 2);
 
-<span class="tag-h">&lt;form</span> <span class="attr">action</span>={<span class="fn">updateProfile</span>}>
-  <span class="tag-h">&lt;input</span> <span class="attr">name</span>=<span class="str">"name"</span> />
-  <span class="tag-h">&lt;button&gt;</span>Save<span class="tag-h">&lt;/button&gt;</span>
-<span class="tag-h">&lt;/form&gt;</span></pre>
-      </div>
+$effect(() => {
+  console.log('Count is now:', count);
+});
+&lt;/script&gt;
 
-      <div class="code-pane" id="code-action">
-<pre><span class="cmt">// Server Actions — auto type-safety, no boilerplate API</span>
-<span class="action">"use server"</span>;
+&lt;template&gt;
+  &lt;!-- ③ TEMPLATE — HTML first, zero JS unless islands are used --&gt;
 
-<span class="kw">import</span> { db } <span class="kw">from</span> <span class="str">'$lib/db'</span>;
-<span class="kw">import</span> { revalidate } <span class="kw">from</span> <span class="str">'nexus/cache'</span>;
+  &lt;!-- Static content (zero JS cost) --&gt;
+  &lt;ul&gt;
+    {#each posts as post}
+      &lt;li&gt;&lt;a href="/blog/{post.slug}"&gt;{post.title}&lt;/a&gt;&lt;/li&gt;
+    {/each}
+  &lt;/ul&gt;
 
-<span class="kw">export async function</span> <span class="fn">updateProfile</span>(
-  <span class="var">formData</span>: FormData
-): <span class="kw">Promise</span>&lt;{ success: boolean }&gt; {
+  &lt;!-- Interactive island — hydrated when visible in viewport --&gt;
+  &lt;Counter client:visible initialCount={42} /&gt;
 
-  <span class="kw">const</span> <span class="var">name</span> = <span class="var">formData</span>.<span class="fn">get</span>(<span class="str">'name'</span>) <span class="kw">as</span> string;
+  &lt;!-- Server-only component (never sends JS to browser) --&gt;
+  &lt;HeavyChart server:only data={chartData} /&gt;
+&lt;/template&gt;
 
-  <span class="kw">await</span> db.user.<span class="fn">update</span>({
-    <span class="attr">where</span>: { id: ctx.session.userId },
-    <span class="attr">data</span>: { <span class="var">name</span> }
-  });
+&lt;style&gt;
+  /* ④ STYLE — automatically scoped to this component */
+  /* No class name collisions, ever */
+  li { padding: 8px 0; border-bottom: 1px solid #eee; }
+  a  { color: var(--accent); text-decoration: none; }
+&lt;/style&gt;</code></pre>
 
-  <span class="kw">await</span> <span class="fn">revalidate</span>(<span class="str">'/profile'</span>);
-  <span class="kw">return</span> { success: <span class="kw">true</span> };
+      <h3>Section Rules</h3>
+      <table class="dir-table">
+        <thead><tr><th>Section</th><th>Delimiters</th><th>Runs</th><th>Access to</th></tr></thead>
+        <tbody>
+          <tr><td><span class="badge badge-purple">---</span> Server</td><td><code>---</code> ... <code>---</code></td><td>Server only</td><td>DB, env vars, cookies, file system</td></tr>
+          <tr><td><span class="badge badge-cyan">&lt;script&gt;</span> Island</td><td><code>&lt;script&gt;</code> ... <code>&lt;/script&gt;</code></td><td>Browser only</td><td>DOM, Runes, user events</td></tr>
+          <tr><td><span class="badge badge-green">&lt;template&gt;</span></td><td><code>&lt;template&gt;</code> ... <code>&lt;/template&gt;</code></td><td>Both (SSR + hydrate)</td><td>All data from server + island</td></tr>
+          <tr><td><span class="badge badge-amber">&lt;style&gt;</span></td><td><code>&lt;style&gt;</code> ... <code>&lt;/style&gt;</code></td><td>Build-time (AOT)</td><td>N/A — compiled to scoped CSS</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="routing">
+      <div class="section-label">Core Concepts</div>
+      <h2 data-i18n="routing.title">File-Based Routing</h2>
+      <p class="lead" data-i18n="routing.lead">The file system is your router. No config required.</p>
+
+      <table class="dir-table">
+        <thead><tr><th>File</th><th>URL</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><code>+page.nx</code></td><td><code>/</code></td><td>Home page</td></tr>
+          <tr><td><code>blog/+page.nx</code></td><td><code>/blog</code></td><td>Static route</td></tr>
+          <tr><td><code>blog/[slug]/+page.nx</code></td><td><code>/blog/:slug</code></td><td>Dynamic segment</td></tr>
+          <tr><td><code>blog/[...rest]/+page.nx</code></td><td><code>/blog/*</code></td><td>Catch-all</td></tr>
+          <tr><td><code>(auth)/login/+page.nx</code></td><td><code>/login</code></td><td>Route group (no segment)</td></tr>
+          <tr><td><code>+layout.nx</code></td><td>all children</td><td>Shared layout wrapper</td></tr>
+          <tr><td><code>+server.nx</code></td><td>same route</td><td>API endpoint (GET/POST/etc.)</td></tr>
+          <tr><td><code>error.nx</code></td><td>same dir</td><td>Error boundary</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Dynamic Routes</h3>
+      <div class="code-title"><span>src/routes/blog/[slug]/+page.nx</span><span class="code-lang">.nx</span></div>
+      <pre><code class="language-html">---
+// ctx.params is fully typed from your route pattern
+const { slug } = ctx.params;
+const post = await ctx.db.query('post', 'findOne', () =>
+  ctx.db.client.post.findUnique({ where: { slug } })
+);
+
+if (!post) {
+  ctx.status(404);
+  ctx.redirect('/blog');
+}
+---
+&lt;template&gt;
+  &lt;article&gt;
+    &lt;h1&gt;{post.title}&lt;/h1&gt;
+    &lt;p&gt;{post.body}&lt;/p&gt;
+  &lt;/article&gt;
+&lt;/template&gt;</code></pre>
+
+      <h3>Layouts</h3>
+      <p>Layouts wrap child pages with shared UI. They compose from outermost to innermost.</p>
+      <div class="code-title"><span>src/routes/+layout.nx</span><span class="code-lang">.nx</span></div>
+      <pre><code class="language-html">&lt;template&gt;
+  &lt;header&gt;
+    &lt;nav&gt;
+      &lt;a href="/"&gt;Home&lt;/a&gt;
+      &lt;a href="/blog"&gt;Blog&lt;/a&gt;
+    &lt;/nav&gt;
+  &lt;/header&gt;
+
+  &lt;main&gt;
+    &lt;!-- Child page renders here --&gt;
+    &lt;!--nexus:slot--&gt;
+  &lt;/main&gt;
+
+  &lt;footer&gt;© 2026 My App&lt;/footer&gt;
+&lt;/template&gt;</code></pre>
+
+      <h3>API Routes (+server.nx)</h3>
+      <div class="code-title"><span>src/routes/api/posts/+server.nx</span><span class="code-lang">.nx</span></div>
+      <pre><code class="language-html">---
+// Export HTTP method handlers directly
+export async function GET(ctx) {
+  const posts = await ctx.db.client.post.findMany();
+  return ctx.json(posts);
 }
 
-<span class="cmt">// Edge-ready — runs on CDN edge, not origin server</span>
-<span class="kw">export const</span> <span class="var">runtime</span> = <span class="str">'edge'</span>;</pre>
+export async function POST(ctx) {
+  const body = await ctx.request.json();
+  const post = await ctx.db.client.post.create({ data: body });
+  return ctx.json(post, 201);
+}
+---</code></pre>
+    </section>
+
+    <section id="islands">
+      <div class="section-label">Core Concepts</div>
+      <h2 data-i18n="islands.title">Islands Architecture</h2>
+      <p class="lead" data-i18n="islands.lead">Every component is static by default. Add a hydration directive only where interactivity is needed.</p>
+
+      <table class="dir-table">
+        <thead><tr><th>Directive</th><th>When it hydrates</th><th>Best for</th></tr></thead>
+        <tbody>
+          <tr><td><code>client:load</code></td><td>Immediately on page load</td><td>Critical UI — modals, nav, auth forms</td></tr>
+          <tr><td><code>client:idle</code></td><td>After <code>requestIdleCallback</code></td><td>Non-critical widgets, analytics</td></tr>
+          <tr><td><code>client:visible</code></td><td>When entering the viewport (<code>IntersectionObserver</code>)</td><td>Below-the-fold content, carousels</td></tr>
+          <tr><td><code>client:media="(max-width:768px)"</code></td><td>When media query matches</td><td>Mobile-only components</td></tr>
+          <tr><td><code>server:only</code></td><td>Never — pure SSR</td><td>Heavy charts, admin tables, no JS</td></tr>
+        </tbody>
+      </table>
+
+      <div class="code-title"><span>src/routes/+page.nx</span><span class="code-lang">.nx</span></div>
+      <pre><code class="language-html">&lt;template&gt;
+  &lt;!-- Hero text: zero JS. Pure HTML. Fastest possible. --&gt;
+  &lt;h1&gt;Welcome&lt;/h1&gt;
+
+  &lt;!-- Nav dropdown: needs JS immediately --&gt;
+  &lt;NavDropdown client:load /&gt;
+
+  &lt;!-- Comments section: loads when user scrolls to it --&gt;
+  &lt;Comments client:visible postId={post.id} /&gt;
+
+  &lt;!-- Mobile menu: only costs JS on mobile --&gt;
+  &lt;MobileMenu client:media="(max-width: 768px)" /&gt;
+
+  &lt;!-- Data table: 80kb of Ag-Grid, never sent to browser --&gt;
+  &lt;AdminTable server:only rows={rows} /&gt;
+&lt;/template&gt;</code></pre>
+
+      <div class="callout info">
+        <strong>How islands prevent waterfalls</strong>
+        Nexus's compiler scans your entire component tree at build time and emits <code>&lt;link rel="modulepreload"&gt;</code> for all nested islands in parallel — before the browser discovers them itself.
       </div>
+    </section>
 
-      <div class="code-pane" id="code-layout">
-<pre><span class="cmt">// app/dashboard/+layout.nx — Nested layouts</span>
-<span class="cmt">---</span>
-<span class="cmt">// Server: protect route</span>
-<span class="kw">if</span> (!ctx.session?.user) ctx.<span class="fn">redirect</span>(<span class="str">'/login'</span>);
-<span class="cmt">---</span>
+    <section id="runes">
+      <div class="section-label">Core Concepts</div>
+      <h2 data-i18n="runes.title">Runes — Reactive Primitives</h2>
+      <p class="lead" data-i18n="runes.lead">Nexus implements Svelte 5 Rune semantics. The most ergonomic reactivity system in the JavaScript ecosystem.</p>
 
-<span class="tag-h">&lt;script&gt;</span>
-  <span class="kw">let</span> { <span class="var">children</span> } = <span class="rune">$props</span>();
-<span class="tag-h">&lt;/script&gt;</span>
+      <h3>$state — Reactive Value</h3>
+      <pre><code class="language-typescript">let count = $state(0);
+let user  = $state&lt;User | null&gt;(null);
+let items = $state&lt;string[]&gt;([]);
 
-<span class="tag-h">&lt;div</span> <span class="attr">class</span>=<span class="str">"shell"</span>>
-  <span class="tag-h">&lt;Sidebar</span> /&gt;
-  <span class="tag-h">&lt;main&gt;</span>
-    {@render <span class="var">children</span>()}
-  <span class="tag-h">&lt;/main&gt;</span>
-<span class="tag-h">&lt;/div&gt;</span>
+// Mutate directly — no .value, no setState()
+count++;
+items.push('new item');
+user = { name: 'Alice', role: 'admin' };</code></pre>
 
-<span class="cmt">// File structure:</span>
-<span class="cmt">// routes/</span>
-<span class="cmt">// ├── +layout.nx         ← root layout</span>
-<span class="cmt">// ├── +page.nx           ← /</span>
-<span class="cmt">// ├── dashboard/</span>
-<span class="cmt">// │   ├── +layout.nx     ← this file</span>
-<span class="cmt">// │   ├── +page.nx       ← /dashboard</span>
-<span class="cmt">// │   └── settings/</span>
-<span class="cmt">// │       └── +page.nx   ← /dashboard/settings</span>
-<span class="cmt">// └── blog/[slug]/</span>
-<span class="cmt">// └── +page.nx   ← /blog/:slug</span></pre>
+      <h3>$derived — Computed Value</h3>
+      <pre><code class="language-typescript">let count   = $state(0);
+let doubled = $derived(count * 2);
+let label   = $derived(count === 0 ? 'empty' : `${count} items`);
+let heavy   = $derived.by(() => {
+  // For multi-line derivations
+  return items.filter(i => i.active).length;
+});</code></pre>
+
+      <h3>$effect — Side Effects</h3>
+      <pre><code class="language-typescript">$effect(() => {
+  // Runs after render, re-runs when count changes
+  document.title = `Count: ${count}`;
+});
+
+$effect(() => {
+  const id = setInterval(() => count++, 1000);
+  // Return a cleanup function
+  return () => clearInterval(id);
+});</code></pre>
+
+      <h3>$props — Component Props</h3>
+      <pre><code class="language-typescript">// In a component's &lt;script&gt; block
+let {
+  title,
+  count = 0,          // default value
+  onSave,             // callback
+  class: className,   // rename reserved words
+} = $props();</code></pre>
+
+      <h3>$optimistic — Optimistic UI</h3>
+      <pre><code class="language-typescript">// Instant UI update before server confirms
+const savePost = $optimistic(
+  async (draft: Post) => {
+    return await callAction('savePost', draft);
+  },
+  // Optimistic updater — applied instantly
+  (current: Post[], draft: Post) => {
+    return current.map(p => p.id === draft.id ? { ...p, ...draft } : p);
+  }
+);
+
+// Usage:
+await savePost(editedPost);
+// UI updates immediately, rolls back if server errors</code></pre>
+
+      <h3>$sync — Synchronized State</h3>
+      <pre><code class="language-typescript">// Stays in sync with cookies/sessionStorage/localStorage
+const theme = $sync('theme', {
+  default: 'light' as 'light' | 'dark',
+  storage: 'cookie',   // or 'session' | 'local'
+  path: '/',
+});
+
+// Changing theme updates the cookie automatically
+theme.value = 'dark';
+// Refreshing the page restores the value automatically</code></pre>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- DATA & SERVER                                                       -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+
+    <section id="server-actions">
+      <div class="section-label">Data & Server</div>
+      <h2 data-i18n="actions.title">Server Actions</h2>
+      <p class="lead" data-i18n="actions.lead">Type-safe functions that run on the server, called from the client like regular async functions. Race-condition-safe by design.</p>
+
+      <h3>Defining a Server Action</h3>
+      <div class="code-title"><span>src/routes/+page.nx</span><span class="code-lang">.nx</span></div>
+      <pre><code class="language-html">---
+// Mark with "use server" — the compiler extracts this to a server module
+async function createPost(formData: FormData, ctx: NexusContext) {
+  "use server";
+
+  const title = formData.get('title') as string;
+  const body  = formData.get('body')  as string;
+
+  // ctx.db is your configured DB adapter
+  const post = await ctx.db.mutate('post', 'create', () =>
+    ctx.db.client.post.create({ data: { title, body } })
+  );
+
+  // Invalidates the 'post' cache tag everywhere
+  await revalidate(['post']);
+
+  return post; // Date fields serialize automatically ✓
+}
+---
+
+&lt;script&gt;
+let title = $state('');
+let body  = $state('');
+let saving = $state(false);
+let error  = $state&lt;string | null&gt;(null);
+
+async function handleSubmit(e: SubmitEvent) {
+  e.preventDefault();
+  saving = true;
+  error  = null;
+
+  try {
+    const result = await callAction('createPost', new FormData(e.target as HTMLFormElement));
+    console.log('Created:', result);
+  } catch (err) {
+    error = err.message;
+  } finally {
+    saving = false;
+  }
+}
+&lt;/script&gt;
+
+&lt;template&gt;
+  &lt;form onsubmit={handleSubmit}&gt;
+    &lt;input name="title" bind:value={title} placeholder="Title" /&gt;
+    &lt;textarea name="body" bind:value={body}&gt;&lt;/textarea&gt;
+    &lt;button type="submit" disabled={saving}&gt;
+      {saving ? 'Saving…' : 'Publish'}
+    &lt;/button&gt;
+    {#if error}&lt;p class="error"&gt;{error}&lt;/p&gt;{/if}
+  &lt;/form&gt;
+&lt;/template&gt;</code></pre>
+
+      <h3>Race Condition Strategies</h3>
+      <p>Configure how concurrent calls to the same action are handled:</p>
+      <div class="code-title"><span>src/server/actions.ts</span><span class="code-lang">typescript</span></div>
+      <pre><code class="language-typescript">import { registerAction } from '@nexus/server/actions';
+
+// 'cancel' — abort previous, run latest (search, autosave)
+registerAction('search',     searchFn,  { race: 'cancel' });
+
+// 'queue'  — run sequentially in order (cart updates)
+registerAction('addToCart',  cartFn,    { race: 'queue' });
+
+// 'reject' — 409 if one is already in flight (payments)
+registerAction('checkout',   payFn,     { race: 'reject' });
+
+// 'ignore' — all run in parallel (analytics, logging)
+registerAction('trackEvent', trackFn,   { race: 'ignore' });
+
+// Idempotent — same idempotency key returns cached result
+registerAction('importData', importFn,  { idempotent: true, timeout: 120_000 });</code></pre>
+    </section>
+
+    <section id="cache">
+      <div class="section-label">Data & Server</div>
+      <h2 data-i18n="cache.title">Cache & Revalidation</h2>
+      <p class="lead" data-i18n="cache.lead">Stale-while-revalidate caching with tag-based invalidation. Smart <code>Cache-Control</code> headers computed automatically.</p>
+
+      <div class="code-title"><span>src/routes/+page.nx</span><span class="code-lang">.nx</span></div>
+      <pre><code class="language-html">---
+import { cache, revalidate } from '@nexus/runtime';
+
+// Cache for 60 seconds, tag as 'posts'
+const posts = await cache(() => db.post.findMany(), {
+  ttl: 60,
+  tags: ['post', 'homepage'],
+});
+
+// Immutable — cache forever (static assets/data)
+const config = await cache(() => readConfig(), { ttl: Infinity });
+
+// No cache (sensitive/personalized data)
+const cart = await cache(() => getCart(userId), { ttl: 0 });
+---</code></pre>
+
+      <div class="code-title"><span>Server Action</span><span class="code-lang">typescript</span></div>
+      <pre><code class="language-typescript">async function deletePost(id: string, ctx: NexusContext) {
+  "use server";
+  await ctx.db.client.post.delete({ where: { id } });
+
+  // Purge all routes that fetched with tag 'post'
+  await revalidate(['post']);
+
+  // Or purge a specific path
+  await revalidatePath('/blog');
+}</code></pre>
+
+      <div class="callout info">
+        <strong>Automatic Cache-Control Headers</strong>
+        Nexus reads all <code>ttl</code> values used during rendering and emits the most conservative <code>Cache-Control</code> header. A page with <code>ttl: 60</code> automatically gets <code>s-maxage=60, stale-while-revalidate=120</code>. No manual header configuration needed.
       </div>
+    </section>
 
-      <div class="code-pane" id="code-config">
-<pre><span class="cmt">// nexus.config.ts — Zero-config, opt-in everything</span>
-<span class="kw">import type</span> { NexusConfig } <span class="kw">from</span> <span class="str">'@nexus/cli'</span>;
+    <section id="database">
+      <div class="section-label">Data & Server</div>
+      <h2 data-i18n="db.title">Database — Bring Your Own</h2>
+      <p class="lead" data-i18n="db.lead">Nexus doesn't bundle an ORM. It wraps your client with caching, invalidation, and Edge awareness.</p>
 
-<span class="kw">export default</span> {
-  <span class="cmt">// Islands default strategy</span>
-  <span class="attr">defaultHydration</span>: <span class="str">'client:visible'</span>,
+      <h3>Setup (nexus.config.ts)</h3>
+      <div class="code-title"><span>nexus.config.ts</span><span class="code-lang">typescript</span></div>
+      <pre><code class="language-typescript">import { defineNexus } from '@nexus/cli';
+import { defineDB } from '@nexus/db';
+import { PrismaClient } from '@prisma/client';
 
-  <span class="cmt">// Auto image optimization</span>
-  <span class="attr">images</span>: {
-    <span class="attr">formats</span>: [<span class="str">'avif'</span>, <span class="str">'webp'</span>],
-    <span class="attr">sizes</span>: [640, 1280, 1920],
+export default defineNexus({
+  db: defineDB(new PrismaClient(), {
+    defaultTtl: 60,              // Cache every query for 60s by default
+    tags: (table) => [table],   // Auto-tag by table name
+  }),
+});</code></pre>
+
+      <h3>Prisma Adapter</h3>
+      <pre><code class="language-typescript">import { prismaAdapter } from '@nexus/db/adapters/prisma';
+import { PrismaClient } from '@prisma/client';
+
+const db = prismaAdapter(new PrismaClient(), {
+  slowQueryThreshold: 200, // Warn if query > 200ms
+});</code></pre>
+
+      <h3>Drizzle Adapter (Edge-native)</h3>
+      <pre><code class="language-typescript">import { drizzleAdapter } from '@nexus/db/adapters/drizzle';
+import { drizzle } from 'drizzle-orm/neon-http';
+import { neon } from '@neondatabase/serverless';
+
+const sql = neon(process.env.DATABASE_URL!);
+const db = drizzleAdapter(drizzle(sql), { edge: true });</code></pre>
+
+      <h3>Turso / libSQL Adapter</h3>
+      <pre><code class="language-typescript">import { libsqlAdapter } from '@nexus/db/adapters/libsql';
+import { createClient } from '@libsql/client';
+
+const db = libsqlAdapter(createClient({
+  url: process.env.TURSO_URL!,
+  authToken: process.env.TURSO_TOKEN,
+}));</code></pre>
+
+      <h3>Using the DB in Server Actions</h3>
+      <pre><code class="language-typescript">// In any .nx server block or Server Action
+// ctx.db is fully typed from your defineNexus() config
+
+// Cached query — result stored for defaultTtl seconds
+const posts = await ctx.db.query('post', 'findMany', () =>
+  ctx.db.client.post.findMany({ where: { published: true } })
+);
+
+// Mutation — auto-invalidates 'post' cache tag
+const post = await ctx.db.mutate('post', 'create', () =>
+  ctx.db.client.post.create({ data: { title, body } })
+);</code></pre>
+    </section>
+
+    <section id="streaming">
+      <div class="section-label">Data & Server</div>
+      <h2 data-i18n="streaming.title">Streaming SSR</h2>
+      <p class="lead" data-i18n="streaming.lead">Send the HTML shell to the browser instantly, then stream in the slow parts as they resolve — without blocking the fast parts.</p>
+
+      <div class="code-title"><span>src/routes/+page.nx</span><span class="code-lang">.nx</span></div>
+      <pre><code class="language-html">---
+import { Suspense } from '@nexus/server/streaming';
+
+// Fast data: available immediately
+const user = await getUser(ctx);
+
+// Slow data: wrapped in Suspense — doesn't block page render
+const slowData = Suspense(
+  fetchAnalytics(),   // Promise
+  {
+    fallback: '&lt;div class="skeleton"&gt;Loading…&lt;/div&gt;',
+    render: (data) =&gt; `&lt;Chart data="${JSON.stringify(data)}" /&gt;`,
+  }
+);
+---
+
+&lt;template&gt;
+  &lt;!-- Renders immediately, user doesn't wait --&gt;
+  &lt;h1&gt;Welcome, {user.name}&lt;/h1&gt;
+
+  &lt;!-- Placeholder shown while slowData resolves --&gt;
+  {slowData.placeholder}
+&lt;/template&gt;</code></pre>
+
+      <div class="callout tip">
+        <strong>How it works</strong>
+        Nexus emits a <code>&lt;template&gt;</code> placeholder for each Suspense boundary. When the Promise resolves, the server sends a tiny script that teleports the resolved HTML into position — with zero client-side fetching.
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- ADVANCED                                                             -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+
+    <section id="store">
+      <div class="section-label">Advanced</div>
+      <h2 data-i18n="store.title">Global State Store</h2>
+      <p class="lead" data-i18n="store.lead">Shared state across islands and pages. Hydration Miss = 0. State is never lost during SPA navigation.</p>
+
+      <div class="code-title"><span>src/components/Cart.nx</span><span class="code-lang">.nx</span></div>
+      <pre><code class="language-html">&lt;script&gt;
+import { useStore } from '@nexus/runtime';
+
+// State persists in sessionStorage across /shop → /checkout → /confirm
+const cart = useStore('cart', {
+  default: [] as CartItem[],
+  persist: 'session',   // 'memory' | 'session' | 'url'
+});
+
+function addItem(item: CartItem) {
+  cart.value = [...cart.value, item];
+}
+
+function removeItem(id: string) {
+  cart.value = cart.value.filter(i =&gt; i.id !== id);
+}
+&lt;/script&gt;
+
+&lt;template&gt;
+  &lt;div class="cart"&gt;
+    {#each cart.value as item}
+      &lt;div&gt;{item.name} &lt;button onclick={() =&gt; removeItem(item.id)}&gt;×&lt;/button&gt;&lt;/div&gt;
+    {/each}
+    &lt;p&gt;Total: {cart.value.length} items&lt;/p&gt;
+  &lt;/div&gt;
+&lt;/template&gt;</code></pre>
+
+      <p>Any other island can read the same store by using the same key:</p>
+      <pre><code class="language-typescript">// In any island anywhere in the app
+const cart = useStore('cart', { default: [] });
+console.log(cart.value); // [{ id: 'sku-1', name: 'Widget', qty: 2 }]</code></pre>
+
+      <h3>Persistence Modes</h3>
+      <table class="dir-table">
+        <thead><tr><th>Mode</th><th>Survives</th><th>Use for</th></tr></thead>
+        <tbody>
+          <tr><td><code>'memory'</code></td><td>Navigation (SPA)</td><td>Ephemeral UI state</td></tr>
+          <tr><td><code>'session'</code></td><td>Hard refresh (same tab)</td><td>Cart, form drafts, wizard state</td></tr>
+          <tr><td><code>'url'</code></td><td>Sharing the URL</td><td>Filters, search, pagination</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="navigation">
+      <div class="section-label">Advanced</div>
+      <h2 data-i18n="nav.title">SPA Navigation</h2>
+      <p class="lead" data-i18n="nav.lead">Nexus uses Server-Driven DOM Morphing. No virtual DOM diff, no full page reload. Islands keep their state.</p>
+
+      <p>It works automatically — just use regular <code>&lt;a&gt;</code> tags. Nexus intercepts clicks, fetches the new page as HTML, and surgically updates the DOM while preserving live islands.</p>
+
+      <h3>Programmatic Navigation</h3>
+      <pre><code class="language-typescript">import { navigate, prefetch } from '@nexus/runtime';
+
+// Navigate to a new route
+await navigate('/dashboard');
+
+// Navigate with a query string
+await navigate('/search?q=nexus&category=frameworks');
+
+// Prefetch a route on hover (preloads HTML + JS)
+prefetch('/dashboard');
+
+// In an island:
+&lt;a href="/dashboard"
+   onmouseenter={() =&gt; prefetch('/dashboard')}&gt;
+  Dashboard
+&lt;/a&gt;</code></pre>
+
+      <h3>How Island State Survives Navigation</h3>
+      <div class="callout info">
+        <strong>Three-layer protection</strong>
+        <br>1. Islands that exist in a shared layout are <strong>never re-mounted</strong> — the morphing algorithm preserves them in-place.<br>
+        2. State in <code>useStore()</code> is <strong>checkpointed to sessionStorage</strong> before navigation and restored after.<br>
+        3. The server embeds a <strong>store snapshot</strong> in the navigation payload so new islands on the next page can initialize with the correct state.
+      </div>
+    </section>
+
+    <section id="middleware">
+      <div class="section-label">Advanced</div>
+      <h2 data-i18n="mw.title">Middleware</h2>
+      <p class="lead" data-i18n="mw.lead">Web-standard middleware pipeline. Runs on Node.js, Cloudflare Workers, and Vercel Edge.</p>
+
+      <div class="code-title"><span>src/middleware.ts</span><span class="code-lang">typescript</span></div>
+      <pre><code class="language-typescript">import { sequence, cors, rateLimit, auth, securityHeaders } from '@nexus/middleware';
+
+export const middleware = sequence(
+  securityHeaders(),           // CSP, HSTS, X-Frame-Options
+  cors({ origins: ['https://myapp.com'] }),
+  rateLimit({ max: 100, window: 60 }),   // 100 req/min per IP
+  auth({
+    // Protect routes matching /admin/*
+    protect: /^\/admin/,
+    redirectTo: '/login',
+    verify: async (req) =&gt; {
+      const token = req.headers.get('authorization')?.slice(7);
+      return token ? await verifyJWT(token) : null;
+    },
+  }),
+);</code></pre>
+
+      <h3>Custom Middleware</h3>
+      <pre><code class="language-typescript">import type { MiddlewareFn } from '@nexus/middleware';
+
+export const requestLogger: MiddlewareFn = async (request, next) => {
+  const start = Date.now();
+  const response = await next(request);
+  console.log(`${request.method} ${request.url} — ${Date.now() - start}ms`);
+  return response;
+};</code></pre>
+
+      <h3>Edge Adapters</h3>
+      <pre><code class="language-typescript">// Cloudflare Workers
+import { toCloudflareHandler } from '@nexus/middleware';
+export default toCloudflareHandler(middleware);
+
+// Vercel Edge Functions
+import { toVercelEdge } from '@nexus/middleware';
+export default toVercelEdge(middleware);</code></pre>
+    </section>
+
+    <section id="seo">
+      <div class="section-label">Advanced</div>
+      <h2 data-i18n="seo.title">SEO & Head Management</h2>
+      <p class="lead" data-i18n="seo.lead">Server-side metadata injection with client-side reactive updates.</p>
+
+      <div class="code-title"><span>src/routes/blog/[slug]/+page.nx</span><span class="code-lang">.nx</span></div>
+      <pre><code class="language-html">---
+import { defineHead } from '@nexus/head';
+
+const post = await ctx.db.query('post', 'findOne', () =>
+  ctx.db.client.post.findUnique({ where: { slug: ctx.params.slug } })
+);
+
+// Sets &lt;title&gt;, &lt;meta&gt;, Open Graph, Twitter Card — all server-side
+defineHead({
+  title: `${post.title} — My Blog`,
+  description: post.excerpt,
+  canonical: `https://myblog.com/blog/${post.slug}`,
+  og: {
+    title: post.title,
+    description: post.excerpt,
+    image: post.coverImage,
+    type: 'article',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    creator: '@myhandle',
+  },
+  // Inject arbitrary tags
+  meta: [
+    { name: 'author', content: post.author.name },
+  ],
+  link: [
+    { rel: 'canonical', href: `https://myblog.com/blog/${post.slug}` },
+  ],
+});
+---</code></pre>
+
+      <h3>Reactive Head Updates (Client-side)</h3>
+      <pre><code class="language-typescript">import { useHead } from '@nexus/head';
+
+// In an island — updates &lt;title&gt; reactively
+let count = $state(0);
+
+useHead(() => ({
+  title: count === 0 ? 'Inbox' : `Inbox (${count})`,
+}));</code></pre>
+    </section>
+
+    <section id="assets">
+      <div class="section-label">Advanced</div>
+      <h2 data-i18n="assets.title">Assets — Images & Fonts</h2>
+      <p class="lead" data-i18n="assets.lead">Automatic AVIF/WebP conversion, responsive srcsets, blur placeholders, and font optimization.</p>
+
+      <h3>Images</h3>
+      <div class="code-title"><span>src/routes/+page.nx</span><span class="code-lang">.nx</span></div>
+      <pre><code class="language-html">---
+import { renderImage } from '@nexus/assets';
+
+// Generates AVIF/WebP srcset, blur placeholder, lazy loading
+const heroImg = renderImage('/hero.jpg', {
+  width: 1200,
+  alt: 'Nexus Framework hero',
+  priority: true,   // preload (LCP image)
+  quality: 85,
+});
+---
+&lt;template&gt;
+  {heroImg}
+  &lt;!-- Outputs:
+  &lt;picture&gt;
+    &lt;source srcset="/hero.avif 1200w" type="image/avif"&gt;
+    &lt;source srcset="/hero.webp 1200w" type="image/webp"&gt;
+    &lt;img src="/hero.jpg" width="1200" loading="eager" ...&gt;
+  &lt;/picture&gt;
+  --&gt;
+&lt;/template&gt;</code></pre>
+
+      <h3>Font Optimization</h3>
+      <pre><code class="language-typescript">// nexus.config.ts
+import { defineNexus } from '@nexus/cli';
+
+export default defineNexus({
+  assets: {
+    fonts: [
+      {
+        family: 'Inter',
+        src: 'https://fonts.googleapis.com/css2?family=Inter',
+        display: 'swap',
+        preload: true,   // Adds &lt;link rel="preload"&gt; in &lt;head&gt;
+        inline: false,   // true → inlines CSS in &lt;style&gt; for zero FOUT
+      },
+    ],
+  },
+});</code></pre>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- TOOLING                                                             -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+
+    <section id="cli">
+      <div class="section-label">Tooling</div>
+      <h2 data-i18n="cli.title">CLI Reference</h2>
+      <p class="lead" data-i18n="cli.lead">All Nexus commands follow the same pattern: <code>nexus &lt;command&gt; [options]</code></p>
+
+      <table class="dir-table">
+        <thead><tr><th>Command</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><code>nexus dev</code></td><td>Start dev server with HMR on <code>localhost:3000</code></td></tr>
+          <tr><td><code>nexus dev --port 4200</code></td><td>Dev server on custom port</td></tr>
+          <tr><td><code>nexus build</code></td><td>Production build → <code>.nexus/output/</code></td></tr>
+          <tr><td><code>nexus start</code></td><td>Start the production server</td></tr>
+          <tr><td><code>nexus studio</code></td><td>Open Nexus Studio at <code>localhost:4000</code></td></tr>
+          <tr><td><code>nexus routes</code></td><td>Print the full route manifest</td></tr>
+          <tr><td><code>nexus check</code></td><td>TypeScript type-check (runs <code>tsc --noEmit</code>)</td></tr>
+          <tr><td><code>nexus analyze</code></td><td>Bundle budget report per route</td></tr>
+          <tr><td><code>create-nexus my-app</code></td><td>Scaffold a new Nexus project</td></tr>
+        </tbody>
+      </table>
+
+      <h3>nexus.config.ts</h3>
+      <div class="code-title"><span>nexus.config.ts</span><span class="code-lang">typescript</span></div>
+      <pre><code class="language-typescript">import { defineNexus } from '@nexus/cli';
+
+export default defineNexus({
+  // Dev server
+  server: {
+    port: 3000,
+    host: 'localhost',
   },
 
-  <span class="cmt">// i18n built-in</span>
-  <span class="attr">i18n</span>: {
-    <span class="attr">defaultLocale</span>: <span class="str">'en'</span>,
-    <span class="attr">locales</span>: [<span class="str">'en'</span>, <span class="str">'es'</span>, <span class="str">'pt'</span>, <span class="str">'fr'</span>, <span class="str">'de'</span>],
+  // Database adapter
+  db: defineDB(new PrismaClient()),
+
+  // Asset pipeline
+  assets: {
+    images: { formats: ['avif', 'webp'], quality: 85 },
+    fonts: [{ family: 'Inter', src: '...', display: 'swap' }],
   },
 
-  <span class="cmt">// Deploy anywhere</span>
-  <span class="attr">build</span>: {
-    <span class="attr">adapter</span>: <span class="str">'cloudflare'</span>, <span class="cmt">// node | vercel | fly | deno</span>
+  // Internationalisation
+  i18n: {
+    defaultLocale: 'en',
+    locales: ['en', 'es', 'pt'],
   },
-} <span class="kw">satisfies</span> NexusConfig;</pre>
+
+  // Vite plugins (fully compatible)
+  plugins: [
+    myVitePlugin(),
+  ],
+
+  // Bundle budget (kb gzip)
+  build: {
+    budget: 50,
+  },
+});</code></pre>
+    </section>
+
+    <section id="studio">
+      <div class="section-label">Tooling</div>
+      <h2 data-i18n="studio.title">Nexus Studio</h2>
+      <p class="lead" data-i18n="studio.lead">A real-time developer dashboard with zero external dependencies.</p>
+
+      <div class="code-title"><span>terminal</span><span class="code-lang">bash</span></div>
+      <pre><code class="language-bash">nexus studio
+# → Opens http://localhost:4000</code></pre>
+
+      <div class="cards">
+        <div class="card">
+          <div class="card-icon">🗺️</div>
+          <h4>Layout Tree</h4>
+          <p>Visual hierarchy of nested layouts for the current route.</p>
+        </div>
+        <div class="card">
+          <div class="card-icon">🏝️</div>
+          <h4>Island Map</h4>
+          <p>All live islands, their reactive state, and hydration strategy.</p>
+        </div>
+        <div class="card">
+          <div class="card-icon">⚙️</div>
+          <h4>Action Log</h4>
+          <p>Real-time stream of Server Action calls with payloads and timings.</p>
+        </div>
+        <div class="card">
+          <div class="card-icon">💾</div>
+          <h4>Cache Inspector</h4>
+          <p>Active cache entries, TTLs, hit/miss ratio.</p>
+        </div>
+        <div class="card">
+          <div class="card-icon">🌐</div>
+          <h4>Store Viewer</h4>
+          <p>Live snapshot of the Global State Store across islands.</p>
+        </div>
+        <div class="card">
+          <div class="card-icon">📊</div>
+          <h4>JS Cost</h4>
+          <p>Bundle budget for the current route (raw + gzip).</p>
+        </div>
       </div>
-    </div>
-  </div>
-</section>
+    </section>
 
-<!-- Interactive Runes Demo -->
-<section style="padding-top: 0;">
-  <div class="container">
-    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; align-items: start;">
-      <div>
-        <div class="section-chip" data-i18n="demo.chip">Live Demo</div>
-        <h2 data-i18n="demo.title">Runes in action.<br>No VDOM.</h2>
-        <p class="section-lead" data-i18n="demo.lead">This counter is a real island. $state and $derived compiled AOT — zero framework overhead at runtime.</p>
-        <pre style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:1.5rem;font-size:0.75rem;line-height:1.9;">
-<span class="kw">let</span> <span class="var">count</span> = <span class="rune">$state</span>(0);
-<span class="kw">let</span> <span class="var">doubled</span> = <span class="rune">$derived</span>(<span class="var">count</span> * 2);
+    <section id="testing">
+      <div class="section-label">Tooling</div>
+      <h2 data-i18n="testing.title">Testing</h2>
+      <p class="lead" data-i18n="testing.lead">First-class Vitest integration with helpers for SSR, islands, and Server Actions.</p>
 
-<span class="rune">$effect</span>(() => {
-  document.title = <span class="str">`Count: \${count.value}`</span>;
-});</pre>
-      </div>
-      <div class="demo-box">
-        <div class="demo-label" data-i18n="demo.island">◉ Island · client:visible · Hydrated</div>
-        <div class="count-num" id="cnt">0</div>
-        <div class="count-derived">$derived: <em id="dbl">0</em> × 2</div>
-        <button class="btn-rune" onclick="bumpCount()">
-          <span data-i18n="demo.btn">+ Click me</span>
-        </button>
-        <div id="effect-msg" style="margin-top:1rem;font-family:'JetBrains Mono',monospace;font-size:0.7rem;color:var(--muted);min-height:1.4rem;"></div>
-      </div>
-    </div>
-  </div>
-</section>
+      <h3>SSR Testing</h3>
+      <pre><code class="language-typescript">import { renderSSR } from '@nexus/testing';
 
-<!-- Comparison -->
-<section id="compare" style="padding-top: 0;">
-  <div class="container">
-    <div class="section-chip" data-i18n="compare.chip">Comparison</div>
-    <h2 data-i18n="compare.title">Best of<br>every world.</h2>
-    <p class="section-lead" data-i18n="compare.lead">Nexus doesn't choose — it unifies.</p>
+test('renders blog post', async () => {
+  const { html, status } = await renderSSR('/blog/hello-world');
+  expect(status).toBe(200);
+  expect(html).toContain('Hello World');
+  expect(html).toContain('&lt;title&gt;Hello World — My Blog&lt;/title&gt;');
+});</code></pre>
 
-    <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden;">
-      <table class="compare-table">
+      <h3>Island Testing</h3>
+      <pre><code class="language-typescript">import { mountIsland, fireEvent } from '@nexus/testing';
+
+test('counter increments', async () => {
+  const { getByText, getByRole } = await mountIsland('./Counter.nx', {
+    props: { initialCount: 5 },
+  });
+
+  expect(getByText('Count: 5')).toBeTruthy();
+
+  await fireEvent.click(getByRole('button', { name: 'Increment' }));
+
+  expect(getByText('Count: 6')).toBeTruthy();
+});</code></pre>
+
+      <h3>Server Action Testing</h3>
+      <pre><code class="language-typescript">import { createActionTestHarness } from '@nexus/testing';
+
+test('createPost saves to DB', async () => {
+  const harness = createActionTestHarness('./src/routes/+page.nx');
+
+  const actions = await harness.listActions();
+  expect(actions).toContain('createPost');
+
+  const formData = new FormData();
+  formData.set('title', 'Test Post');
+  formData.set('body', 'Hello!');
+
+  const result = await harness.invokeAction('createPost', formData);
+  expect(result.title).toBe('Test Post');
+});</code></pre>
+    </section>
+
+    <section id="deployment">
+      <div class="section-label">Tooling</div>
+      <h2 data-i18n="deploy.title">Deployment</h2>
+      <p class="lead" data-i18n="deploy.lead">Nexus targets the Web Platform. Any runtime that speaks <code>Request</code>/<code>Response</code> works.</p>
+
+      <h3>Node.js (VPS / Docker)</h3>
+      <pre><code class="language-bash">nexus build
+nexus start        # Starts on PORT env var or 3000
+
+# Docker
+docker build -t my-app .
+docker run -p 3000:3000 my-app</code></pre>
+
+      <h3>Cloudflare Workers</h3>
+      <pre><code class="language-typescript">// src/entry.cloudflare.ts
+import { toCloudflareHandler } from '@nexus/middleware';
+import { createNexusServer } from '@nexus/server';
+
+const server = await createNexusServer({ root: '.', dev: false });
+export default toCloudflareHandler(server.fetch);</code></pre>
+
+      <h3>Vercel</h3>
+      <pre><code class="language-json">// vercel.json
+{
+  "builds": [{ "src": "package.json", "use": "@vercel/node" }],
+  "routes": [{ "src": "/(.*)", "dest": "/" }]
+}</code></pre>
+
+      <h3>Deno Deploy / Bun</h3>
+      <pre><code class="language-typescript">// Nexus uses only Web-standard APIs
+// No Node.js-specific APIs in the critical path
+// Works on Deno Deploy and Bun without modification</code></pre>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- REFERENCE                                                            -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+
+    <section id="comparison">
+      <div class="section-label">Reference</div>
+      <h2 data-i18n="cmp.title">Framework Comparison</h2>
+      <p class="lead" data-i18n="cmp.lead">How Nexus stacks up against the frameworks it improves upon.</p>
+
+      <table class="cmp-table">
         <thead>
           <tr>
-            <th data-i18n="table.feature">Feature</th>
-            <th data-i18n="table.source">Source</th>
-            <th>Next.js</th>
-            <th>Astro</th>
-            <th>Svelte</th>
-            <th style="color:var(--nexus)">◆ Nexus</th>
+            <th>Feature</th>
+            <th>Nexus</th>
+            <th>Next.js 15</th>
+            <th>Astro 5</th>
+            <th>SvelteKit</th>
           </tr>
         </thead>
         <tbody>
-          <tr>
-            <td data-i18n="t.zerojs">Zero JS by default</td>
-            <td><span class="origin" style="background:rgba(147,51,234,0.1);color:var(--astro)">Astro</span></td>
-            <td class="no">✗</td><td class="ck">✓</td><td class="no">✗</td>
-            <td class="nx-col">✓✓</td>
-          </tr>
-          <tr>
-            <td data-i18n="t.novdom">No Virtual DOM</td>
-            <td><span class="origin" style="background:rgba(255,62,0,0.1);color:var(--sv)">Svelte</span></td>
-            <td class="no">✗</td><td class="ck">✓</td><td class="ck">✓</td>
-            <td class="nx-col">✓✓</td>
-          </tr>
-          <tr>
-            <td data-i18n="t.actions">Server Actions</td>
-            <td><span class="origin" style="background:rgba(0,112,243,0.1);color:var(--next)">Next.js</span></td>
-            <td class="ck">✓</td><td class="no">✗</td><td class="no">~</td>
-            <td class="nx-col">✓✓</td>
-          </tr>
-          <tr>
-            <td data-i18n="t.multifw">Multi-framework</td>
-            <td><span class="origin" style="background:rgba(147,51,234,0.1);color:var(--astro)">Astro</span></td>
-            <td class="no">✗</td><td class="ck">✓</td><td class="no">✗</td>
-            <td class="nx-col">✓✓</td>
-          </tr>
-          <tr>
-            <td data-i18n="t.runes">Fine-grained Runes</td>
-            <td><span class="origin" style="background:rgba(255,62,0,0.1);color:var(--sv)">Svelte</span></td>
-            <td class="no">✗</td><td class="no">✗</td><td class="ck">✓</td>
-            <td class="nx-col">✓✓</td>
-          </tr>
-          <tr>
-            <td data-i18n="t.edge">Edge Runtime native</td>
-            <td><span class="origin" style="background:rgba(0,112,243,0.1);color:var(--next)">Next.js</span></td>
-            <td class="ck">✓</td><td class="ck">✓</td><td class="no">~</td>
-            <td class="nx-col">✓✓</td>
-          </tr>
-          <tr>
-            <td data-i18n="t.typesafe">Auto Type-safe Actions</td>
-            <td><span class="origin" style="background:rgba(0,212,170,0.1);color:var(--nexus)">Nexus</span></td>
-            <td class="no">~</td><td class="no">✗</td><td class="no">✗</td>
-            <td class="nx-col">✓✓</td>
-          </tr>
-          <tr>
-            <td data-i18n="t.i18n">i18n built-in</td>
-            <td><span class="origin" style="background:rgba(0,212,170,0.1);color:var(--nexus)">Nexus</span></td>
-            <td class="no">~</td><td class="no">~</td><td class="no">~</td>
-            <td class="nx-col">✓✓</td>
-          </tr>
+          <tr><td>Islands Architecture</td><td><span class="check">✓</span></td><td><span class="cross">✗</span></td><td><span class="check">✓</span></td><td><span class="cross">✗</span></td></tr>
+          <tr><td>Svelte 5 Runes</td><td><span class="check">✓</span></td><td><span class="cross">✗</span></td><td><span class="cross">✗</span></td><td><span class="check">✓</span></td></tr>
+          <tr><td>Server Actions</td><td><span class="check">✓</span></td><td><span class="check">✓</span></td><td><span class="cross">✗</span></td><td><span class="check">✓</span></td></tr>
+          <tr><td>SPA Navigation (Morphing)</td><td><span class="check">✓</span></td><td><span class="check">✓</span></td><td><span class="partial">⚠ partial</span></td><td><span class="check">✓</span></td></tr>
+          <tr><td>Streaming SSR</td><td><span class="check">✓</span></td><td><span class="check">✓</span></td><td><span class="cross">✗</span></td><td><span class="cross">✗</span></td></tr>
+          <tr><td>Auto Edge-Cache Headers</td><td><span class="check">✓</span></td><td><span class="cross">✗</span></td><td><span class="cross">✗</span></td><td><span class="cross">✗</span></td></tr>
+          <tr><td>Global State Store</td><td><span class="check">✓</span></td><td><span class="cross">✗</span></td><td><span class="cross">✗</span></td><td><span class="cross">✗</span></td></tr>
+          <tr><td>E2E Type Safety</td><td><span class="check">✓</span></td><td><span class="partial">⚠ partial</span></td><td><span class="cross">✗</span></td><td><span class="partial">⚠ partial</span></td></tr>
+          <tr><td>Bundle Budget Analyzer</td><td><span class="check">✓</span></td><td><span class="cross">✗</span></td><td><span class="cross">✗</span></td><td><span class="cross">✗</span></td></tr>
+          <tr><td>Race Condition Strategies</td><td><span class="check">✓</span></td><td><span class="cross">✗</span></td><td><span class="cross">✗</span></td><td><span class="cross">✗</span></td></tr>
+          <tr><td>BYOD Database</td><td><span class="check">✓</span></td><td><span class="check">✓</span></td><td><span class="check">✓</span></td><td><span class="check">✓</span></td></tr>
+          <tr><td>Zero config</td><td><span class="check">✓</span></td><td><span class="partial">⚠</span></td><td><span class="check">✓</span></td><td><span class="partial">⚠</span></td></tr>
+          <tr><td>React runtime</td><td><span class="cross">✗ (lighter)</span></td><td><span class="check">required</span></td><td><span class="partial">optional</span></td><td><span class="cross">✗ (lighter)</span></td></tr>
         </tbody>
       </table>
-    </div>
-  </div>
-</section>
+    </section>
 
-<!-- Install -->
-<section id="install" style="padding-top: 0;">
-  <div class="container">
-    <div class="section-chip" data-i18n="install.chip">Get Started</div>
-    <h2 data-i18n="install.title">Start in<br>seconds.</h2>
-    <p class="section-lead" data-i18n="install.lead">One command to scaffold a full-stack Nexus application.</p>
+    <section id="packages">
+      <div class="section-label">Reference</div>
+      <h2 data-i18n="pkg.title">Package Reference</h2>
 
-    <div class="install-box" style="max-width: 640px;">
-      <div class="install-tabs">
-        <div class="install-tab on" onclick="showPkg('pnpm')">pnpm</div>
-        <div class="install-tab" onclick="showPkg('npm')">npm</div>
-        <div class="install-tab" onclick="showPkg('bun')">bun</div>
-      </div>
-      <div class="install-pane on" id="pkg-pnpm">
-        <div class="install-cmd">
-          <span class="install-prompt">$</span>
-          <span id="cmd-pnpm">pnpm create nexus my-app</span>
-          <button class="install-copy" onclick="copyCmd('cmd-pnpm', this)" data-i18n="install.copy">copy</button>
-        </div>
-      </div>
-      <div class="install-pane" id="pkg-npm">
-        <div class="install-cmd">
-          <span class="install-prompt">$</span>
-          <span id="cmd-npm">npm create nexus@latest my-app</span>
-          <button class="install-copy" onclick="copyCmd('cmd-npm', this)" data-i18n="install.copy">copy</button>
-        </div>
-      </div>
-      <div class="install-pane" id="pkg-bun">
-        <div class="install-cmd">
-          <span class="install-prompt">$</span>
-          <span id="cmd-bun">bun create nexus my-app</span>
-          <button class="install-copy" onclick="copyCmd('cmd-bun', this)" data-i18n="install.copy">copy</button>
-        </div>
-      </div>
-    </div>
+      <table class="dir-table">
+        <thead><tr><th>Package</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><code>@nexus/compiler</code></td><td>.nx → JS transform, AOT CSS scoping, island preload scanner</td></tr>
+          <tr><td><code>@nexus/runtime</code></td><td>Runes, island hydration, store, navigation, cache, $optimistic, $sync</td></tr>
+          <tr><td><code>@nexus/server</code></td><td>HTTP server, SSR renderer, streaming SSR, Server Actions, error boundaries</td></tr>
+          <tr><td><code>@nexus/router</code></td><td>File-based route manifest builder</td></tr>
+          <tr><td><code>@nexus/cli</code></td><td><code>nexus</code> CLI + Nexus Studio dashboard + <code>create-nexus</code> scaffolder</td></tr>
+          <tr><td><code>@nexus/assets</code></td><td>AVIF/WebP image optimization, font preloading and inlining</td></tr>
+          <tr><td><code>@nexus/head</code></td><td><code>defineHead()</code> server-side + <code>useHead()</code> reactive client-side</td></tr>
+          <tr><td><code>@nexus/middleware</code></td><td>CORS, rate limit, auth, geo, security headers — Cloudflare/Vercel adapters</td></tr>
+          <tr><td><code>@nexus/serialize</code></td><td>SuperJSON-like: Date, Map, Set, BigInt, RegExp, URL, Uint8Array, Error</td></tr>
+          <tr><td><code>@nexus/types</code></td><td>E2E type generation for routes, params, and Server Actions</td></tr>
+          <tr><td><code>@nexus/testing</code></td><td><code>renderSSR</code>, <code>mountIsland</code>, <code>createActionTestHarness</code> for Vitest</td></tr>
+          <tr><td><code>@nexus/vite-plugin-nexus</code></td><td>Vite plugin for HMR, CSS preprocessing, island manifest emission</td></tr>
+          <tr><td><code>@nexus/db</code></td><td>BYOD DB adapter: Prisma, Drizzle ORM, libSQL/Turso, or custom</td></tr>
+        </tbody>
+      </table>
 
-    <div style="margin-top:2rem;display:flex;flex-direction:column;gap:0.5rem;font-family:'JetBrains Mono',monospace;font-size:0.8rem;color:var(--muted);">
-      <span>$ <span style="color:var(--text)">cd my-app && pnpm install</span></span>
-      <span>$ <span style="color:var(--nexus)">pnpm dev</span> <span style="color:var(--muted)">  # → http://localhost:3000</span></span>
-    </div>
-  </div>
-</section>
+      <hr>
 
-<!-- Footer -->
-<footer>
-  <span class="footer-logo">◆ Nexus</span>
-  <p style="margin-bottom:1rem;" data-i18n="footer.tagline">Islands × Runes × Server Actions</p>
-  <div style="display:flex;gap:2rem;justify-content:center;margin-bottom:2rem;flex-wrap:wrap;">
-    <a href="#" data-i18n="footer.docs">Docs</a>
-    <a href="#" data-i18n="footer.guide">Guide</a>
-    <a href="#">GitHub</a>
-    <a href="#">Discord</a>
-    <a href="#" data-i18n="footer.license">MIT License</a>
-  </div>
-  <p data-i18n="footer.copy">© 2026 Nexus Framework. Built with ◆ Nexus.</p>
-</footer>
+      <p style="text-align:center; color: var(--muted); font-size:13px; margin-top:32px">
+        <strong style="color:var(--text)">Nexus</strong> — MIT License © 2026 Nexus Contributors ·
+        <a href="https://github.com/bierfor/nexus" style="color:var(--accent2); text-decoration:none">GitHub ↗</a>
+      </p>
+    </section>
 
+  </div><!-- /content -->
+</main>
+
+<!-- Scripts -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-typescript.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-json.min.js"></script>
 <script>
+// ── Sidebar active link tracking ────────────────────────────────────────────
+const sections = document.querySelectorAll('section[id]');
+const navLinks  = document.querySelectorAll('#sidebar-nav a');
+
+const observer = new IntersectionObserver(
+  (entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        navLinks.forEach(l => l.classList.remove('active'));
+        const active = document.querySelector(`#sidebar-nav a[href="#${entry.target.id}"]`);
+        if (active) active.classList.add('active');
+      }
+    });
+  },
+  { rootMargin: '-20% 0px -70% 0px' }
+);
+
+sections.forEach(s => observer.observe(s));
+
 // ── i18n ─────────────────────────────────────────────────────────────────────
-const i18n = {
+const translations = {
   en: {
-    'nav.docs': 'Docs',
-    'nav.guide': 'Guide',
-    'nav.compare': 'Compare',
-    'nav.github': 'GitHub',
-    'nav.start': 'Get Started',
-    'hero.badge': 'Open Source · MIT License',
-    'hero.sub': 'Framework',
-    'hero.desc': 'Islands Architecture + Svelte 5 Runes + Server Actions. Zero JS by default. Maximum performance. First-class DX.',
-    'hero.cta1': 'Get Started',
-    'hero.cta2': 'See the code',
-    'stat.js': 'KB JS Default',
-    'stat.lh': 'Lighthouse Score',
-    'stat.fw': 'Best Frameworks Fused',
-    'stat.dx': 'DX Potential',
-    'pillars.chip': 'Architecture',
-    'pillars.title': 'Three engines.<br>One vision.',
-    'pillars.lead': 'Each layer of Nexus inherits the best paradigm from its source.',
-    'pillar1.source': 'From Astro',
-    'pillar1.title': 'Islands Architecture',
-    'pillar1.desc': 'Zero JavaScript shipped by default. PPR for instant static shells with dynamic holes. Only components that need interactivity load JS.',
-    'pillar2.source': 'From Svelte 5',
-    'pillar2.title': 'Runes Reactivity',
-    'pillar2.desc': 'Fine-grained reactive primitives ($state, $derived, $effect) compiled ahead-of-time. No Virtual DOM — surgically updates only what changed.',
-    'pillar3.source': 'From Next.js',
-    'pillar3.title': 'Full-Stack Core',
-    'pillar3.desc': 'Server Actions 2.0 with auto type-safety. File-based routing with nested layouts. Edge-ready with native middleware.',
-    'code.chip': 'Syntax',
-    'code.title': 'Write less.<br>Ship faster.',
-    'code.lead': 'One file, three execution contexts. Server, client and database — unified.',
-    'demo.chip': 'Live Demo',
-    'demo.title': 'Runes in action.<br>No VDOM.',
-    'demo.lead': 'This counter is a real island. $state and $derived compiled AOT — zero framework overhead at runtime.',
-    'demo.island': '◉ Island · client:visible · Hydrated',
-    'demo.btn': '+ Click me',
-    'compare.chip': 'Comparison',
-    'compare.title': 'Best of<br>every world.',
-    'compare.lead': "Nexus doesn't choose — it unifies.",
-    'table.feature': 'Feature',
-    'table.source': 'Source',
-    't.zerojs': 'Zero JS by default',
-    't.novdom': 'No Virtual DOM',
-    't.actions': 'Server Actions',
-    't.multifw': 'Multi-framework',
-    't.runes': 'Fine-grained Runes',
-    't.edge': 'Edge Runtime native',
-    't.typesafe': 'Auto Type-safe Actions',
-    't.i18n': 'i18n built-in',
-    'install.chip': 'Get Started',
-    'install.title': 'Start in<br>seconds.',
-    'install.lead': 'One command to scaffold a full-stack Nexus application.',
-    'install.copy': 'copy',
-    'footer.tagline': 'Islands × Runes × Server Actions',
-    'footer.docs': 'Docs',
-    'footer.guide': 'Guide',
-    'footer.license': 'MIT License',
-    'footer.copy': '© 2026 Nexus Framework. Built with ◆ Nexus.',
+    'hero.badge': 'Islands Architecture + Svelte 5 Runes + Server Actions',
+    'hero.title': 'The Definitive<br>Full-Stack Framework',
+    'hero.subtitle': 'Zero JS by default. Progressive hydration where you need it. Server Actions that are type-safe, race-condition-safe, and edge-ready.',
+    'hero.cta1': 'Get Started →', 'hero.cta2': 'GitHub ↗',
+    'hero.stat1': 'Packages', 'hero.stat2': 'JS by Default', 'hero.stat3': 'TypeScript', 'hero.stat4': 'Ready',
+    'nav.gettingStarted': 'Getting Started', 'nav.core': 'Core Concepts', 'nav.data': 'Data & Server',
+    'nav.advanced': 'Advanced', 'nav.tooling': 'Tooling', 'nav.reference': 'Reference',
+    'install.title': 'Installation', 'install.lead': 'Nexus requires Node.js ≥ 20 and pnpm ≥ 9.',
+    'install.prereq': 'Prerequisites',
+    'qs.title': 'Quick Start', 'qs.lead': 'Create a new Nexus project in seconds.',
+    'qs.step1': 'Scaffold a new project', 'qs.step2': 'Install dependencies', 'qs.step3': 'Start the dev server',
+    'struct.title': 'Project Structure', 'struct.lead': 'A typical Nexus app looks like this:',
+    'nx.title': 'The .nx Component Format', 'nx.lead': 'Every Nexus page and component is a .nx file with up to four sections.',
+    'routing.title': 'File-Based Routing', 'routing.lead': 'The file system is your router. No config required.',
+    'islands.title': 'Islands Architecture', 'islands.lead': 'Every component is static by default.',
+    'runes.title': 'Runes — Reactive Primitives', 'runes.lead': 'The most ergonomic reactivity system in JavaScript.',
+    'actions.title': 'Server Actions', 'actions.lead': 'Type-safe functions that run on the server, called like regular async functions.',
+    'cache.title': 'Cache & Revalidation', 'cache.lead': 'Stale-while-revalidate caching with tag-based invalidation.',
+    'db.title': 'Database — Bring Your Own', 'db.lead': "Nexus doesn't bundle an ORM.",
+    'streaming.title': 'Streaming SSR', 'streaming.lead': 'Send the HTML shell instantly, stream in slow parts as they resolve.',
+    'store.title': 'Global State Store', 'store.lead': 'Shared state across islands and pages. Hydration Miss = 0.',
+    'nav.title': 'SPA Navigation', 'nav.lead': 'Server-Driven DOM Morphing. No VDOM diff, no full page reload.',
+    'mw.title': 'Middleware', 'mw.lead': 'Web-standard middleware pipeline.',
+    'seo.title': 'SEO & Head Management', 'seo.lead': 'Server-side metadata injection with client-side reactive updates.',
+    'assets.title': 'Assets — Images & Fonts', 'assets.lead': 'Automatic AVIF/WebP conversion, responsive srcsets, blur placeholders.',
+    'cli.title': 'CLI Reference', 'cli.lead': 'All Nexus commands: nexus <command> [options]',
+    'studio.title': 'Nexus Studio', 'studio.lead': 'A real-time developer dashboard with zero external dependencies.',
+    'testing.title': 'Testing', 'testing.lead': 'First-class Vitest integration for SSR, islands, and Server Actions.',
+    'deploy.title': 'Deployment', 'deploy.lead': 'Any runtime that speaks Request/Response works.',
+    'cmp.title': 'Framework Comparison', 'cmp.lead': 'How Nexus stacks up against the frameworks it improves upon.',
+    'pkg.title': 'Package Reference',
   },
   es: {
-    'nav.docs': 'Documentación',
-    'nav.guide': 'Guía',
-    'nav.compare': 'Comparar',
-    'nav.github': 'GitHub',
-    'nav.start': 'Empezar',
-    'hero.badge': 'Código Abierto · Licencia MIT',
-    'hero.sub': 'Framework',
-    'hero.desc': 'Arquitectura de Islas + Svelte 5 Runes + Server Actions. Cero JS por defecto. Rendimiento máximo. DX de primer nivel.',
-    'hero.cta1': 'Empezar ahora',
-    'hero.cta2': 'Ver el código',
-    'stat.js': 'KB JS por defecto',
-    'stat.lh': 'Puntuación Lighthouse',
-    'stat.fw': 'Frameworks Fusionados',
-    'stat.dx': 'Potencial DX',
-    'pillars.chip': 'Arquitectura',
-    'pillars.title': 'Tres motores.<br>Una visión.',
-    'pillars.lead': 'Cada capa de Nexus hereda el mejor paradigma de su fuente.',
-    'pillar1.source': 'De Astro',
-    'pillar1.title': 'Arquitectura de Islas',
-    'pillar1.desc': 'Cero JavaScript enviado por defecto. PPR para cáscaras estáticas instantáneas con huecos dinámicos. Solo los componentes interactivos cargan JS.',
-    'pillar2.source': 'De Svelte 5',
-    'pillar2.title': 'Reactividad con Runes',
-    'pillar2.desc': 'Primitivos reactivos de grano fino ($state, $derived, $effect) compilados AOT. Sin Virtual DOM — actualiza quirúrgicamente solo lo que cambió.',
-    'pillar3.source': 'De Next.js',
-    'pillar3.title': 'Núcleo Full-Stack',
-    'pillar3.desc': 'Server Actions 2.0 con type-safety automático. Routing basado en archivos con layouts anidados. Edge-ready con middleware nativo.',
-    'code.chip': 'Sintaxis',
-    'code.title': 'Escribe menos.<br>Lanza más rápido.',
-    'code.lead': 'Un archivo, tres contextos de ejecución. Servidor, cliente y base de datos — unificados.',
-    'demo.chip': 'Demo en Vivo',
-    'demo.title': 'Runes en acción.<br>Sin VDOM.',
-    'demo.lead': 'Este contador es una isla real. $state y $derived compilados AOT — sin overhead del framework en runtime.',
-    'demo.island': '◉ Isla · client:visible · Hidratada',
-    'demo.btn': '+ Incrementar',
-    'compare.chip': 'Comparación',
-    'compare.title': 'Lo mejor de<br>cada mundo.',
-    'compare.lead': 'Nexus no elige — unifica.',
-    'table.feature': 'Característica',
-    'table.source': 'Origen',
-    't.zerojs': 'Cero JS por defecto',
-    't.novdom': 'Sin Virtual DOM',
-    't.actions': 'Server Actions',
-    't.multifw': 'Multi-framework',
-    't.runes': 'Runes de grano fino',
-    't.edge': 'Edge Runtime nativo',
-    't.typesafe': 'Actions type-safe automáticas',
-    't.i18n': 'i18n incorporado',
-    'install.chip': 'Comenzar',
-    'install.title': 'Empieza en<br>segundos.',
-    'install.lead': 'Un comando para crear una aplicación Nexus full-stack.',
-    'install.copy': 'copiar',
-    'footer.tagline': 'Islas × Runes × Server Actions',
-    'footer.docs': 'Documentación',
-    'footer.guide': 'Guía',
-    'footer.license': 'Licencia MIT',
-    'footer.copy': '© 2026 Nexus Framework. Construido con ◆ Nexus.',
+    'hero.badge': 'Arquitectura de Islas + Svelte 5 Runes + Server Actions',
+    'hero.title': 'El Framework Full-Stack<br>Definitivo',
+    'hero.subtitle': 'Cero JS por defecto. Hidratación progresiva donde la necesitas. Server Actions type-safe, sin race conditions, y listas para Edge.',
+    'hero.cta1': 'Empezar →', 'hero.cta2': 'GitHub ↗',
+    'hero.stat1': 'Paquetes', 'hero.stat2': 'JS por Defecto', 'hero.stat3': 'TypeScript', 'hero.stat4': 'Listo',
+    'nav.gettingStarted': 'Primeros pasos', 'nav.core': 'Conceptos Core', 'nav.data': 'Datos y Servidor',
+    'nav.advanced': 'Avanzado', 'nav.tooling': 'Herramientas', 'nav.reference': 'Referencia',
+    'install.title': 'Instalación', 'install.lead': 'Nexus requiere Node.js ≥ 20 y pnpm ≥ 9.',
+    'install.prereq': 'Requisitos previos',
+    'qs.title': 'Inicio rápido', 'qs.lead': 'Crea un proyecto Nexus en segundos.',
+    'qs.step1': 'Genera un nuevo proyecto', 'qs.step2': 'Instala las dependencias', 'qs.step3': 'Inicia el servidor de desarrollo',
+    'struct.title': 'Estructura del proyecto', 'struct.lead': 'Una app Nexus típica luce así:',
+    'nx.title': 'El formato de componente .nx', 'nx.lead': 'Cada página y componente es un archivo .nx con hasta cuatro secciones.',
+    'routing.title': 'Enrutamiento basado en archivos', 'routing.lead': 'El sistema de archivos es tu router. Sin configuración.',
+    'islands.title': 'Arquitectura de Islas', 'islands.lead': 'Cada componente es estático por defecto.',
+    'runes.title': 'Runes — Primitivas Reactivas', 'runes.lead': 'El sistema de reactividad más ergonómico en JavaScript.',
+    'actions.title': 'Server Actions', 'actions.lead': 'Funciones type-safe que corren en el servidor, llamadas como async functions normales.',
+    'cache.title': 'Caché y Revalidación', 'cache.lead': 'Caché stale-while-revalidate con invalidación por tags.',
+    'db.title': 'Base de Datos — Trae la Tuya', 'db.lead': 'Nexus no incluye un ORM. Envuelve tu cliente con caché e invalidación.',
+    'streaming.title': 'Streaming SSR', 'streaming.lead': 'Envía el HTML shell al instante, luego transmite las partes lentas.',
+    'store.title': 'Store Global de Estado', 'store.lead': 'Estado compartido entre islas y páginas. Hydration Miss = 0.',
+    'nav.title': 'Navegación SPA', 'nav.lead': 'Morphing DOM dirigido por el servidor. Sin VDOM diff, sin recarga completa.',
+    'mw.title': 'Middleware', 'mw.lead': 'Pipeline de middleware con APIs web estándar.',
+    'seo.title': 'SEO y gestión del Head', 'seo.lead': 'Inyección de metadatos del lado del servidor con actualizaciones reactivas.',
+    'assets.title': 'Assets — Imágenes y Fuentes', 'assets.lead': 'Conversión automática AVIF/WebP, srcsets responsivos, placeholders difuminados.',
+    'cli.title': 'Referencia del CLI', 'cli.lead': 'Todos los comandos Nexus: nexus <comando> [opciones]',
+    'studio.title': 'Nexus Studio', 'studio.lead': 'Un dashboard de desarrollo en tiempo real sin dependencias externas.',
+    'testing.title': 'Testing', 'testing.lead': 'Integración de primera clase con Vitest para SSR, islas y Server Actions.',
+    'deploy.title': 'Despliegue', 'deploy.lead': 'Cualquier runtime que hable Request/Response funciona.',
+    'cmp.title': 'Comparación de Frameworks', 'cmp.lead': 'Cómo Nexus se compara con los frameworks que mejora.',
+    'pkg.title': 'Referencia de Paquetes',
   },
   pt: {
-    'nav.docs': 'Documentação',
-    'nav.guide': 'Guia',
-    'nav.compare': 'Comparar',
-    'nav.github': 'GitHub',
-    'nav.start': 'Começar',
-    'hero.badge': 'Código Aberto · Licença MIT',
-    'hero.sub': 'Framework',
-    'hero.desc': 'Arquitetura de Ilhas + Svelte 5 Runes + Server Actions. Zero JS por padrão. Performance máxima. DX de primeira classe.',
-    'hero.cta1': 'Começar agora',
-    'hero.cta2': 'Ver o código',
-    'stat.js': 'KB JS por padrão',
-    'stat.lh': 'Score Lighthouse',
-    'stat.fw': 'Frameworks Fundidos',
-    'stat.dx': 'Potencial DX',
-    'pillars.chip': 'Arquitetura',
-    'pillars.title': 'Três motores.<br>Uma visão.',
-    'pillars.lead': 'Cada camada do Nexus herda o melhor paradigma da sua fonte.',
-    'pillar1.source': 'Do Astro',
-    'pillar1.title': 'Arquitetura de Ilhas',
-    'pillar1.desc': 'Zero JavaScript enviado por padrão. PPR para shells estáticas instantâneas com buracos dinâmicos. Apenas componentes interativos carregam JS.',
-    'pillar2.source': 'Do Svelte 5',
-    'pillar2.title': 'Reatividade com Runes',
-    'pillar2.desc': 'Primitivos reativos de granularidade fina ($state, $derived, $effect) compilados AOT. Sem Virtual DOM — atualiza cirurgicamente apenas o que mudou.',
-    'pillar3.source': 'Do Next.js',
-    'pillar3.title': 'Core Full-Stack',
-    'pillar3.desc': 'Server Actions 2.0 com type-safety automático. Roteamento baseado em arquivos com layouts aninhados. Edge-ready com middleware nativo.',
-    'code.chip': 'Sintaxe',
-    'code.title': 'Escreva menos.<br>Lance mais rápido.',
-    'code.lead': 'Um arquivo, três contextos de execução. Servidor, cliente e banco de dados — unificados.',
-    'demo.chip': 'Demo ao Vivo',
-    'demo.title': 'Runes em ação.<br>Sem VDOM.',
-    'demo.lead': 'Este contador é uma ilha real. $state e $derived compilados AOT — zero overhead de framework em runtime.',
-    'demo.island': '◉ Ilha · client:visible · Hidratada',
-    'demo.btn': '+ Clique aqui',
-    'compare.chip': 'Comparação',
-    'compare.title': 'O melhor de<br>cada mundo.',
-    'compare.lead': 'Nexus não escolhe — ele unifica.',
-    'table.feature': 'Funcionalidade',
-    'table.source': 'Origem',
-    't.zerojs': 'Zero JS por padrão',
-    't.novdom': 'Sem Virtual DOM',
-    't.actions': 'Server Actions',
-    't.multifw': 'Multi-framework',
-    't.runes': 'Runes granulares',
-    't.edge': 'Edge Runtime nativo',
-    't.typesafe': 'Actions type-safe automáticas',
-    't.i18n': 'i18n embutido',
-    'install.chip': 'Começar',
-    'install.title': 'Comece em<br>segundos.',
-    'install.lead': 'Um comando para criar um aplicativo Nexus full-stack.',
-    'install.copy': 'copiar',
-    'footer.tagline': 'Ilhas × Runes × Server Actions',
-    'footer.docs': 'Documentação',
-    'footer.guide': 'Guia',
-    'footer.license': 'Licença MIT',
-    'footer.copy': '© 2026 Nexus Framework. Construído com ◆ Nexus.',
+    'hero.badge': 'Arquitetura de Ilhas + Svelte 5 Runes + Server Actions',
+    'hero.title': 'O Framework Full-Stack<br>Definitivo',
+    'hero.subtitle': 'Zero JS por padrão. Hidratação progressiva onde você precisa. Server Actions com segurança de tipos, sem race conditions, prontas para Edge.',
+    'hero.cta1': 'Começar →', 'hero.cta2': 'GitHub ↗',
+    'hero.stat1': 'Pacotes', 'hero.stat2': 'JS por Padrão', 'hero.stat3': 'TypeScript', 'hero.stat4': 'Pronto',
+    'nav.gettingStarted': 'Primeiros passos', 'nav.core': 'Conceitos Core', 'nav.data': 'Dados e Servidor',
+    'nav.advanced': 'Avançado', 'nav.tooling': 'Ferramentas', 'nav.reference': 'Referência',
+    'install.title': 'Instalação', 'install.lead': 'Nexus requer Node.js ≥ 20 e pnpm ≥ 9.',
+    'install.prereq': 'Pré-requisitos',
+    'qs.title': 'Início rápido', 'qs.lead': 'Crie um projeto Nexus em segundos.',
+    'qs.step1': 'Gere um novo projeto', 'qs.step2': 'Instale as dependências', 'qs.step3': 'Inicie o servidor de desenvolvimento',
+    'struct.title': 'Estrutura do projeto', 'struct.lead': 'Um app Nexus típico se parece com isso:',
+    'nx.title': 'O formato de componente .nx', 'nx.lead': 'Cada página e componente é um arquivo .nx com até quatro seções.',
+    'routing.title': 'Roteamento baseado em arquivos', 'routing.lead': 'O sistema de arquivos é seu router. Sem configuração.',
+    'islands.title': 'Arquitetura de Ilhas', 'islands.lead': 'Todo componente é estático por padrão.',
+    'runes.title': 'Runes — Primitivas Reativas', 'runes.lead': 'O sistema de reatividade mais ergonômico em JavaScript.',
+    'actions.title': 'Server Actions', 'actions.lead': 'Funções tipadas que rodam no servidor, chamadas como funções async normais.',
+    'cache.title': 'Cache e Revalidação', 'cache.lead': 'Cache stale-while-revalidate com invalidação por tags.',
+    'db.title': 'Banco de Dados — Traga o Seu', 'db.lead': 'Nexus não inclui um ORM. Envolve seu cliente com cache e invalidação.',
+    'streaming.title': 'Streaming SSR', 'streaming.lead': 'Envie o shell HTML instantaneamente, depois transmita as partes lentas.',
+    'store.title': 'Store Global de Estado', 'store.lead': 'Estado compartilhado entre ilhas e páginas. Hydration Miss = 0.',
+    'nav.title': 'Navegação SPA', 'nav.lead': 'Morphing DOM guiado pelo servidor. Sem VDOM diff, sem recarga completa.',
+    'mw.title': 'Middleware', 'mw.lead': 'Pipeline de middleware com APIs web padrão.',
+    'seo.title': 'SEO e gestão do Head', 'seo.lead': 'Injeção de metadados no servidor com atualizações reativas no cliente.',
+    'assets.title': 'Assets — Imagens e Fontes', 'assets.lead': 'Conversão automática AVIF/WebP, srcsets responsivos, placeholders desfocados.',
+    'cli.title': 'Referência do CLI', 'cli.lead': 'Todos os comandos Nexus: nexus <comando> [opções]',
+    'studio.title': 'Nexus Studio', 'studio.lead': 'Um dashboard de desenvolvimento em tempo real sem dependências externas.',
+    'testing.title': 'Testes', 'testing.lead': 'Integração de primeira classe com Vitest para SSR, ilhas e Server Actions.',
+    'deploy.title': 'Deploy', 'deploy.lead': 'Qualquer runtime que fale Request/Response funciona.',
+    'cmp.title': 'Comparação de Frameworks', 'cmp.lead': 'Como o Nexus se compara aos frameworks que melhora.',
+    'pkg.title': 'Referência de Pacotes',
   },
 };
 
@@ -1192,98 +1778,16 @@ let currentLang = 'en';
 
 function setLang(lang) {
   currentLang = lang;
-  document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
-  document.querySelector(`.lang-btn[onclick="setLang('${lang}')"]`).classList.add('active');
-  document.documentElement.lang = lang;
-
-  const t = i18n[lang];
+  const t = translations[lang];
   document.querySelectorAll('[data-i18n]').forEach(el => {
     const key = el.getAttribute('data-i18n');
     if (t[key]) el.innerHTML = t[key];
   });
-}
-
-// ── Nav scroll ────────────────────────────────────────────────────────────────
-const nav = document.getElementById('main-nav');
-window.addEventListener('scroll', () => {
-  nav.classList.toggle('scrolled', window.scrollY > 50);
-}, { passive: true });
-
-// ── Code tabs ─────────────────────────────────────────────────────────────────
-function showCode(id) {
-  document.querySelectorAll('.code-tab').forEach(t => t.classList.remove('on'));
-  document.querySelectorAll('.code-pane').forEach(p => p.classList.remove('on'));
-  event.target.classList.add('on');
-  document.getElementById('code-' + id).classList.add('on');
-}
-
-// ── Package manager tabs ───────────────────────────────────────────────────────
-function showPkg(pkg) {
-  document.querySelectorAll('.install-tab').forEach(t => t.classList.remove('on'));
-  document.querySelectorAll('.install-pane').forEach(p => p.classList.remove('on'));
-  event.target.classList.add('on');
-  document.getElementById('pkg-' + pkg).classList.add('on');
-}
-
-// ── Copy command ───────────────────────────────────────────────────────────────
-function copyCmd(id, btn) {
-  const text = document.getElementById(id).textContent;
-  navigator.clipboard.writeText(text).then(() => {
-    const orig = btn.textContent;
-    btn.textContent = '✓';
-    btn.classList.add('copied');
-    setTimeout(() => {
-      btn.textContent = orig;
-      btn.classList.remove('copied');
-    }, 1500);
+  document.querySelectorAll('.lang-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.textContent.toLowerCase() === lang);
   });
+  document.documentElement.lang = lang;
 }
-
-// ── Interactive Runes demo ─────────────────────────────────────────────────────
-let count = 0;
-const cntEl = document.getElementById('cnt');
-const dblEl = document.getElementById('dbl');
-const msgEl = document.getElementById('effect-msg');
-
-// Simulates $effect — runs when count changes
-function countEffect() {
-  const t = i18n[currentLang];
-  const msgs = {
-    en: [`$effect: title updated to "Count: ${count}"`, `$derived recomputed → ${count * 2}`],
-    es: [`$effect: título actualizado a "Count: ${count}"`, `$derived recalculado → ${count * 2}`],
-    pt: [`$effect: título atualizado para "Count: ${count}"`, `$derived recomputado → ${count * 2}`],
-  };
-  const m = msgs[currentLang] || msgs.en;
-  msgEl.textContent = m[count % 2];
-}
-
-function bumpCount() {
-  count++;
-  cntEl.textContent = count;
-  dblEl.textContent = count * 2;
-  cntEl.style.transform = 'scale(1.12)';
-  cntEl.style.color = count % 3 === 0 ? 'var(--nexus2)' : count % 3 === 1 ? 'var(--nexus)' : 'var(--sv)';
-  setTimeout(() => { cntEl.style.transform = ''; }, 120);
-  countEffect();
-}
-
-// ── Scroll reveal ─────────────────────────────────────────────────────────────
-const revealObserver = new IntersectionObserver(entries => {
-  entries.forEach(e => {
-    if (e.isIntersecting) {
-      e.target.style.opacity = '1';
-      e.target.style.transform = 'translateY(0)';
-    }
-  });
-}, { threshold: 0.1 });
-
-document.querySelectorAll('section > .container, .hero-inner').forEach(el => {
-  el.style.opacity = '0';
-  el.style.transform = 'translateY(24px)';
-  el.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
-  revealObserver.observe(el);
-});
 </script>
-
 </body>
 </html>
