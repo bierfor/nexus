@@ -29,13 +29,18 @@ function getTime(): string {
     add       Install a Nexus Block from the marketplace
     studio    Open the Nexus Studio dev dashboard
     check     Type-check and lint your Nexus app
-    audit     Security & best practices audit (CSRF, XSS, secrets, headers, CVEs)
+    audit     Security audit (CVEs, supply chain, CSRF, XSS, secrets, headers)
+    fix       Auto-update vulnerable dependencies to patched versions
     routes    Print the route manifest
 
   ${c.bold}Options:${c.reset}
     --port, -p    Port number (default: 3000)
     --host        Host to bind (default: localhost)
     --root        App root directory (default: .)
+    --dry-run     Show what fix would do without applying changes
+    --force       Fix medium/low CVEs in addition to critical/high
+    --ci          Exit code 1 on critical/high findings (for CI)
+    --json        Output audit as JSON
     --help, -h    Show this help
     --version, -v Show version
 
@@ -43,26 +48,27 @@ function getTime(): string {
     nexus dev
     nexus dev --port 4000
     nexus add auth
-    nexus add
     nexus build
-    nexus start
     nexus audit
-    nexus audit --ci    (exits with code 1 on critical/high findings)
-    nexus audit --json  (outputs JSON for CI pipelines)
+    nexus audit --ci --json    (CI pipeline: JSON output, fails on critical)
+    nexus fix                  (auto-update vulnerable packages)
+    nexus fix --dry-run        (preview fixes without applying)
 `;
 
 async function main(): Promise<void> {
   const { values, positionals } = parseArgs({
     args: process.argv.slice(2),
     options: {
-      port:    { type: 'string',  short: 'p' },
-      host:    { type: 'string' },
-      root:    { type: 'string' },
-      help:    { type: 'boolean', short: 'h' },
-      version: { type: 'boolean', short: 'v' },
-      ci:      { type: 'boolean' },
-      json:    { type: 'boolean' },
-      fix:     { type: 'boolean' },
+      port:      { type: 'string',  short: 'p' },
+      host:      { type: 'string' },
+      root:      { type: 'string' },
+      help:      { type: 'boolean', short: 'h' },
+      version:   { type: 'boolean', short: 'v' },
+      ci:        { type: 'boolean' },
+      json:      { type: 'boolean' },
+      fix:       { type: 'boolean' },
+      'dry-run': { type: 'boolean' },
+      force:     { type: 'boolean' },
     },
     allowPositionals: true,
     strict: false,
@@ -119,6 +125,15 @@ async function main(): Promise<void> {
         ci:   values['ci']   === true,
         json: values['json'] === true,
         fix:  values['fix']  === true,
+      });
+      break;
+    }
+    case 'fix': {
+      const { runFix } = await import('./fix.js');
+      await runFix({
+        root,
+        dryRun: values['dry-run'] === true,
+        force:  values['force']   === true,
       });
       break;
     }
@@ -189,6 +204,60 @@ async function runDev(opts: { root: string; port: number }): Promise<void> {
     `   ${c.dim}nexus studio${c.reset}` +
     `\n\n  ${c.dim}press Ctrl+C to stop${c.reset}\n`,
   );
+
+  // Background dependency audit — runs after dev server is ready, non-blocking
+  // Shows warnings for critical/high CVEs but never kills the dev server
+  void (async () => {
+    try {
+      // Dynamic import — @nexus/audit is optional (gracefully skipped if not installed)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const audit: any = await import('@nexus/audit');
+      const { readFile: rf } = await import('node:fs/promises');
+      const { join: pj }    = await import('node:path');
+
+      const pkgJson = JSON.parse(await rf(pj(opts.root, 'package.json'), 'utf-8')) as {
+        dependencies?: Record<string, string>; devDependencies?: Record<string, string>;
+      };
+      const deps: Record<string, string> = { ...pkgJson.dependencies };
+
+      // CVE check (silent unless findings)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const results    = await audit.auditDependencies(deps) as Map<string, any>;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const vulnerable = (audit.filterVulnerable(results) as any[]).filter(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (r: any) => r.vulns[0]?.severity === 'critical' || r.vulns[0]?.severity === 'high',
+      );
+      if (vulnerable.length > 0) {
+        console.log(
+          `\n  ${c.yellow}⚠${c.reset}  ${c.bold}Nexus Security${c.reset} — ` +
+          `${c.red}${vulnerable.length} vulnerable dep${vulnerable.length > 1 ? 's' : ''}${c.reset} detected\n` +
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          vulnerable.map((r: any) => {
+            const v = r.vulns[0];
+            return `     ${c.red}${r.package}${c.reset}  ${v?.id}  ${String(v?.severity ?? '').toUpperCase()}` +
+              (v?.fixedIn ? `  ${c.green}→ fix: v${v.fixedIn}${c.reset}` : '');
+          }).join('\n') +
+          `\n\n  Run ${c.cyan}nexus fix${c.reset} to auto-update  ·  ${c.cyan}nexus audit${c.reset} for full details\n`,
+        );
+      }
+
+      // Supply chain check (high/critical risk only)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const scResults = await audit.auditSupplyChain(deps) as Map<string, any>;
+      for (const [pkg, sc] of scResults) {
+        if (sc.riskLevel === 'critical' || sc.riskLevel === 'high') {
+          const topFlag = sc.flags[0] as { title: string } | undefined;
+          console.log(
+            `  ${c.yellow}⚠${c.reset}  ${c.bold}Supply Chain${c.reset}  ${c.yellow}${pkg}${c.reset}` +
+            (topFlag ? `  —  ${topFlag.title}` : '') + `  (risk: ${sc.riskScore}/100)`
+          );
+        }
+      }
+    } catch {
+      // Audit failure (offline, @nexus/audit not installed) is silently ignored in dev mode
+    }
+  })();
 
   // File watcher — triggers route reload on .nx / .ts changes
   const { watch } = await import('node:fs');

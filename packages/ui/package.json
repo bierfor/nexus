@@ -1,6 +1,6 @@
 {
   "name": "@nexus/ui",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Nexus Zero-Bundle UI — CSS-only interactive components with 0.0KB of JavaScript",
   "type": "module",
   "main": "./src/index.ts",

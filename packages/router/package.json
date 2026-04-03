@@ -1,6 +1,6 @@
 {
   "name": "@nexus/router",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Nexus file-based router with nested layouts and dynamic segments",
   "type": "module",
   "main": "./dist/index.js",

@@ -7,6 +7,98 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.6.0] — 2026-04-03
+
+### Added
+
+**`@nexus/audit` — Integrated Dependency Auditing Engine (new package)**
+
+*CVE Scanning via Google OSV (`src/engine.ts`)*
+- `auditPackage(pkg, version?)` — queries `api.osv.dev` for known CVEs, no API key required
+- `auditDependencies(deps)` — parallel batch scanning (max 6 concurrent) of all dependencies
+- `filterVulnerable(results)` — returns only vulnerable packages sorted by severity
+- **Offline-first**: responses cached in `~/.nexus/cache/osv/{pkg}.json` for 24h
+- Transparent fallback to stale cache when offline (no build failure on airplane mode)
+- CVSS v3/v4 score parsing for precise `critical/high/medium/low/unknown` classification
+- `fixedIn` field extracted from OSV range data for `nexus fix` remediation
+- `invalidateCache(pkg)` and `clearCache()` for cache management
+
+*Supply Chain Guard (`src/supply-chain.ts`)*
+- `checkSupplyChain(pkg)` — queries npm registry for risk signals
+- Risk signals analyzed: single maintainer, newly published (<30 days), abandoned (>2 years), rapid version publishing (≥5 versions in 7 days), high churn on new packages
+- Risk score: 0–100 → `safe/low/medium/high/critical` risk levels
+- Results cached in `~/.nexus/cache/npm-meta/{pkg}.json` for 6h
+- Transparent note about MFA status: npm does not expose individual MFA status via public API (see `MFA_NOTE` export)
+- `auditSupplyChain(deps)` — batch scan returning only `medium/high/critical` risk packages
+
+*Override Policy (`src/override.ts`)*
+- `VulnerabilityOverride` — `{ cve, reason, expires }` configuration type
+- `validateOverride(pkg, override)` — checks expiry, returns `daysLeft`, `expired`, and formatted message
+- `findOverride(pkg, cveId, overrides)` — matches override by CVE ID (case-insensitive, partial match)
+- Overrides expire automatically — build fails again after the date without any code changes
+- Warning 14 days before expiry, error on expiry day
+- `formatOverrides(overrides)` — groups by active / expiring-soon / expired for audit display
+- `maxOverrideDate()` — returns max allowed expiry (180 days) to prevent permanent exceptions
+
+**`packages/vite-plugin-nexus/src/security.ts` — Compiler-Level CVE Blocking**
+- `nexusSecurity(opts)` — Vite plugin with `mode: 'off' | 'warn' | 'block' | 'paranoid'`
+- `buildStart` hook: scans all dependencies once at Vite startup (not per-import)
+- `resolveId` hook: catches dynamic imports not in package.json
+- `block` mode: `this.error()` stops the build entirely for critical CVEs
+- `paranoid` mode: blocks critical + high, warns for medium
+- Supply chain risk warnings for `high/critical` packages in the build log
+- Override expiry enforcement: `this.error()` if expired override detected
+- Full ANSI-colored block message with CVE details, fix version, and `nexus fix` CTA
+
+**`packages/cli/src/fix.ts` — `nexus fix` Auto-Remediation**
+- Reads package.json, queries OSV for vulnerable packages
+- Finds `fixedIn` version from OSV data and runs `pnpm/npm/yarn add pkg@version`
+- Auto-detects package manager via lockfile detection
+- Preserves semver range prefix (`^`, `~`) from existing version spec
+- `--dry-run` mode: shows what would be updated without writing changes
+- `--force` flag: also fix medium/low severity (not just critical/high)
+- Re-audits after fixing to confirm remaining vulnerabilities
+- Reports packages with no available fix (no `fixedIn` in OSV data)
+
+**`packages/cli/src/bin.ts` — Background Audit in `nexus dev`**
+- Runs CVE + supply chain check silently after server starts (non-blocking)
+- Prints color-coded warning if critical/high vulnerabilities found
+- Prints supply chain risk warnings for high/critical risk packages
+- Never kills the dev server — audit failures are silently ignored
+- New `nexus fix` command registered with `--dry-run` and `--force` flags
+
+**Usage Example (`nexus.config.ts`)**
+```typescript
+import { defineNexusConfig } from 'vite-plugin-nexus';
+import { nexusSecurity } from 'vite-plugin-nexus';
+
+export default defineNexusConfig({
+  plugins: [
+    nexusSecurity({
+      mode: 'block',
+      allowVulnerable: {
+        'pdfkit': {
+          cve: 'CVE-2024-29415',
+          reason: 'Build-time use only — not in client bundle. Patch releases 2026-06-15.',
+          expires: '2026-07-01',
+        },
+      },
+    }),
+  ],
+  security: { hardened: true },
+});
+```
+
+### On Supply Chain MFA Detection
+
+The question about detecting if package maintainers have MFA enabled is addressed explicitly:
+npm's public registry API (`registry.npmjs.org`) does **not** expose individual MFA/2FA status.
+npm's enforcement policy (required for packages >500 weekly downloads, since 2022) operates server-side.
+What **is** detectable: single-maintainer packages, recent ownership changes, abandoned packages, rapid version publishing — all implemented in `supply-chain.ts`.
+For your own packages, use `npm access list collaborators {pkg}` with appropriate token.
+
+---
+
 ## [0.5.0] — 2026-04-03
 
 ### Added

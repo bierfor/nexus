@@ -62,8 +62,13 @@ importers:
         specifier: ^5.5.0
         version: 5.9.3
 
+  packages/audit: {}
+
   packages/cli:
     dependencies:
+      '@nexus/audit':
+        specifier: workspace:*
+        version: link:../audit
       '@nexus/compiler':
         specifier: workspace:*
         version: link:../compiler
@@ -245,6 +250,9 @@ importers:
 
   packages/vite-plugin-nexus:
     dependencies:
+      '@nexus/audit':
+        specifier: workspace:*
+        version: link:../audit
       '@nexus/compiler':
         specifier: workspace:*
         version: link:../compiler

@@ -1,6 +1,6 @@
 {
   "name": "@nexus/testing",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Nexus testing utilities — render .nx components in SSR and client mode",
   "type": "module",
   "main": "./dist/index.js",

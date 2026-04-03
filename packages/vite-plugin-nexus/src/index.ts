@@ -297,6 +297,10 @@ async function pipeResponse(
   res.end(body);
 }
 
+// Re-export security plugin
+export { nexusSecurity } from './security.js';
+export type { NexusSecurityPluginOptions } from './security.js';
+
 /**
  * Convenience: creates a full Vite config for a Nexus project.
  */

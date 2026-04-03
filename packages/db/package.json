@@ -1,6 +1,6 @@
 {
   "name": "@nexus/db",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Nexus DB — BYOD thin provider adapter (Prisma, Drizzle, libSQL, Postgres.js)",
   "type": "module",
   "exports": {

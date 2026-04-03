@@ -1,6 +1,6 @@
 {
   "name": "@nexus/runtime",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Nexus Islands runtime \u2014 selective hydration with fine-grained reactivity",
   "type": "module",
   "main": "./dist/index.js",
