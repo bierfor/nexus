@@ -526,7 +526,7 @@
   <a href="#top" class="sidebar-logo">
     <div class="logo-mark">N</div>
     <span class="logo-text">Nexus</span>
-    <span class="logo-version">v0.1</span>
+    <span class="logo-version">v0.6</span>
   </a>
   <nav id="sidebar-nav">
     <div class="nav-section" data-i18n="nav.gettingStarted">Getting Started</div>
@@ -552,6 +552,15 @@
     <a href="#middleware">🔒 Middleware</a>
     <a href="#seo">🔍 SEO & Head</a>
     <a href="#assets">🖼️ Assets</a>
+    <a href="#multitenant">🏢 Multi-Tenant</a>
+    <a href="#local-first">📴 Local-First Sync</a>
+    <a href="#zero-bundle">✨ Zero-Bundle UI</a>
+
+    <div class="nav-section">Security</div>
+    <a href="#security">🛡️ Security by Default</a>
+    <a href="#audit">🔍 nexus audit</a>
+    <a href="#supply-chain">⛓️ Supply Chain Guard</a>
+    <a href="#nexus-fix">🔧 nexus fix</a>
 
     <div class="nav-section" data-i18n="nav.tooling">Tooling</div>
     <a href="#cli">🛠️ CLI Reference</a>
@@ -560,6 +569,7 @@
     <a href="#deployment">🚀 Deployment</a>
 
     <div class="nav-section" data-i18n="nav.reference">Reference</div>
+    <a href="#changelog">📋 Changelog</a>
     <a href="#comparison">⚖️ Comparison</a>
     <a href="#packages">📦 Packages</a>
   </nav>
@@ -581,10 +591,10 @@
       <a href="https://github.com/bierfor/nexus" class="btn btn-outline" target="_blank" data-i18n="hero.cta2">GitHub ↗</a>
     </div>
     <div class="hero-stats">
-      <div class="stat"><div class="stat-num">13</div><div class="stat-label" data-i18n="hero.stat1">Packages</div></div>
+      <div class="stat"><div class="stat-num">18</div><div class="stat-label" data-i18n="hero.stat1">Packages</div></div>
       <div class="stat"><div class="stat-num">0kb</div><div class="stat-label" data-i18n="hero.stat2">JS by Default</div></div>
       <div class="stat"><div class="stat-num">100%</div><div class="stat-label" data-i18n="hero.stat3">TypeScript</div></div>
-      <div class="stat"><div class="stat-num">Edge</div><div class="stat-label" data-i18n="hero.stat4">Ready</div></div>
+      <div class="stat"><div class="stat-num">v0.6</div><div class="stat-label" data-i18n="hero.stat4">Latest</div></div>
     </div>
   </div>
 
@@ -1398,17 +1408,24 @@ export default defineNexus({
       <p class="lead" data-i18n="cli.lead">All Nexus commands follow the same pattern: <code>nexus &lt;command&gt; [options]</code></p>
 
       <table class="dir-table">
-        <thead><tr><th>Command</th><th>Description</th></tr></thead>
+        <thead><tr><th>Command</th><th>Description</th><th>Since</th></tr></thead>
         <tbody>
-          <tr><td><code>nexus dev</code></td><td>Start dev server with HMR on <code>localhost:3000</code></td></tr>
-          <tr><td><code>nexus dev --port 4200</code></td><td>Dev server on custom port</td></tr>
-          <tr><td><code>nexus build</code></td><td>Production build → <code>.nexus/output/</code></td></tr>
-          <tr><td><code>nexus start</code></td><td>Start the production server</td></tr>
-          <tr><td><code>nexus studio</code></td><td>Open Nexus Studio at <code>localhost:4000</code></td></tr>
-          <tr><td><code>nexus routes</code></td><td>Print the full route manifest</td></tr>
-          <tr><td><code>nexus check</code></td><td>TypeScript type-check (runs <code>tsc --noEmit</code>)</td></tr>
-          <tr><td><code>nexus analyze</code></td><td>Bundle budget report per route</td></tr>
-          <tr><td><code>create-nexus my-app</code></td><td>Scaffold a new Nexus project</td></tr>
+          <tr><td><code>nexus dev</code></td><td>Start dev server with HMR on <code>localhost:3000</code> + background CVE audit</td><td>v0.1</td></tr>
+          <tr><td><code>nexus dev --port 4200</code></td><td>Dev server on custom port</td><td>v0.1</td></tr>
+          <tr><td><code>nexus build</code></td><td>Production build → <code>.nexus/output/</code> (fails on critical CVEs in block mode)</td><td>v0.1</td></tr>
+          <tr><td><code>nexus start</code></td><td>Start the production server</td><td>v0.1</td></tr>
+          <tr><td><code>nexus studio</code></td><td>Open Nexus Studio at <code>localhost:4000</code></td><td>v0.2</td></tr>
+          <tr><td><code>nexus routes</code></td><td>Print the full route manifest</td><td>v0.1</td></tr>
+          <tr><td><code>nexus check</code></td><td>TypeScript type-check (runs <code>tsc --noEmit</code>)</td><td>v0.1</td></tr>
+          <tr><td><code>nexus analyze</code></td><td>Bundle budget report per route</td><td>v0.1</td></tr>
+          <tr><td><code>nexus add &lt;block&gt;</code></td><td>Install a Nexus Block from the marketplace</td><td>v0.3</td></tr>
+          <tr><td><code>nexus audit</code></td><td>Run full security audit (code + deps)</td><td>v0.5</td></tr>
+          <tr><td><code>nexus audit --ci</code></td><td>Exit 1 on any critical finding — designed for CI pipelines</td><td>v0.5</td></tr>
+          <tr><td><code>nexus audit --json</code></td><td>Machine-readable JSON output</td><td>v0.5</td></tr>
+          <tr><td><code>nexus fix</code></td><td>Auto-update vulnerable dependencies to patched versions</td><td>v0.6</td></tr>
+          <tr><td><code>nexus fix --dry-run</code></td><td>Preview fixes without writing any files</td><td>v0.6</td></tr>
+          <tr><td><code>nexus fix --force</code></td><td>Also fix medium + low severity vulnerabilities</td><td>v0.6</td></tr>
+          <tr><td><code>create-nexus my-app</code></td><td>Scaffold a new Nexus project</td><td>v0.1</td></tr>
         </tbody>
       </table>
 
@@ -1446,6 +1463,31 @@ export default defineNexus({
   // Bundle budget (kb gzip)
   build: {
     budget: 50,
+  },
+
+  // Multi-Tenant support (v0.4)
+  tenant: {
+    mode: 'subdomain',
+    baseDomain: 'app.com',
+  },
+
+  // AI predictive prefetch (v0.3)
+  ai: {
+    prefetch: 'smart',    // 'aggressive' | 'smart' | 'off'
+    budget: '500kb',
+    wifiOnly: true,
+  },
+
+  // Security (v0.5 / v0.6)
+  security: {
+    hardened: true,
+    allowVulnerable: {
+      'some-pdf-lib': {
+        cve: 'CVE-2025-1234',
+        reason: 'Build-time only, never ships to browser.',
+        expires: '2026-06-01',
+      },
+    },
   },
 });</code></pre>
     </section>
@@ -1489,6 +1531,16 @@ export default defineNexus({
           <div class="card-icon">📊</div>
           <h4>JS Cost</h4>
           <p>Bundle budget for the current route (raw + gzip).</p>
+        </div>
+        <div class="card">
+          <div class="card-icon">🛡️</div>
+          <h4>Security Panel</h4>
+          <p>Live view of CSRF tokens, rate-limit windows, and secret leak scan results.</p>
+        </div>
+        <div class="card">
+          <div class="card-icon">📴</div>
+          <h4>Sync Queue</h4>
+          <p>Pending <code>$localSync</code> operations, conflict log, and online/offline state.</p>
         </div>
       </div>
     </section>
@@ -1579,6 +1631,471 @@ export default toCloudflareHandler(server.fetch);</code></pre>
     <!-- REFERENCE                                                            -->
     <!-- ═══════════════════════════════════════════════════════════════════ -->
 
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- MULTI-TENANT (v0.4)                                               -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+
+    <section id="multitenant">
+      <div class="section-label">Advanced — v0.4</div>
+      <h2>🏢 Multi-Tenant (First-Class Support)</h2>
+      <p class="lead">Nexus natively manages subdomains and custom domains. No boilerplate: every request carries a fully-typed <code>tenant</code> context.</p>
+
+      <h3>How it works</h3>
+      <p>The router detects whether the request originates from <code>acme.app.com</code>, <code>custom-domain.io</code>, or a path prefix and automatically scopes the cache, cookies, and server context to that tenant.</p>
+
+      <div class="code-title"><span>packages/router/src/tenant.ts — key API</span><span class="code-lang">typescript</span></div>
+      <pre><code class="language-typescript">import { extractTenant } from '@nexus/router';
+
+// nexus.config.ts
+export default defineNexusConfig({
+  tenant: {
+    mode: 'subdomain',           // 'subdomain' | 'domain' | 'path'
+    baseDomain: 'app.com',
+    async resolveMeta(tenantId) {
+      return await db.tenants.findUnique({ where: { id: tenantId } });
+    },
+  },
+});
+
+// In any server block — tenant is injected automatically
+const { tenant } = ctx;
+// tenant.id, tenant.domain, tenant.isCustomDomain, tenant.meta</code></pre>
+
+      <h3>Route files</h3>
+      <div class="code-title"><span>src/routes/[tenant]/+page.nx</span><span class="code-lang">html</span></div>
+      <pre><code class="language-html">---
+// tenant is already extracted — no manual parsing
+const { tenant } = ctx;
+const data = await db.products.findMany({
+  where: { tenantId: tenant.id },   // RLS enforced at the framework layer
+});
+---
+&lt;template&gt;
+  &lt;h1&gt;Welcome, {tenant.meta.name}!&lt;/h1&gt;
+  {#each data as item}
+    &lt;ProductCard {item} /&gt;
+  {/each}
+&lt;/template&gt;</code></pre>
+
+      <h3>Automatic isolation</h3>
+      <table class="dir-table">
+        <thead><tr><th>Concern</th><th>Nexus Behavior</th></tr></thead>
+        <tbody>
+          <tr><td>Cache keys</td><td>Prefixed with <code>tenant:{id}:</code> — zero cross-tenant cache bleed</td></tr>
+          <tr><td>Cookies</td><td>Scoped per tenant domain / subdomain by the browser</td></tr>
+          <tr><td>DB queries</td><td><code>@nexus/db</code> adapter warns if <code>tenantId</code> filter is missing</td></tr>
+          <tr><td>Vary headers</td><td>Automatic <code>Vary: Host</code> on all tenant-aware responses</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- LOCAL-FIRST SYNC (v0.4)                                           -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+
+    <section id="local-first">
+      <div class="section-label">Advanced — v0.4</div>
+      <h2>📴 Local-First Sync Engine</h2>
+      <p class="lead">Inspired by Replicache and ElectricSQL — writes are instant (IndexedDB latency: 0ms) and sync to the server in the background when online.</p>
+
+      <h3>The <code>$localSync</code> rune</h3>
+      <div class="code-title"><span>src/routes/captures/+page.nx</span><span class="code-lang">html</span></div>
+      <pre><code class="language-html">&lt;script&gt;
+import { $localSync } from '@nexus/sync';
+
+// Reactive, offline-first collection — backed by IndexedDB
+const captures = $localSync('pokemon-captures', {
+  endpoint: '/_nexus/sync',           // server sync endpoint
+  conflict: 'last-write-wins',        // or (local, remote) => resolved
+});
+
+async function capture(pokemon) {
+  // Writes locally in &lt;1ms, queues for server sync
+  await captures.push({ id: pokemon.id, name: pokemon.name, ts: Date.now() });
+}
+
+async function remove(id) {
+  await captures.remove(id);
+}
+&lt;/script&gt;
+
+&lt;template&gt;
+  &lt;p&gt;Status: {captures.status}&lt;/p&gt;    &lt;!-- 'synced' | 'pending' | 'error' --&gt;
+  &lt;p&gt;Pending ops: {captures.pending}&lt;/p&gt;
+
+  {#each captures.value as c}
+    &lt;div&gt;{c.name} &lt;button on:click={() =&gt; remove(c.id)}&gt;Release&lt;/button&gt;&lt;/div&gt;
+  {/each}
+
+  &lt;button on:click={() =&gt; captures.flush()}&gt;Sync now&lt;/button&gt;
+&lt;/template&gt;</code></pre>
+
+      <h3>Server sync endpoint</h3>
+      <div class="code-title"><span>src/routes/+server.nx — POST /_nexus/sync</span><span class="code-lang">typescript</span></div>
+      <pre><code class="language-typescript">export async function POST({ request }) {
+  const { ops } = await request.json();
+  const results = [];
+  for (const op of ops) {
+    if (op.type === 'push') {
+      await db.captures.upsert({ where: { id: op.key }, create: op.value, update: op.value });
+      results.push({ key: op.key, status: 'ok' });
+    } else if (op.type === 'delete') {
+      await db.captures.delete({ where: { id: op.key } });
+      results.push({ key: op.key, status: 'ok' });
+    }
+  }
+  return Response.json({ results });
+}</code></pre>
+
+      <h3>Conflict resolution strategies</h3>
+      <table class="dir-table">
+        <thead><tr><th>Strategy</th><th>Behavior</th></tr></thead>
+        <tbody>
+          <tr><td><code>'last-write-wins'</code></td><td>Highest <code>ts</code> field always wins — great for user preferences</td></tr>
+          <tr><td><code>'server-wins'</code></td><td>Remote always overrides local — great for inventory counts</td></tr>
+          <tr><td><code>'client-wins'</code></td><td>Local always overrides remote — great for offline-first notes</td></tr>
+          <tr><td><code>(local, remote) =&gt; resolved</code></td><td>Custom merger function — full control</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- ZERO-BUNDLE UI (v0.4)                                             -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+
+    <section id="zero-bundle">
+      <div class="section-label">Advanced — v0.4</div>
+      <h2>✨ Zero-Bundle UI Components</h2>
+      <p class="lead">Interactive components with <strong>0.0 KB</strong> of JavaScript. The Nexus compiler detects when a component needs no dynamic logic and emits pure HTML + CSS instead.</p>
+
+      <div class="code-title"><span>any .nx file</span><span class="code-lang">typescript</span></div>
+      <pre><code class="language-typescript">import {
+  renderAccordion,
+  renderTabs,
+  renderTooltip,
+  renderModal,
+  renderProgressRing,
+} from '@nexus/ui';
+
+// All of these compile to 0 bytes of JS — pure CSS interaction</code></pre>
+
+      <h3>Accordion (CSS details/summary)</h3>
+      <div class="code-title"><span>server block</span><span class="code-lang">typescript</span></div>
+      <pre><code class="language-typescript">const html = renderAccordion([
+  { title: 'What is Nexus?', body: 'The definitive full-stack framework.' },
+  { title: 'Does it need React?', body: 'No. Zero React dependency.' },
+]);</code></pre>
+
+      <h3>Tabs (CSS :target trick)</h3>
+      <pre><code class="language-typescript">const html = renderTabs([
+  { id: 'js', label: 'JavaScript', content: '...' },
+  { id: 'ts', label: 'TypeScript', content: '...' },
+]);</code></pre>
+
+      <h3>Component catalogue</h3>
+      <table class="dir-table">
+        <thead><tr><th>Component</th><th>CSS Technique</th><th>JS KB</th></tr></thead>
+        <tbody>
+          <tr><td><code>renderAccordion</code></td><td><code>&lt;details&gt;</code> / <code>&lt;summary&gt;</code></td><td>0</td></tr>
+          <tr><td><code>renderTabs</code></td><td>CSS <code>:target</code> selector</td><td>0</td></tr>
+          <tr><td><code>renderTooltip</code></td><td>CSS <code>:hover</code> + <code>[role=tooltip]</code></td><td>0</td></tr>
+          <tr><td><code>renderModal</code></td><td>CSS <code>:target</code> + <code>&lt;dialog&gt;</code></td><td>0</td></tr>
+          <tr><td><code>renderProgressRing</code></td><td>Pure SVG <code>stroke-dashoffset</code></td><td>0</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- SECURITY BY DEFAULT (v0.5)                                        -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+
+    <section id="security">
+      <div class="section-label">Security — v0.5</div>
+      <h2>🛡️ Security by Default</h2>
+      <p class="lead">Nexus treats security as a compilation concern, not a runtime afterthought. Five layers of protection are active with zero configuration.</p>
+
+      <h3>1 — Anti-CSRF & Replay (Action Tokens)</h3>
+      <p>Every island render generates an ephemeral HMAC-signed token bound to the user session. <code>createAction</code> validates it automatically — single-use, expired in 5 minutes.</p>
+      <div class="code-title"><span>packages/server/src/csrf.ts — how it works</span><span class="code-lang">typescript</span></div>
+      <pre><code class="language-typescript">// Automatic — you never write this manually
+const token = await generateActionToken(sessionId, secretKey);
+// token is injected into the island's hidden &lt;input&gt; by the renderer
+
+// On the server, createAction calls this before your handler runs:
+await validateActionToken(token, sessionId, secretKey);
+// Throws if: wrong HMAC | expired | already used (replay detected)</code></pre>
+
+      <h3>2 — Ghost Wall: Secret Leak Detection</h3>
+      <p>The Nexus compiler scans every <code>.nx</code> file. If a server-side variable matching <code>*_SECRET</code>, <code>*_KEY</code>, or <code>process.env.*</code> is referenced inside a client island, the build fails immediately with a pedagogical error.</p>
+      <div class="code-title"><span>build output on a detected leak</span><span class="code-lang">bash</span></div>
+      <pre><code class="language-bash">[Nexus Guard] ⛔ SECRET LEAK DETECTED
+  File: src/routes/dashboard/+page.nx
+  Variable: STRIPE_SECRET_KEY (matches pattern *_SECRET)
+  Found in: island script block (line 42)
+
+  Server secrets must never reach the client bundle.
+  Wrap sensitive logic in a Server Action instead.</code></pre>
+
+      <h3>3 — XSS Auto-Encoding</h3>
+      <p><code>@nexus/serialize</code> automatically HTML entity-encodes all strings flowing from server to client islands. No developer action required.</p>
+      <pre><code class="language-typescript">// Before serialization (server side):
+{ name: "&lt;script&gt;alert(1)&lt;/script&gt;" }
+
+// After @nexus/serialize.encode (island receives):
+{ name: "&amp;lt;script&amp;gt;alert(1)&amp;lt;/script&amp;gt;" }</code></pre>
+
+      <h3>4 — Per-Action Rate Limiting</h3>
+      <div class="code-title"><span>src/actions/capture.ts</span><span class="code-lang">typescript</span></div>
+      <pre><code class="language-typescript">export const captureAction = createAction({
+  rateLimit: { window: '1m', max: 3 },   // sliding-window per user IP
+  schema: z.object({ pokemonId: z.number().int().positive() }),
+  async handler({ pokemonId }, ctx) {
+    return await db.captures.create({ data: { pokemonId, userId: ctx.user.id } });
+  },
+});
+// 429 response with Retry-After header is automatic on limit breach</code></pre>
+
+      <h3>5 — Hardened Mode (Security Headers)</h3>
+      <div class="code-title"><span>nexus.config.ts</span><span class="code-lang">typescript</span></div>
+      <pre><code class="language-typescript">export default defineNexusConfig({
+  security: {
+    hardened: true,   // enables all headers below
+    headers: {
+      'Content-Security-Policy': "default-src 'self'; script-src 'self' 'nonce-{nonce}'",
+      'X-Frame-Options': 'DENY',
+      'X-Content-Type-Options': 'nosniff',
+      'Referrer-Policy': 'strict-origin-when-cross-origin',
+      'Permissions-Policy': 'camera=(), microphone=()',
+    },
+  },
+});</code></pre>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- NEXUS AUDIT (v0.5 / v0.6)                                         -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+
+    <section id="audit">
+      <div class="section-label">Security — v0.5 / v0.6</div>
+      <h2>🔍 nexus audit</h2>
+      <p class="lead">A static analysis + dependency security scanner that runs both in CI and live during <code>nexus dev</code>. It catches what <code>npm audit</code> misses.</p>
+
+      <div class="code-title"><span>terminal</span><span class="code-lang">bash</span></div>
+      <pre><code class="language-bash">nexus audit              # Full scan — code + deps
+nexus audit --ci         # Exit 1 on any critical finding (for pipelines)
+nexus audit --json       # Machine-readable output</code></pre>
+
+      <h3>What it scans</h3>
+      <table class="dir-table">
+        <thead><tr><th>Check</th><th>Source</th><th>Severity</th></tr></thead>
+        <tbody>
+          <tr><td>Secret variables in client islands</td><td>Compiler / Guard</td><td>🔴 Critical</td></tr>
+          <tr><td>Forms without input validation schema</td><td>Static AST</td><td>🟠 High</td></tr>
+          <tr><td>Routes missing auth middleware</td><td>Route manifest</td><td>🟠 High</td></tr>
+          <tr><td>Missing security headers in production</td><td>nexus.config.ts</td><td>🟡 Medium</td></tr>
+          <tr><td>Dependency CVEs (OSV database)</td><td>@nexus/audit engine</td><td>Varies</td></tr>
+          <tr><td>Supply chain risks (npm registry)</td><td>@nexus/audit engine</td><td>🟡 Medium+</td></tr>
+          <tr><td>Open redirect patterns</td><td>Static AST</td><td>🟠 High</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Override policy</h3>
+      <p>Acknowledge a known CVE with a mandatory <code>reason</code> and an <code>expires</code> date. After the expiry, the build fails again automatically.</p>
+      <div class="code-title"><span>nexus.config.ts</span><span class="code-lang">typescript</span></div>
+      <pre><code class="language-typescript">export default defineNexusConfig({
+  security: {
+    hardened: {
+      allowVulnerable: {
+        'some-pdf-lib': {
+          cve: 'CVE-2025-1234',
+          reason: 'Used only at build-time; never ships to the browser.',
+          expires: '2026-06-01',   // build fails again after this date
+        },
+      },
+    },
+  },
+});</code></pre>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- SUPPLY CHAIN GUARD (v0.6)                                         -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+
+    <section id="supply-chain">
+      <div class="section-label">Security — v0.6</div>
+      <h2>⛓️ Supply Chain Guard</h2>
+      <p class="lead"><code>@nexus/audit</code> queries the npm registry to detect high-risk dependency patterns before they become your problem.</p>
+
+      <h3>Risk signals detected</h3>
+      <table class="dir-table">
+        <thead><tr><th>Signal</th><th>Risk Level</th><th>Why it matters</th></tr></thead>
+        <tbody>
+          <tr><td>Single maintainer package</td><td>🟡 Medium</td><td>One compromised account = all users affected</td></tr>
+          <tr><td>Package published &lt; 30 days ago</td><td>🟡 Medium</td><td>Insufficient time for community review</td></tr>
+          <tr><td>No public repository</td><td>🟠 High</td><td>Code cannot be audited independently</td></tr>
+          <tr><td>5+ versions in 24 hours</td><td>🔴 Critical</td><td>Classic typosquatting / takeover pattern</td></tr>
+          <tr><td>Abandoned (no update &gt;3 years)</td><td>🟠 High</td><td>Unpatched vulnerabilities accumulate</td></tr>
+          <tr><td>Recent maintainer change</td><td>🟠 High</td><td>Account takeover via package transfer</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Build-time blocking (Vite plugin)</h3>
+      <div class="code-title"><span>vite.config.ts</span><span class="code-lang">typescript</span></div>
+      <pre><code class="language-typescript">import { nexus, nexusSecurity } from 'vite-plugin-nexus';
+
+export default {
+  plugins: [
+    nexus(),
+    nexusSecurity({
+      mode: 'block',        // 'off' | 'warn' | 'block' | 'paranoid'
+      // 'block'    → throws build error on critical CVEs
+      // 'paranoid' → throws on critical + high + supply-chain risks
+    }),
+  ],
+};</code></pre>
+
+      <h3>OSV CVE scanning (offline-first)</h3>
+      <p>Nexus uses the <a href="https://osv.dev" style="color:var(--accent2)" target="_blank">Google OSV API</a> and caches results in <code>~/.nexus/cache/osv/</code> for 24 hours. Audits work fully offline after the first run.</p>
+      <pre><code class="language-bash"># Background audit runs silently when you start nexus dev
+$ nexus dev
+  ◆ Nexus v0.6.0 ready on http://localhost:3000
+
+  [Nexus Audit] Scanning 47 direct dependencies...
+  ⚠  lodash@4.17.20    HIGH   CVE-2025-3456 — Prototype Pollution
+     → Run `nexus fix` to update to 4.17.21</code></pre>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- NEXUS FIX (v0.6)                                                  -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+
+    <section id="nexus-fix">
+      <div class="section-label">Security — v0.6</div>
+      <h2>🔧 nexus fix</h2>
+      <p class="lead">One command auto-remediates vulnerable dependencies. It reads OSV <code>fixedIn</code> data, updates only the affected packages, re-installs, and re-audits to confirm.</p>
+
+      <div class="code-title"><span>terminal</span><span class="code-lang">bash</span></div>
+      <pre><code class="language-bash">nexus fix                # Fix critical + high CVEs
+nexus fix --dry-run      # Preview what would change, no writes
+nexus fix --force        # Also fix medium + low severity</code></pre>
+
+      <h3>How it works</h3>
+      <div class="code-title"><span>automated remediation flow</span><span class="code-lang">bash</span></div>
+      <pre><code class="language-bash">$ nexus fix
+
+[Nexus Fix] Scanning for patchable vulnerabilities...
+
+  lodash@4.17.20  →  4.17.21  (CVE-2025-3456 fixed)
+  axios@0.21.1    →  1.6.0    (CVE-2025-7890 fixed)
+
+[Nexus Fix] Applying patches via pnpm...
+  pnpm add lodash@4.17.21 axios@1.6.0
+
+[Nexus Fix] Re-auditing...
+  ✅ 0 critical, 0 high vulnerabilities remaining.</code></pre>
+
+      <p>Nexus auto-detects your package manager (<code>pnpm</code>, <code>npm</code>, or <code>yarn</code>) and preserves your existing semver ranges when possible.</p>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- CHANGELOG                                                         -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+
+    <section id="changelog">
+      <div class="section-label">Reference</div>
+      <h2>📋 Changelog</h2>
+
+      <div style="border-left:3px solid var(--accent); padding-left:20px; margin-bottom:32px">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
+          <span style="font-size:18px;font-weight:700">v0.6.0</span>
+          <span class="badge badge-purple">Latest</span>
+          <span style="color:var(--muted);font-size:13px">2026-04</span>
+        </div>
+        <p style="color:var(--muted);margin-bottom:12px">Integrated Dependency Auditing &amp; Supply Chain Guard</p>
+        <ul style="color:var(--text);line-height:2;list-style:disc;padding-left:16px">
+          <li>New package <code>@nexus/audit</code> — OSV CVE scanning with offline-first cache</li>
+          <li>Supply chain risk analysis (single maintainer, rapid versions, abandoned packages)</li>
+          <li><code>nexusSecurity</code> Vite plugin — build-time CVE blocking with 4 severity modes</li>
+          <li><code>nexus fix</code> CLI — automated one-command vulnerability remediation</li>
+          <li><code>allowVulnerable</code> override policy with mandatory <code>expires</code> date</li>
+          <li>Background CVE audit integrated into <code>nexus dev</code> startup</li>
+        </ul>
+      </div>
+
+      <div style="border-left:3px solid var(--accent2); padding-left:20px; margin-bottom:32px">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
+          <span style="font-size:18px;font-weight:700">v0.5.0</span>
+          <span style="color:var(--muted);font-size:13px">2026-03</span>
+        </div>
+        <p style="color:var(--muted);margin-bottom:12px">Security by Compilation</p>
+        <ul style="color:var(--text);line-height:2;list-style:disc;padding-left:16px">
+          <li>Anti-CSRF &amp; Replay: HMAC-signed single-use action tokens per island render</li>
+          <li>Ghost Wall: compiler blocks builds when server secrets reach client bundles</li>
+          <li>XSS auto-encoding in <code>@nexus/serialize</code> for all server→client strings</li>
+          <li>Per-action rate limiting with sliding window &amp; RFC 6585 <code>Retry-After</code> headers</li>
+          <li><code>nexus audit</code> CLI — static code analysis + dependency CVE scanning</li>
+          <li>Hardened Mode: automatic security headers (CSP, HSTS, X-Frame-Options)</li>
+        </ul>
+      </div>
+
+      <div style="border-left:3px solid var(--green); padding-left:20px; margin-bottom:32px">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
+          <span style="font-size:18px;font-weight:700">v0.4.0</span>
+          <span style="color:var(--muted);font-size:13px">2026-02</span>
+        </div>
+        <p style="color:var(--muted);margin-bottom:12px">Multi-Tenant, Local-First, Zero-Bundle</p>
+        <ul style="color:var(--text);line-height:2;list-style:disc;padding-left:16px">
+          <li>Native multi-tenant support in <code>@nexus/router</code> with typed <code>tenant</code> context</li>
+          <li><code>@nexus/sync</code> — <code>$localSync</code> rune with IndexedDB + background server sync</li>
+          <li><code>@nexus/ui</code> — 5 zero-JS CSS-only interactive components</li>
+          <li>Multi-Tenant Row Level Security warnings in <code>@nexus/db</code> adapter</li>
+        </ul>
+      </div>
+
+      <div style="border-left:3px solid var(--amber); padding-left:20px; margin-bottom:32px">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
+          <span style="font-size:18px;font-weight:700">v0.3.0</span>
+          <span style="color:var(--muted);font-size:13px">2026-01</span>
+        </div>
+        <p style="color:var(--muted);margin-bottom:12px">Elite Observability, Edge-State Sync, AI Prefetch</p>
+        <ul style="color:var(--text);line-height:2;list-style:disc;padding-left:16px">
+          <li>Nexus Logger — ANSI terminal logs + browser DevTools bridge (Server→Client)</li>
+          <li>Nexus Connect — SSE pub/sub real-time state sync (<code>$socket</code> rune)</li>
+          <li>Nexus Guard — compiler-level secret leak detection</li>
+          <li>Nexus AI — micro-ML predictive prefetch with Network Information API awareness</li>
+          <li><code>nexus add</code> — Nexus Blocks marketplace CLI</li>
+          <li>Performance Score &amp; A11y Checker in browser console</li>
+        </ul>
+      </div>
+
+      <div style="border-left:3px solid var(--muted); padding-left:20px; margin-bottom:32px">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
+          <span style="font-size:18px;font-weight:700">v0.2.0</span>
+          <span style="color:var(--muted);font-size:13px">2025-12</span>
+        </div>
+        <p style="color:var(--muted);margin-bottom:12px">HMR, Vite-style Logging, Pokédex Demo</p>
+        <ul style="color:var(--text);line-height:2;list-style:disc;padding-left:16px">
+          <li>Hot Module Replacement via Vite plugin</li>
+          <li>Colored ANSI server logs (○ static, λ dynamic, ▲ action)</li>
+          <li>Pokédex example project with Shield Cache, Evolution Chain streaming, Battle Mode</li>
+          <li><code>nexus studio</code> — local dev dashboard at <code>/_nexus</code></li>
+        </ul>
+      </div>
+
+      <div style="border-left:3px solid var(--muted); padding-left:20px; margin-bottom:32px; opacity:0.6">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
+          <span style="font-size:18px;font-weight:700">v0.1.0</span>
+          <span style="color:var(--muted);font-size:13px">2025-11</span>
+        </div>
+        <p style="color:var(--muted);margin-bottom:12px">Initial Architecture</p>
+        <ul style="color:var(--text);line-height:2;list-style:disc;padding-left:16px">
+          <li>Islands Architecture, Svelte 5 Runes, Server Actions, File-based Routing</li>
+          <li>PPR, Edge-Cache headers, Global State Store, SPA Navigation (Morphing)</li>
+          <li>BYOD Database adapters, <code>@nexus/serialize</code>, <code>@nexus/assets</code></li>
+        </ul>
+      </div>
+    </section>
+
     <section id="comparison">
       <div class="section-label">Reference</div>
       <h2 data-i18n="cmp.title">Framework Comparison</h2>
@@ -1608,6 +2125,15 @@ export default toCloudflareHandler(server.fetch);</code></pre>
           <tr><td>BYOD Database</td><td><span class="check">✓</span></td><td><span class="check">✓</span></td><td><span class="check">✓</span></td><td><span class="check">✓</span></td></tr>
           <tr><td>Zero config</td><td><span class="check">✓</span></td><td><span class="partial">⚠</span></td><td><span class="check">✓</span></td><td><span class="partial">⚠</span></td></tr>
           <tr><td>React runtime</td><td><span class="cross">✗ (lighter)</span></td><td><span class="check">required</span></td><td><span class="partial">optional</span></td><td><span class="cross">✗ (lighter)</span></td></tr>
+          <tr><td>Native Multi-Tenant</td><td><span class="check">✓</span></td><td><span class="cross">✗</span></td><td><span class="cross">✗</span></td><td><span class="cross">✗</span></td></tr>
+          <tr><td>Local-First Sync (IndexedDB)</td><td><span class="check">✓</span></td><td><span class="cross">✗</span></td><td><span class="cross">✗</span></td><td><span class="cross">✗</span></td></tr>
+          <tr><td>Zero-Bundle CSS Components</td><td><span class="check">✓</span></td><td><span class="cross">✗</span></td><td><span class="partial">⚠ manual</span></td><td><span class="cross">✗</span></td></tr>
+          <tr><td>Anti-CSRF by Default</td><td><span class="check">✓</span></td><td><span class="cross">✗</span></td><td><span class="cross">✗</span></td><td><span class="cross">✗</span></td></tr>
+          <tr><td>Secret Leak Detection (Build)</td><td><span class="check">✓</span></td><td><span class="cross">✗</span></td><td><span class="cross">✗</span></td><td><span class="cross">✗</span></td></tr>
+          <tr><td>Integrated CVE Auditing</td><td><span class="check">✓</span></td><td><span class="cross">✗</span></td><td><span class="cross">✗</span></td><td><span class="cross">✗</span></td></tr>
+          <tr><td>Supply Chain Guard</td><td><span class="check">✓</span></td><td><span class="cross">✗</span></td><td><span class="cross">✗</span></td><td><span class="cross">✗</span></td></tr>
+          <tr><td>Predictive AI Prefetch</td><td><span class="check">✓</span></td><td><span class="cross">✗</span></td><td><span class="cross">✗</span></td><td><span class="cross">✗</span></td></tr>
+          <tr><td>Real-Time Edge State (SSE)</td><td><span class="check">✓</span></td><td><span class="cross">✗</span></td><td><span class="cross">✗</span></td><td><span class="cross">✗</span></td></tr>
         </tbody>
       </table>
     </section>
@@ -1630,8 +2156,14 @@ export default toCloudflareHandler(server.fetch);</code></pre>
           <tr><td><code>@nexus/serialize</code></td><td>SuperJSON-like: Date, Map, Set, BigInt, RegExp, URL, Uint8Array, Error</td></tr>
           <tr><td><code>@nexus/types</code></td><td>E2E type generation for routes, params, and Server Actions</td></tr>
           <tr><td><code>@nexus/testing</code></td><td><code>renderSSR</code>, <code>mountIsland</code>, <code>createActionTestHarness</code> for Vitest</td></tr>
-          <tr><td><code>@nexus/vite-plugin-nexus</code></td><td>Vite plugin for HMR, CSS preprocessing, island manifest emission</td></tr>
+          <tr><td><code>vite-plugin-nexus</code></td><td>Vite plugin for HMR, CSS preprocessing, island manifest emission, CVE blocking</td></tr>
           <tr><td><code>@nexus/db</code></td><td>BYOD DB adapter: Prisma, Drizzle ORM, libSQL/Turso, or custom</td></tr>
+          <tr><td><code>@nexus/sync</code></td><td><code>$localSync</code> rune — IndexedDB offline writes + background server sync + conflict resolution</td></tr>
+          <tr><td><code>@nexus/ui</code></td><td>Zero-Bundle CSS-only interactive components (Accordion, Tabs, Modal, Tooltip, Progress Ring)</td></tr>
+          <tr><td><code>@nexus/audit</code></td><td>OSV CVE scanning, supply chain risk analysis, override policy with auto-expiry</td></tr>
+          <tr><td><code>@nexus/connect</code></td><td>SSE pub/sub real-time state sync — <code>$socket(topic)</code> rune</td></tr>
+          <tr><td><code>@nexus/ai</code></td><td>Micro-ML predictive prefetch with Network Information API awareness</td></tr>
+          <tr><td><code>@nexus/marketplace</code></td><td><code>nexus add &lt;block&gt;</code> — official Nexus Blocks installer</td></tr>
         </tbody>
       </table>
 
@@ -1678,7 +2210,7 @@ const translations = {
     'hero.title': 'The Definitive<br>Full-Stack Framework',
     'hero.subtitle': 'Zero JS by default. Progressive hydration where you need it. Server Actions that are type-safe, race-condition-safe, and edge-ready.',
     'hero.cta1': 'Get Started →', 'hero.cta2': 'GitHub ↗',
-    'hero.stat1': 'Packages', 'hero.stat2': 'JS by Default', 'hero.stat3': 'TypeScript', 'hero.stat4': 'Ready',
+    'hero.stat1': 'Packages', 'hero.stat2': 'JS by Default', 'hero.stat3': 'TypeScript', 'hero.stat4': 'Latest',
     'nav.gettingStarted': 'Getting Started', 'nav.core': 'Core Concepts', 'nav.data': 'Data & Server',
     'nav.advanced': 'Advanced', 'nav.tooling': 'Tooling', 'nav.reference': 'Reference',
     'install.title': 'Installation', 'install.lead': 'Nexus requires Node.js ≥ 20 and pnpm ≥ 9.',
@@ -1711,7 +2243,7 @@ const translations = {
     'hero.title': 'El Framework Full-Stack<br>Definitivo',
     'hero.subtitle': 'Cero JS por defecto. Hidratación progresiva donde la necesitas. Server Actions type-safe, sin race conditions, y listas para Edge.',
     'hero.cta1': 'Empezar →', 'hero.cta2': 'GitHub ↗',
-    'hero.stat1': 'Paquetes', 'hero.stat2': 'JS por Defecto', 'hero.stat3': 'TypeScript', 'hero.stat4': 'Listo',
+    'hero.stat1': 'Paquetes', 'hero.stat2': 'JS por Defecto', 'hero.stat3': 'TypeScript', 'hero.stat4': 'Último',
     'nav.gettingStarted': 'Primeros pasos', 'nav.core': 'Conceptos Core', 'nav.data': 'Datos y Servidor',
     'nav.advanced': 'Avanzado', 'nav.tooling': 'Herramientas', 'nav.reference': 'Referencia',
     'install.title': 'Instalación', 'install.lead': 'Nexus requiere Node.js ≥ 20 y pnpm ≥ 9.',
@@ -1744,7 +2276,7 @@ const translations = {
     'hero.title': 'O Framework Full-Stack<br>Definitivo',
     'hero.subtitle': 'Zero JS por padrão. Hidratação progressiva onde você precisa. Server Actions com segurança de tipos, sem race conditions, prontas para Edge.',
     'hero.cta1': 'Começar →', 'hero.cta2': 'GitHub ↗',
-    'hero.stat1': 'Pacotes', 'hero.stat2': 'JS por Padrão', 'hero.stat3': 'TypeScript', 'hero.stat4': 'Pronto',
+    'hero.stat1': 'Pacotes', 'hero.stat2': 'JS por Padrão', 'hero.stat3': 'TypeScript', 'hero.stat4': 'Último',
     'nav.gettingStarted': 'Primeiros passos', 'nav.core': 'Conceitos Core', 'nav.data': 'Dados e Servidor',
     'nav.advanced': 'Avançado', 'nav.tooling': 'Ferramentas', 'nav.reference': 'Referência',
     'install.title': 'Instalação', 'install.lead': 'Nexus requer Node.js ≥ 20 e pnpm ≥ 9.',
