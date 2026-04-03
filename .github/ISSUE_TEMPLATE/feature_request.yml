@@ -1,0 +1,68 @@
+name: Feature Request
+description: Propose a new feature or enhancement for Nexus
+labels: ["enhancement", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting an improvement! Please describe your idea clearly.
+
+  - type: dropdown
+    id: package
+    attributes:
+      label: Target Package
+      description: Which package would this feature belong to?
+      options:
+        - "@nexus/compiler"
+        - "@nexus/runtime"
+        - "@nexus/server"
+        - "@nexus/router"
+        - "@nexus/cli"
+        - "@nexus/assets"
+        - "@nexus/head"
+        - "@nexus/middleware"
+        - "@nexus/serialize"
+        - "@nexus/types"
+        - "@nexus/testing"
+        - "@nexus/vite-plugin-nexus"
+        - "@nexus/db"
+        - "New Package"
+        - "Cross-cutting / Architecture"
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem Statement
+      description: What problem does this feature solve? What are you trying to accomplish?
+      placeholder: "When I try to... I find that... which makes it hard to..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed Solution
+      description: Describe your proposed feature. Include API sketches if possible.
+      placeholder: |
+        I'd like a `$persist` rune that...
+
+        ```typescript
+        const value = $persist('key', defaultValue);
+        ```
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: Have you considered any other approaches?
+
+  - type: dropdown
+    id: willing-to-pr
+    attributes:
+      label: Would you like to implement this?
+      options:
+        - "Yes, I'd like to submit a PR"
+        - "Maybe, I'd need guidance"
+        - "No, I'm just proposing the idea"

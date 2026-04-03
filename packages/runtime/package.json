@@ -1,0 +1,32 @@
+{
+  "name": "@nexus/runtime",
+  "version": "0.1.0",
+  "description": "Nexus Islands runtime — selective hydration with fine-grained reactivity",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./island": {
+      "import": "./dist/island.js",
+      "types": "./dist/island.d.ts"
+    },
+    "./runes": {
+      "import": "./dist/runes.js",
+      "types": "./dist/runes.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsc -p tsconfig.json --watch",
+    "test": "vitest run",
+    "clean": "rm -rf dist"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.0",
+    "vitest": "^2.0.0"
+  }
+}

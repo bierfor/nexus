@@ -1,0 +1,37 @@
+{
+  "name": "@nexus/db",
+  "version": "0.1.0",
+  "description": "Nexus DB — BYOD thin provider adapter (Prisma, Drizzle, libSQL, Postgres.js)",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./adapters/prisma": {
+      "types": "./dist/adapters/prisma.d.ts",
+      "import": "./dist/adapters/prisma.js"
+    },
+    "./adapters/drizzle": {
+      "types": "./dist/adapters/drizzle.d.ts",
+      "import": "./dist/adapters/drizzle.js"
+    },
+    "./adapters/libsql": {
+      "types": "./dist/adapters/libsql.d.ts",
+      "import": "./dist/adapters/libsql.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch"
+  },
+  "dependencies": {
+    "@nexus/runtime": "workspace:*",
+    "@nexus/serialize": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0"
+  }
+}

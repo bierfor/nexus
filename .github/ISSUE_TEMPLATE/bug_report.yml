@@ -1,0 +1,96 @@
+name: Bug Report
+description: Report a reproducible bug in Nexus
+labels: ["bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug. Please fill in as much detail as possible.
+
+  - type: input
+    id: version
+    attributes:
+      label: Nexus Version
+      placeholder: "0.1.0"
+    validations:
+      required: true
+
+  - type: input
+    id: node-version
+    attributes:
+      label: Node.js Version
+      placeholder: "20.11.0"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: package
+    attributes:
+      label: Affected Package
+      options:
+        - "@nexus/compiler"
+        - "@nexus/runtime"
+        - "@nexus/server"
+        - "@nexus/router"
+        - "@nexus/cli"
+        - "@nexus/assets"
+        - "@nexus/head"
+        - "@nexus/middleware"
+        - "@nexus/serialize"
+        - "@nexus/types"
+        - "@nexus/testing"
+        - "@nexus/vite-plugin-nexus"
+        - "@nexus/db"
+        - "Multiple / Unknown"
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Describe the Bug
+      description: A clear and concise description of what the bug is.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to Reproduce
+      description: How can we reproduce this?
+      placeholder: |
+        1. Create a .nx file with...
+        2. Run nexus dev
+        3. Navigate to /...
+        4. See error
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What did you expect to happen?
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual Behavior
+      description: What actually happened? Include error messages and stack traces.
+    validations:
+      required: true
+
+  - type: input
+    id: reproduction-link
+    attributes:
+      label: Reproduction Link
+      description: Link to a minimal reproduction (GitHub repo, StackBlitz, etc.)
+      placeholder: "https://github.com/..."
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context
+      description: Anything else you'd like to add (screenshots, logs, etc.)

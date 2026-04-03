@@ -1,0 +1,18 @@
+{
+  "name": "@nexus/head",
+  "version": "0.1.0",
+  "description": "Nexus Head — reactive SEO metadata manager for Islands Architecture",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": { "import": "./dist/index.js", "types": "./dist/index.d.ts" }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsc -p tsconfig.json --watch",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": { "@nexus/runtime": "workspace:*" },
+  "devDependencies": { "@types/node": "^22.0.0", "typescript": "^5.5.0" }
+}

@@ -1,0 +1,31 @@
+{
+  "name": "nexus",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Nexus — The Definitive Full-Stack Framework: Islands Architecture + Svelte 5 Runes + Server Actions",
+  "workspaces": [
+    "packages/*",
+    "examples/*",
+    "docs"
+  ],
+  "scripts": {
+    "build": "pnpm -r --filter './packages/*' build",
+    "dev": "pnpm -r --filter './packages/*' --parallel dev",
+    "test": "pnpm -r test",
+    "lint": "pnpm -r lint",
+    "typecheck": "pnpm -r typecheck",
+    "example": "pnpm --filter basic dev",
+    "studio": "nexus studio",
+    "clean": "pnpm -r clean && rm -rf node_modules"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.5.0",
+    "vitest": "^2.0.0"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  },
+  "packageManager": "pnpm@9.14.0"
+}

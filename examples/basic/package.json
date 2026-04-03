@@ -1,0 +1,19 @@
+{
+  "name": "basic",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --experimental-vm-modules ../../packages/cli/src/bin.ts dev",
+    "build": "nexus build",
+    "start": "nexus start"
+  },
+  "dependencies": {
+    "@nexus/runtime": "workspace:*"
+  },
+  "devDependencies": {
+    "@nexus/cli": "workspace:*",
+    "@nexus/compiler": "workspace:*",
+    "typescript": "^5.5.0"
+  }
+}

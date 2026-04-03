@@ -1,0 +1,26 @@
+{
+  "name": "@nexus/testing",
+  "version": "0.1.0",
+  "description": "Nexus testing utilities — render .nx components in SSR and client mode",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": { "import": "./dist/index.js", "types": "./dist/index.d.ts" },
+    "./vitest": { "import": "./dist/vitest.js", "types": "./dist/vitest.d.ts" },
+    "./playwright": { "import": "./dist/playwright.js", "types": "./dist/playwright.d.ts" }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsc -p tsconfig.json --watch",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@nexus/compiler": "workspace:*",
+    "@nexus/runtime": "workspace:*"
+  },
+  "peerDependencies": {
+    "vitest": ">=2.0.0"
+  },
+  "devDependencies": { "@types/node": "^22.0.0", "typescript": "^5.5.0", "vitest": "^2.0.0" }
+}

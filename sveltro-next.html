@@ -1,0 +1,1182 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sveltro Next — El Framework Definitivo 2026</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;700;800;900&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0a0a0f;
+    --surface: #111118;
+    --border: #1e1e2e;
+    --accent-sv: #ff3e00;
+    --accent-next: #0070f3;
+    --accent-astro: #9333ea;
+    --accent-fused: #00d4aa;
+    --text: #e8e8f0;
+    --muted: #6b6b80;
+    --glow-sv: rgba(255,62,0,0.15);
+    --glow-next: rgba(0,112,243,0.15);
+    --glow-astro: rgba(147,51,234,0.15);
+    --glow-fused: rgba(0,212,170,0.15);
+  }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    overflow-x: hidden;
+    line-height: 1.6;
+  }
+
+  /* ---- NOISE OVERLAY ---- */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.6;
+  }
+
+  /* ---- HERO ---- */
+  .hero {
+    position: relative;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 4rem 2rem;
+    overflow: hidden;
+  }
+
+  .hero-bg {
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 60% 50% at 20% 30%, var(--glow-sv), transparent),
+      radial-gradient(ellipse 50% 60% at 80% 20%, var(--glow-next), transparent),
+      radial-gradient(ellipse 70% 40% at 50% 80%, var(--glow-astro), transparent);
+    z-index: 0;
+  }
+
+  .hero-grid {
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+    background-size: 60px 60px;
+    z-index: 0;
+  }
+
+  .hero-content { position: relative; z-index: 1; text-align: center; max-width: 900px; }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(0,212,170,0.1);
+    border: 1px solid rgba(0,212,170,0.3);
+    color: var(--accent-fused);
+    padding: 6px 16px;
+    border-radius: 100px;
+    font-size: 0.75rem;
+    font-family: 'Space Mono', monospace;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 2rem;
+    animation: fadeDown 0.6s ease both;
+  }
+
+  .badge::before { content: '◆'; font-size: 0.6rem; }
+
+  h1 {
+    font-size: clamp(3rem, 8vw, 7rem);
+    font-weight: 900;
+    line-height: 0.95;
+    letter-spacing: -0.04em;
+    margin-bottom: 1.5rem;
+    animation: fadeUp 0.7s 0.1s ease both;
+  }
+
+  .title-sv { color: var(--accent-sv); }
+  .title-next { color: var(--accent-next); }
+  .title-fused { color: var(--accent-fused); }
+
+  .hero-subtitle {
+    font-size: 1.1rem;
+    color: var(--muted);
+    max-width: 560px;
+    margin: 0 auto 3rem;
+    line-height: 1.7;
+    animation: fadeUp 0.7s 0.2s ease both;
+  }
+
+  .hero-pills {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    flex-wrap: wrap;
+    animation: fadeUp 0.7s 0.3s ease both;
+  }
+
+  .pill {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 20px;
+    border-radius: 100px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-decoration: none;
+  }
+
+  .pill-sv { background: var(--glow-sv); border: 1px solid var(--accent-sv); color: var(--accent-sv); }
+  .pill-next { background: var(--glow-next); border: 1px solid var(--accent-next); color: var(--accent-next); }
+  .pill-astro { background: var(--glow-astro); border: 1px solid var(--accent-astro); color: var(--accent-astro); }
+
+  .pill:hover { transform: translateY(-2px); filter: brightness(1.3); }
+
+  .scroll-hint {
+    position: absolute;
+    bottom: 2rem;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    color: var(--muted);
+    font-size: 0.75rem;
+    font-family: 'Space Mono', monospace;
+    animation: bounce 2s infinite;
+    z-index: 1;
+  }
+
+  /* ---- SECTIONS ---- */
+  .section {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 6rem 2rem;
+    position: relative;
+    z-index: 1;
+  }
+
+  .section-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--accent-fused);
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    margin-bottom: 1rem;
+  }
+
+  .section-title {
+    font-size: clamp(2rem, 4vw, 3.5rem);
+    font-weight: 900;
+    line-height: 1.05;
+    letter-spacing: -0.03em;
+    margin-bottom: 1rem;
+  }
+
+  .section-sub {
+    color: var(--muted);
+    max-width: 540px;
+    margin-bottom: 4rem;
+    font-size: 1rem;
+  }
+
+  /* ---- ARCHITECTURE DIAGRAM ---- */
+  .arch-diagram {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 2px;
+    background: var(--border);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+    margin-bottom: 3rem;
+  }
+
+  .arch-layer {
+    padding: 2rem;
+    background: var(--surface);
+    transition: background 0.3s;
+    cursor: default;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .arch-layer::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+
+  .arch-layer.sv::before { background: var(--glow-sv); }
+  .arch-layer.next::before { background: var(--glow-next); }
+  .arch-layer.astro::before { background: var(--glow-astro); }
+
+  .arch-layer:hover::before { opacity: 1; }
+
+  .arch-layer-icon {
+    font-size: 2.5rem;
+    margin-bottom: 1rem;
+  }
+
+  .arch-layer-name {
+    font-size: 0.7rem;
+    font-family: 'Space Mono', monospace;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin-bottom: 0.5rem;
+  }
+
+  .arch-layer.sv .arch-layer-name { color: var(--accent-sv); }
+  .arch-layer.next .arch-layer-name { color: var(--accent-next); }
+  .arch-layer.astro .arch-layer-name { color: var(--accent-astro); }
+
+  .arch-layer-title {
+    font-size: 1.3rem;
+    font-weight: 800;
+    margin-bottom: 0.75rem;
+    line-height: 1.2;
+  }
+
+  .arch-layer-desc {
+    font-size: 0.85rem;
+    color: var(--muted);
+    line-height: 1.6;
+  }
+
+  .arch-layer-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 1rem;
+  }
+
+  .tag {
+    font-size: 0.65rem;
+    font-family: 'Space Mono', monospace;
+    padding: 3px 10px;
+    border-radius: 4px;
+    letter-spacing: 0.05em;
+  }
+
+  .tag-sv { background: rgba(255,62,0,0.15); color: var(--accent-sv); }
+  .tag-next { background: rgba(0,112,243,0.15); color: var(--accent-next); }
+  .tag-astro { background: rgba(147,51,234,0.15); color: var(--accent-astro); }
+  .tag-fused { background: rgba(0,212,170,0.15); color: var(--accent-fused); }
+
+  /* ---- FUSION LAYER ---- */
+  .fusion-bar {
+    background: linear-gradient(135deg, var(--glow-sv), var(--glow-next), var(--glow-astro), var(--glow-fused));
+    border: 1px solid rgba(0,212,170,0.3);
+    border-radius: 12px;
+    padding: 2rem;
+    display: flex;
+    align-items: center;
+    gap: 2rem;
+    margin-bottom: 3rem;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .fusion-bar::after {
+    content: 'SVELTRO NEXT';
+    position: absolute;
+    right: 2rem;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 4rem;
+    font-weight: 900;
+    color: rgba(255,255,255,0.04);
+    letter-spacing: -0.05em;
+    white-space: nowrap;
+  }
+
+  .fusion-icon { font-size: 3rem; flex-shrink: 0; }
+
+  .fusion-text h3 {
+    font-size: 1.4rem;
+    font-weight: 800;
+    color: var(--accent-fused);
+    margin-bottom: 0.4rem;
+  }
+
+  .fusion-text p {
+    font-size: 0.9rem;
+    color: var(--muted);
+  }
+
+  /* ---- CODE BLOCK ---- */
+  .code-section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+  }
+
+  .code-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+    padding: 0 1rem;
+    background: rgba(0,0,0,0.3);
+  }
+
+  .code-tab {
+    padding: 12px 20px;
+    font-size: 0.8rem;
+    font-family: 'Space Mono', monospace;
+    color: var(--muted);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+
+  .code-tab.active { color: var(--accent-fused); border-bottom-color: var(--accent-fused); }
+  .code-tab:hover:not(.active) { color: var(--text); }
+
+  .code-body { display: none; padding: 2rem; overflow-x: auto; }
+  .code-body.active { display: block; }
+
+  pre {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.8rem;
+    line-height: 1.8;
+    color: #c9d1d9;
+  }
+
+  .kw { color: #ff7b72; }
+  .str { color: #a5d6ff; }
+  .cmt { color: #6b6b80; font-style: italic; }
+  .fn { color: #d2a8ff; }
+  .var { color: #ffa657; }
+  .tag-html { color: #7ee787; }
+  .attr { color: #79c0ff; }
+  .dir { color: #00d4aa; font-weight: 700; }
+  .rune { color: #ff3e00; font-weight: 700; }
+
+  /* ---- PERF METRICS ---- */
+  .metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 3rem;
+  }
+
+  .metric-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.5rem;
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.2s, border-color 0.2s;
+  }
+
+  .metric-card:hover { transform: translateY(-4px); border-color: var(--accent-fused); }
+
+  .metric-value {
+    font-size: 2.5rem;
+    font-weight: 900;
+    line-height: 1;
+    margin-bottom: 0.5rem;
+    background: linear-gradient(135deg, var(--accent-fused), #00a8ff);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .metric-label {
+    font-size: 0.75rem;
+    color: var(--muted);
+    font-family: 'Space Mono', monospace;
+    letter-spacing: 0.05em;
+  }
+
+  .metric-bar {
+    margin-top: 1rem;
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .metric-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent-fused), #00a8ff);
+    border-radius: 2px;
+    transform-origin: left;
+    animation: growBar 1s 0.5s ease both;
+  }
+
+  /* ---- COMPARISON TABLE ---- */
+  .comparison {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+  }
+
+  .comparison table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .comparison th {
+    padding: 1rem 1.5rem;
+    text-align: left;
+    font-size: 0.75rem;
+    font-family: 'Space Mono', monospace;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    background: rgba(0,0,0,0.3);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .comparison td {
+    padding: 1rem 1.5rem;
+    font-size: 0.9rem;
+    border-bottom: 1px solid rgba(30,30,46,0.5);
+  }
+
+  .comparison tr:last-child td { border-bottom: none; }
+
+  .comparison tr:hover td { background: rgba(255,255,255,0.02); }
+
+  .check { color: var(--accent-fused); }
+  .cross { color: #ff4444; }
+
+  .origin-badge {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-family: 'Space Mono', monospace;
+    font-weight: 700;
+  }
+
+  /* ---- ROADMAP ---- */
+  .roadmap {
+    position: relative;
+    padding-left: 2rem;
+  }
+
+  .roadmap::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: linear-gradient(to bottom, var(--accent-sv), var(--accent-next), var(--accent-astro), var(--accent-fused));
+  }
+
+  .roadmap-item {
+    position: relative;
+    padding: 0 0 2.5rem 2rem;
+  }
+
+  .roadmap-dot {
+    position: absolute;
+    left: -2.25rem;
+    top: 0.25rem;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--accent-fused);
+    box-shadow: 0 0 12px var(--accent-fused);
+  }
+
+  .roadmap-phase {
+    font-size: 0.65rem;
+    font-family: 'Space Mono', monospace;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--accent-fused);
+    margin-bottom: 0.4rem;
+  }
+
+  .roadmap-title {
+    font-size: 1.1rem;
+    font-weight: 800;
+    margin-bottom: 0.4rem;
+  }
+
+  .roadmap-desc { font-size: 0.85rem; color: var(--muted); }
+
+  /* ---- FOOTER ---- */
+  .footer {
+    border-top: 1px solid var(--border);
+    padding: 3rem 2rem;
+    text-align: center;
+    color: var(--muted);
+    font-size: 0.8rem;
+    font-family: 'Space Mono', monospace;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* ---- ANIMATIONS ---- */
+  @keyframes fadeDown {
+    from { opacity: 0; transform: translateY(-16px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(24px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes bounce {
+    0%, 100% { transform: translateX(-50%) translateY(0); }
+    50% { transform: translateX(-50%) translateY(8px); }
+  }
+
+  @keyframes growBar {
+    from { width: 0; }
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+
+  .pulse { animation: pulse 2s infinite; }
+
+  /* ---- ISLANDS VISUALIZER ---- */
+  .islands-demo {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 2rem;
+    position: relative;
+  }
+
+  .page-mock {
+    background: #0d0d14;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+  }
+
+  .mock-header {
+    height: 52px;
+    background: #111120;
+    display: flex;
+    align-items: center;
+    padding: 0 1.5rem;
+    gap: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .mock-dot { width: 10px; height: 10px; border-radius: 50%; }
+
+  .mock-body {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: auto auto auto;
+    gap: 12px;
+    padding: 1.5rem;
+  }
+
+  .mock-block {
+    border-radius: 8px;
+    padding: 1.25rem;
+    font-size: 0.75rem;
+    position: relative;
+  }
+
+  .mock-block.static {
+    background: rgba(255,255,255,0.03);
+    border: 1px dashed rgba(255,255,255,0.1);
+    color: var(--muted);
+  }
+
+  .mock-block.island-sv {
+    background: var(--glow-sv);
+    border: 1px solid var(--accent-sv);
+    color: var(--accent-sv);
+  }
+
+  .mock-block.island-next {
+    background: var(--glow-next);
+    border: 1px solid var(--accent-next);
+    color: var(--accent-next);
+  }
+
+  .mock-block.island-astro {
+    background: var(--glow-astro);
+    border: 1px solid var(--accent-astro);
+    color: var(--accent-astro);
+  }
+
+  .mock-block .island-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.6rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    position: absolute;
+    top: -10px;
+    left: 12px;
+    background: var(--surface);
+    padding: 2px 8px;
+    border-radius: 4px;
+    border: 1px solid currentColor;
+  }
+
+  .mock-block .island-label::before { content: '◉'; font-size: 0.5rem; }
+
+  .span-full { grid-column: 1 / -1; }
+
+  .legend {
+    display: flex;
+    gap: 1.5rem;
+    margin-top: 1.5rem;
+    flex-wrap: wrap;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.75rem;
+    color: var(--muted);
+    font-family: 'Space Mono', monospace;
+  }
+
+  .legend-dot { width: 10px; height: 10px; border-radius: 2px; }
+
+  /* Interactive counter */
+  .interactive-demo {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 2.5rem;
+    text-align: center;
+  }
+
+  .demo-title {
+    font-size: 0.75rem;
+    font-family: 'Space Mono', monospace;
+    color: var(--accent-fused);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 2rem;
+  }
+
+  .counter-display {
+    font-size: 5rem;
+    font-weight: 900;
+    color: var(--accent-sv);
+    line-height: 1;
+    margin-bottom: 0.5rem;
+    transition: all 0.15s;
+    font-feature-settings: 'tnum';
+  }
+
+  .derived-display {
+    font-size: 1.2rem;
+    color: var(--muted);
+    margin-bottom: 2rem;
+    font-family: 'Space Mono', monospace;
+  }
+
+  .derived-display span { color: var(--accent-next); }
+
+  .counter-btn {
+    background: none;
+    border: 2px solid var(--accent-sv);
+    color: var(--accent-sv);
+    padding: 12px 32px;
+    border-radius: 8px;
+    font-family: 'Syne', sans-serif;
+    font-size: 1rem;
+    font-weight: 800;
+    cursor: pointer;
+    transition: all 0.2s;
+    letter-spacing: 0.05em;
+  }
+
+  .counter-btn:hover { background: var(--glow-sv); transform: scale(1.05); }
+  .counter-btn:active { transform: scale(0.98); }
+
+  .rune-code {
+    margin-top: 1.5rem;
+    background: rgba(0,0,0,0.4);
+    border-radius: 8px;
+    padding: 1rem 1.5rem;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.75rem;
+    text-align: left;
+    color: var(--muted);
+  }
+
+  @media (max-width: 768px) {
+    .arch-diagram { grid-template-columns: 1fr; }
+    .mock-body { grid-template-columns: 1fr; }
+    .fusion-bar::after { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-bg"></div>
+  <div class="hero-grid"></div>
+  <div class="hero-content">
+    <div class="badge">Framework Conceptual · 2026</div>
+    <h1>
+      <span class="title-sv">Sveltr</span><span class="title-next">o</span><br>
+      <span class="title-fused">Next</span>
+    </h1>
+    <p class="hero-subtitle">
+      El framework definitivo que fusiona la arquitectura de islas de Astro,
+      la reactividad sin VDOM de Svelte 5 y el full-stack robusto de Next.js.
+    </p>
+    <div class="hero-pills">
+      <span class="pill pill-sv">◆ Svelte 5 Runes</span>
+      <span class="pill pill-next">◆ Server Actions</span>
+      <span class="pill pill-astro">◆ Islands Arch.</span>
+    </div>
+  </div>
+  <div class="scroll-hint">
+    <span>EXPLORAR</span>
+    <svg width="16" height="24" viewBox="0 0 16 24" fill="none">
+      <path d="M8 0v20M1 14l7 8 7-8" stroke="currentColor" stroke-width="1.5"/>
+    </svg>
+  </div>
+</section>
+
+<!-- ARCHITECTURE -->
+<section class="section">
+  <p class="section-label">01 — Arquitectura</p>
+  <h2 class="section-title">Tres motores.<br>Una sola visión.</h2>
+  <p class="section-sub">Cada capa del framework hereda el mejor paradigma de su fuente.</p>
+
+  <div class="arch-diagram">
+    <div class="arch-layer astro">
+      <div class="arch-layer-icon">🏝️</div>
+      <div class="arch-layer-name">De Astro</div>
+      <div class="arch-layer-title">Motor de Renderizado</div>
+      <div class="arch-layer-desc">
+        Islands Architecture nativa. Cero JavaScript enviado al cliente por defecto.
+        PPR (Partial Pre-Rendering) para cáscaras estáticas instantáneas con huecos dinámicos.
+      </div>
+      <div class="arch-layer-tags">
+        <span class="tag tag-astro">Zero JS</span>
+        <span class="tag tag-astro">PPR</span>
+        <span class="tag tag-astro">SSG + SSR</span>
+        <span class="tag tag-astro">client:visible</span>
+      </div>
+    </div>
+
+    <div class="arch-layer sv">
+      <div class="arch-layer-icon">⚡</div>
+      <div class="arch-layer-name">De Svelte 5</div>
+      <div class="arch-layer-title">Motor de Reactividad</div>
+      <div class="arch-layer-desc">
+        Runes ($state, $derived, $effect) para reactividad fina y explícita.
+        Compilación ahead-of-time sin Virtual DOM, rendimiento nativo del navegador.
+      </div>
+      <div class="arch-layer-tags">
+        <span class="tag tag-sv">$state</span>
+        <span class="tag tag-sv">$derived</span>
+        <span class="tag tag-sv">No VDOM</span>
+        <span class="tag tag-sv">AOT Compile</span>
+      </div>
+    </div>
+
+    <div class="arch-layer next">
+      <div class="arch-layer-icon">🔧</div>
+      <div class="arch-layer-name">De Next.js</div>
+      <div class="arch-layer-title">Corazón Full-Stack</div>
+      <div class="arch-layer-desc">
+        Server Actions 2.0 con type-safety automático. File-based routing
+        con layouts anidados. Edge-ready con middleware nativo.
+      </div>
+      <div class="arch-layer-tags">
+        <span class="tag tag-next">Server Actions</span>
+        <span class="tag tag-next">Edge Runtime</span>
+        <span class="tag tag-next">File Routing</span>
+        <span class="tag tag-next">Type-safe</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="fusion-bar">
+    <div class="fusion-icon">✦</div>
+    <div class="fusion-text">
+      <h3>La capa de fusión: Sveltro Next</h3>
+      <p>Multi-framework support · Optimización de imágenes AVIF/WebP · Edge CDN nativo · DX de primer nivel</p>
+    </div>
+  </div>
+</section>
+
+<!-- ISLANDS VISUALIZER -->
+<section class="section" style="padding-top: 0;">
+  <p class="section-label">02 — Islands Architecture</p>
+  <h2 class="section-title">El DOM como<br>archipiélago.</h2>
+  <p class="section-sub">Solo los componentes que necesitan JS lo reciben. El resto es HTML puro y rápido.</p>
+
+  <div class="islands-demo">
+    <div class="page-mock">
+      <div class="mock-header">
+        <div class="mock-dot" style="background:#ff5f57"></div>
+        <div class="mock-dot" style="background:#ffbd2e"></div>
+        <div class="mock-dot" style="background:#28ca41"></div>
+        <div style="margin-left:1rem; font-size:0.75rem; color:var(--muted); font-family:'Space Mono',monospace;">mi-app.sveltro.dev</div>
+      </div>
+      <div class="mock-body">
+        <div class="mock-block static span-full" style="height:60px; display:flex; align-items:center;">
+          📄 &nbsp; Header estático — cargado como HTML puro, 0 KB JS
+        </div>
+        <div class="mock-block island-sv" style="height:120px; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:8px;">
+          <div class="island-label">client:visible · Svelte</div>
+          <div style="font-size:1.5rem; font-weight:900;">⚡ Counter</div>
+          <div style="font-size:0.7rem; opacity:0.7;">$state reactivo — hidratado al entrar en viewport</div>
+        </div>
+        <div class="mock-block island-next" style="height:120px; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:8px;">
+          <div class="island-label">server:stream · Next</div>
+          <div style="font-size:1.5rem; font-weight:900;">🔧 Form</div>
+          <div style="font-size:0.7rem; opacity:0.7;">Server Action — muta datos sin API manual</div>
+        </div>
+        <div class="mock-block static" style="height:50px; display:flex; align-items:center;">
+          📄 &nbsp; Footer estático — 0 KB JS
+        </div>
+        <div class="mock-block island-astro span-full" style="height:80px; display:flex; align-items:center; gap:1rem;">
+          <div class="island-label">client:idle · Multi-fw</div>
+          <div>🏝️ &nbsp; Componente React embebido dentro de una página Svelte — Astro Multi-framework</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="legend">
+      <div class="legend-item"><div class="legend-dot" style="background:rgba(255,255,255,0.1); border:1px dashed rgba(255,255,255,0.2);"></div> HTML Estático (0 KB)</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--accent-sv);"></div> Isla Svelte</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--accent-next);"></div> Isla Next / Server</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--accent-astro);"></div> Isla Multi-framework</div>
+    </div>
+  </div>
+</section>
+
+<!-- REACTIVE DEMO -->
+<section class="section" style="padding-top: 0;">
+  <p class="section-label">03 — Reactividad Svelte 5</p>
+  <h2 class="section-title">Runes en acción.<br>Sin VDOM.</h2>
+  <p class="section-sub">Prueba la reactividad compilada de $state y $derived — exactamente como funcionaría en Sveltro Next.</p>
+
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+    <div class="interactive-demo">
+      <div class="demo-title">◉ Componente Activo · client:visible</div>
+      <div class="counter-display" id="counter-val">0</div>
+      <div class="derived-display">$derived: <span id="derived-val">0</span> × 2</div>
+      <button class="counter-btn" onclick="increment()">+ Incrementar</button>
+      <div class="rune-code">
+<span class="rune">let</span> count = <span class="rune">$state</span>(0);<br>
+<span class="rune">let</span> doubled = <span class="rune">$derived</span>(count * 2);
+      </div>
+    </div>
+
+    <div class="code-section" style="border-radius: 16px;">
+      <div class="code-tabs">
+        <div class="code-tab active" onclick="showTab('component')">+page.svelte</div>
+        <div class="code-tab" onclick="showTab('action')">actions.ts</div>
+        <div class="code-tab" onclick="showTab('layout')">+layout.svelte</div>
+      </div>
+      <div class="code-body active" id="tab-component">
+<pre><span class="cmt">---</span>
+<span class="cmt">// Server (Astro-style) — solo en servidor</span>
+<span class="kw">import</span> { db } <span class="kw">from</span> <span class="str">'$lib/database'</span>;
+<span class="kw">const</span> <span class="var">user</span> = <span class="kw">await</span> db.user.<span class="fn">findFirst</span>();
+<span class="cmt">---</span>
+
+<span class="tag-html">&lt;script&gt;</span>
+  <span class="cmt">// Svelte 5 Runes — reactividad compilada</span>
+  <span class="kw">let</span> <span class="var">count</span> = <span class="rune">$state</span>(0);
+  <span class="kw">let</span> <span class="var">doubled</span> = <span class="rune">$derived</span>(<span class="var">count</span> * 2);
+
+  <span class="kw">async function</span> <span class="fn">updateProfile</span>(<span class="var">formData</span>) {
+    <span class="str">"use server"</span> <span class="cmt">// Next.js Server Action</span>
+    <span class="kw">await</span> db.user.<span class="fn">update</span>({
+      <span class="attr">data</span>: { <span class="attr">name</span>: <span class="var">formData</span>.<span class="fn">get</span>(<span class="str">'name'</span>) }
+    });
+  }
+<span class="tag-html">&lt;/script&gt;</span>
+
+<span class="tag-html">&lt;h1&gt;</span>Hola, {<span class="var">user</span>.name}<span class="tag-html">&lt;/h1&gt;</span>
+
+<span class="tag-html">&lt;button</span> <span class="attr">onclick</span>={() => <span class="var">count</span>++}>
+  Clicks: {<span class="var">count</span>} (Doble: {<span class="var">doubled</span>})
+<span class="tag-html">&lt;/button&gt;</span>
+
+<span class="tag-html">&lt;form</span> <span class="attr">action</span>={<span class="fn">updateProfile</span>}>
+  <span class="tag-html">&lt;input</span> <span class="attr">name</span>=<span class="str">"name"</span> />
+  <span class="tag-html">&lt;button</span> <span class="attr">type</span>=<span class="str">"submit"</span>>Guardar<span class="tag-html">&lt;/button&gt;</span>
+<span class="tag-html">&lt;/form&gt;</span></pre>
+      </div>
+      <div class="code-body" id="tab-action">
+<pre><span class="cmt">// actions.ts — Server Actions 2.0</span>
+<span class="cmt">// Type-safety automática, sin boilerplate</span>
+
+<span class="str">"use server"</span>;
+
+<span class="kw">import</span> { db } <span class="kw">from</span> <span class="str">'$lib/database'</span>;
+<span class="kw">import</span> { revalidate } <span class="kw">from</span> <span class="str">'sveltro/cache'</span>;
+
+<span class="kw">export async function</span> <span class="fn">updateProfile</span>(
+  <span class="var">formData</span>: FormData
+): <span class="kw">Promise</span>&lt;{ success: boolean }&gt; {
+
+  <span class="kw">const</span> <span class="var">name</span> = <span class="var">formData</span>.<span class="fn">get</span>(<span class="str">'name'</span>) <span class="kw">as</span> string;
+
+  <span class="kw">await</span> db.user.<span class="fn">update</span>({
+    <span class="attr">where</span>: { id: <span class="var">session</span>.userId },
+    <span class="attr">data</span>: { <span class="var">name</span> }
+  });
+
+  <span class="kw">await</span> <span class="fn">revalidate</span>(<span class="str">'/profile'</span>);
+  <span class="kw">return</span> { success: <span class="kw">true</span> };
+}
+
+<span class="cmt">// Edge-ready: se ejecuta en CDN edge</span>
+<span class="kw">export const</span> <span class="var">runtime</span> = <span class="str">'edge'</span>;</pre>
+      </div>
+      <div class="code-body" id="tab-layout">
+<pre><span class="cmt">// app/dashboard/+layout.svelte</span>
+<span class="cmt">// File-based routing con layouts anidados</span>
+
+<span class="tag-html">&lt;script&gt;</span>
+  <span class="kw">import</span> Sidebar <span class="kw">from</span> <span class="str">'$components/Sidebar.svelte'</span>;
+  <span class="kw">import</span> TopNav  <span class="kw">from</span> <span class="str">'$components/TopNav.svelte'</span>;
+
+  <span class="cmt">// Rune compartida entre layout e hijos</span>
+  <span class="kw">let</span> { <span class="var">children</span> } = <span class="rune">$props</span>();
+<span class="tag-html">&lt;/script&gt;</span>
+
+<span class="tag-html">&lt;TopNav</span> /&gt;
+
+<span class="tag-html">&lt;div</span> <span class="attr">class</span>=<span class="str">"dashboard-shell"</span>>
+  <span class="tag-html">&lt;Sidebar</span> /&gt;
+  <span class="tag-html">&lt;main&gt;</span>
+    {@render <span class="var">children</span>()}
+  <span class="tag-html">&lt;/main&gt;</span>
+<span class="tag-html">&lt;/div&gt;</span>
+
+<span class="cmt">// Directorio:</span>
+<span class="cmt">// app/</span>
+<span class="cmt">// ├── +layout.svelte   (root)</span>
+<span class="cmt">// ├── dashboard/</span>
+<span class="cmt">// │   ├── +layout.svelte (este)</span>
+<span class="cmt">// │   ├── +page.svelte</span>
+<span class="cmt">// │   └── settings/</span>
+<span class="cmt">// │       └── +page.svelte</span></pre>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PERFORMANCE METRICS -->
+<section class="section" style="padding-top: 0;">
+  <p class="section-label">04 — Performance</p>
+  <h2 class="section-title">Números que<br>importan.</h2>
+  <p class="section-sub">Benchmark hipotético vs. frameworks actuales — basado en sus principios arquitectónicos.</p>
+
+  <div class="metrics-grid">
+    <div class="metric-card">
+      <div class="metric-value">0</div>
+      <div class="metric-label">KB JS por defecto</div>
+      <div class="metric-bar"><div class="metric-fill" style="width: 100%;"></div></div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-value">&lt;50</div>
+      <div class="metric-label">ms Time to Interactive</div>
+      <div class="metric-bar"><div class="metric-fill" style="width: 95%;"></div></div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-value">100</div>
+      <div class="metric-label">Lighthouse Score</div>
+      <div class="metric-bar"><div class="metric-fill" style="width: 100%;"></div></div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-value">≈0</div>
+      <div class="metric-label">Runtime Overhead</div>
+      <div class="metric-bar"><div class="metric-fill" style="width: 98%;"></div></div>
+    </div>
+  </div>
+
+  <!-- Comparison -->
+  <div class="comparison">
+    <table>
+      <thead>
+        <tr>
+          <th>Característica</th>
+          <th>Proveniente de</th>
+          <th>Next.js</th>
+          <th>Astro</th>
+          <th>Svelte</th>
+          <th>Sveltro Next</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Cero JS por defecto</td>
+          <td><span class="origin-badge" style="background:var(--glow-astro);color:var(--accent-astro)">Astro</span></td>
+          <td class="cross">✗</td>
+          <td class="check">✓</td>
+          <td class="cross">✗</td>
+          <td class="check" style="font-weight:800">✓✓</td>
+        </tr>
+        <tr>
+          <td>Sin Virtual DOM</td>
+          <td><span class="origin-badge" style="background:var(--glow-sv);color:var(--accent-sv)">Svelte</span></td>
+          <td class="cross">✗</td>
+          <td class="check">✓</td>
+          <td class="check">✓</td>
+          <td class="check" style="font-weight:800">✓✓</td>
+        </tr>
+        <tr>
+          <td>Server Actions</td>
+          <td><span class="origin-badge" style="background:var(--glow-next);color:var(--accent-next)">Next.js</span></td>
+          <td class="check">✓</td>
+          <td class="cross">✗</td>
+          <td class="cross">~</td>
+          <td class="check" style="font-weight:800">✓✓</td>
+        </tr>
+        <tr>
+          <td>Multi-framework</td>
+          <td><span class="origin-badge" style="background:var(--glow-astro);color:var(--accent-astro)">Astro</span></td>
+          <td class="cross">✗</td>
+          <td class="check">✓</td>
+          <td class="cross">✗</td>
+          <td class="check" style="font-weight:800">✓✓</td>
+        </tr>
+        <tr>
+          <td>Reactividad fina (Runes)</td>
+          <td><span class="origin-badge" style="background:var(--glow-sv);color:var(--accent-sv)">Svelte</span></td>
+          <td class="cross">✗</td>
+          <td class="cross">✗</td>
+          <td class="check">✓</td>
+          <td class="check" style="font-weight:800">✓✓</td>
+        </tr>
+        <tr>
+          <td>Edge Runtime nativo</td>
+          <td><span class="origin-badge" style="background:var(--glow-next);color:var(--accent-next)">Next.js</span></td>
+          <td class="check">✓</td>
+          <td class="check">✓</td>
+          <td class="cross">~</td>
+          <td class="check" style="font-weight:800">✓✓</td>
+        </tr>
+        <tr>
+          <td>Type-safe Server Actions</td>
+          <td><span class="origin-badge" style="background:var(--glow-fused);color:var(--accent-fused)">Fusión</span></td>
+          <td class="cross">~</td>
+          <td class="cross">✗</td>
+          <td class="cross">✗</td>
+          <td class="check" style="font-weight:800">✓✓</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ROADMAP -->
+<section class="section" style="padding-top: 0;">
+  <p class="section-label">05 — Roadmap</p>
+  <h2 class="section-title">Del concepto<br>al runtime.</h2>
+  <p class="section-sub">Las fases de construcción de un framework de esta envergadura.</p>
+
+  <div class="roadmap">
+    <div class="roadmap-item">
+      <div class="roadmap-dot" style="background:var(--accent-sv);box-shadow:0 0 12px var(--accent-sv)"></div>
+      <div class="roadmap-phase">Fase 1 — Compilador</div>
+      <div class="roadmap-title">Motor de compilación basado en Svelte 5</div>
+      <div class="roadmap-desc">Adaptar el compilador de Svelte para emitir HTML puro como bloque base. Integrar Runes como el primitivo de reactividad universal del framework.</div>
+    </div>
+    <div class="roadmap-item">
+      <div class="roadmap-dot" style="background:var(--accent-astro);box-shadow:0 0 12px var(--accent-astro)"></div>
+      <div class="roadmap-phase">Fase 2 — Runtime</div>
+      <div class="roadmap-title">Islands Runtime + Hidratación selectiva</div>
+      <div class="roadmap-desc">Implementar el sistema de directivas <code style="color:var(--accent-fused);font-family:'Space Mono',monospace">client:*</code> y el runtime mínimo de hidratación, cargando JS solo en los componentes marcados.</div>
+    </div>
+    <div class="roadmap-item">
+      <div class="roadmap-dot" style="background:var(--accent-next);box-shadow:0 0 12px var(--accent-next)"></div>
+      <div class="roadmap-phase">Fase 3 — Full-stack</div>
+      <div class="roadmap-title">Server Actions 2.0 y File-based Router</div>
+      <div class="roadmap-desc">Construir el servidor basado en Hono/Bun, el sistema de rutas basado en sistema de archivos y el protocolo de Server Actions con inferencia de tipos automática via TypeScript compiler API.</div>
+    </div>
+    <div class="roadmap-item">
+      <div class="roadmap-dot" style="background:var(--accent-fused);box-shadow:0 0 12px var(--accent-fused)"></div>
+      <div class="roadmap-phase">Fase 4 — DX</div>
+      <div class="roadmap-title">Tooling, CLI y ecosistema</div>
+      <div class="roadmap-desc">Dev server con HMR ultrarápido (Vite 6), CLI para scaffolding, adaptadores para Cloudflare, Vercel y Fly.io. Plugin de VS Code / Cursor con soporte completo de Runes.</div>
+    </div>
+  </div>
+</section>
+
+<div class="footer">
+  <div style="font-size:0.65rem; letter-spacing:0.2em; margin-bottom:0.5rem; color: var(--accent-fused);">SVELTRO NEXT · FRAMEWORK CONCEPTUAL · 2026</div>
+  <div>Svelte 5 Runes × Astro Islands × Next.js Server Actions</div>
+  <div style="margin-top:0.5rem; font-size:0.6rem;">El futuro del desarrollo web está en la fusión, no en la elección.</div>
+</div>
+
+<script>
+  let count = 0;
+
+  function increment() {
+    count++;
+    const el = document.getElementById('counter-val');
+    const derived = document.getElementById('derived-val');
+    el.textContent = count;
+    derived.textContent = count * 2;
+    el.style.transform = 'scale(1.1)';
+    el.style.color = count % 2 === 0 ? 'var(--accent-next)' : 'var(--accent-sv)';
+    setTimeout(() => { el.style.transform = ''; }, 150);
+  }
+
+  function showTab(tab) {
+    document.querySelectorAll('.code-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.code-body').forEach(b => b.classList.remove('active'));
+    event.target.classList.add('active');
+    document.getElementById('tab-' + tab).classList.add('active');
+  }
+
+  // Animate metric bars on scroll
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        e.target.querySelectorAll('.metric-fill').forEach(bar => {
+          bar.style.animation = 'none';
+          bar.offsetHeight;
+          bar.style.animation = '';
+        });
+      }
+    });
+  }, { threshold: 0.3 });
+
+  document.querySelectorAll('.metrics-grid').forEach(el => observer.observe(el));
+</script>
+
+</body>
+</html>

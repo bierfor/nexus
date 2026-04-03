@@ -1,0 +1,19 @@
+{
+  "name": "@nexus/assets",
+  "version": "0.1.0",
+  "description": "Nexus asset pipeline — image optimization (AVIF/WebP), font injection, lazy loading",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": { "import": "./dist/index.js", "types": "./dist/index.d.ts" },
+    "./image": { "import": "./dist/image.js", "types": "./dist/image.d.ts" },
+    "./fonts": { "import": "./dist/fonts.js", "types": "./dist/fonts.d.ts" }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsc -p tsconfig.json --watch",
+    "clean": "rm -rf dist"
+  },
+  "devDependencies": { "@types/node": "^22.0.0", "typescript": "^5.5.0" }
+}
