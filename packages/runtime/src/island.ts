@@ -190,7 +190,7 @@ function attachEventListeners(
     const handlerName = attr.value;
 
     const handler = (e: Event): void => {
-      const fn = (window as Record<string, unknown>)[handlerName];
+      const fn = (window as unknown as Record<string, unknown>)[handlerName];
       if (typeof fn === 'function') fn(e);
     };
 

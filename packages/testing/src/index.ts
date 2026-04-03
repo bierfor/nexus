@@ -175,7 +175,7 @@ export async function mountIsland(
 
 export interface ActionTestHarness {
   invokeAction: (name: string, input: FormData | unknown) => Promise<unknown>;
-  listActions: () => string[];
+  listActions: () => Promise<string[]>;
 }
 
 /**

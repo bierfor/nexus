@@ -152,11 +152,13 @@ export function defineDB<TClient>(
       const ctx: QueryContext<TClient> = { client, table, operation, tags };
       await beforeQuery?.(ctx);
 
-      const cachedFn = defaultTtl > 0
-        ? () => cache(cacheKey, fn, { ttl: defaultTtl, tags })
-        : fn;
+      let result: T;
+      if (defaultTtl > 0) {
+        result = await cache(fn, { key: cacheKey, ttl: defaultTtl, tags });
+      } else {
+        result = await fn();
+      }
 
-      const result = await cachedFn();
       await afterQuery?.(ctx, result);
       return result;
     },
@@ -168,7 +170,7 @@ export function defineDB<TClient>(
       const result = await fn();
 
       // Automatically invalidate all tags for this table
-      await revalidate({ tags: tagsFromTable(table) });
+      await revalidate(tagsFromTable(table));
       await afterQuery?.(ctx, result);
 
       return result;
@@ -176,7 +178,7 @@ export function defineDB<TClient>(
 
     async invalidate(tables: string[]): Promise<void> {
       const allTags = tables.flatMap(tagsFromTable);
-      await revalidate({ tags: allTags });
+      await revalidate(allTags);
     },
 
     async health(): Promise<{ ok: boolean; latency: number }> {

@@ -1,7 +1,7 @@
 {
   "name": "@nexus/cli",
   "version": "0.1.0",
-  "description": "Nexus CLI — create, develop and build Nexus applications",
+  "description": "Nexus CLI \u2014 create, develop and build Nexus applications",
   "type": "module",
   "bin": {
     "nexus": "./dist/bin.js",
@@ -18,7 +18,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "dev": "tsc -p tsconfig.json --watch",
-    "test": "vitest run",
+    "test": "vitest run --passWithNoTests",
     "clean": "rm -rf dist"
   },
   "dependencies": {

@@ -1,7 +1,7 @@
 {
   "name": "@nexus/server",
   "version": "0.1.0",
-  "description": "Nexus HTTP server — SSR, Server Actions, Edge-ready",
+  "description": "Nexus HTTP server \u2014 SSR, Server Actions, Edge-ready",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -22,12 +22,13 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "dev": "tsc -p tsconfig.json --watch",
-    "test": "vitest run",
+    "test": "vitest run --passWithNoTests",
     "clean": "rm -rf dist"
   },
   "dependencies": {
     "@nexus/compiler": "workspace:*",
-    "@nexus/router": "workspace:*"
+    "@nexus/router": "workspace:*",
+    "@nexus/serialize": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

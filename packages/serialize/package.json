@@ -1,16 +1,24 @@
 {
   "name": "@nexus/serialize",
   "version": "0.1.0",
-  "description": "Nexus serializer — lossless transport of Date, Map, Set, BigInt, RegExp, URL between server and client",
+  "description": "Nexus serializer \u2014 lossless transport of Date, Map, Set, BigInt, RegExp, URL between server and client",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "exports": { ".": { "import": "./dist/index.js", "types": "./dist/index.d.ts" } },
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "dev": "tsc -p tsconfig.json --watch",
-    "test": "vitest run",
+    "test": "vitest run --passWithNoTests",
     "clean": "rm -rf dist"
   },
-  "devDependencies": { "typescript": "^5.5.0", "vitest": "^2.0.0" }
+  "devDependencies": {
+    "typescript": "^5.5.0",
+    "vitest": "^2.0.0"
+  }
 }

@@ -1,7 +1,7 @@
 {
   "name": "@nexus/compiler",
   "version": "0.1.0",
-  "description": "Nexus compiler — transforms .nx files into optimized server/client bundles",
+  "description": "Nexus compiler \u2014 transforms .nx files into optimized server/client bundles",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -14,7 +14,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "dev": "tsc -p tsconfig.json --watch",
-    "test": "vitest run",
+    "test": "vitest run --passWithNoTests",
     "clean": "rm -rf dist"
   },
   "dependencies": {

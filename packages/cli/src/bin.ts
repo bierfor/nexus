@@ -60,9 +60,11 @@ async function main(): Promise<void> {
     process.exit(0);
   }
 
-  const command = positionals[0];
-  const port = values.port ? parseInt(values.port, 10) : 3000;
-  const root = values.root ?? process.cwd();
+  const command = positionals[0] as string | undefined;
+  const portVal = values['port'];
+  const rootVal = values['root'];
+  const port = typeof portVal === 'string' ? parseInt(portVal, 10) : 3000;
+  const root = typeof rootVal === 'string' ? rootVal : process.cwd();
 
   switch (command) {
     case 'dev':

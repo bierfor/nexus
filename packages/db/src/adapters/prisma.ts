@@ -55,16 +55,20 @@ export function prismaAdapter<TClient extends {
 ): PrismaAdapter<TClient> {
   const slowThreshold = opts.slowQueryThreshold ?? 200;
 
+  const queryTimings = new WeakMap<object, number>();
+
   const base = defineDB(prismaClient, {
     tags: (table) => [table],
     edge: false,
 
     async beforeQuery(ctx) {
-      ctx['_startTime'] = Date.now();
+      queryTimings.set(ctx, Date.now());
     },
 
     async afterQuery(ctx, _result) {
-      const elapsed = Date.now() - (ctx['_startTime'] as number ?? Date.now());
+      const start = queryTimings.get(ctx);
+      const elapsed = start !== undefined ? Date.now() - start : 0;
+      queryTimings.delete(ctx);
       if (elapsed > slowThreshold) {
         console.warn(
           `[Nexus DB] Slow query: ${ctx.table}.${ctx.operation} took ${elapsed}ms`,
@@ -81,7 +85,11 @@ export function prismaAdapter<TClient extends {
     async health() {
       const start = Date.now();
       try {
-        await prismaClient.$queryRaw?.`SELECT 1`;
+        if (typeof prismaClient.$queryRaw === 'function') {
+          await (prismaClient.$queryRaw as (sql: { text: string }) => Promise<unknown>)(
+            { text: 'SELECT 1' },
+          );
+        }
         return { ok: true, latency: Date.now() - start };
       } catch {
         return { ok: false, latency: Date.now() - start };

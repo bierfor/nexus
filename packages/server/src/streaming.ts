@@ -200,12 +200,14 @@ export function createSuspenseBoundary<T>(
   const boundary: StreamingBoundary = {
     id,
     promise: promise.then((value) => opts.render(value)),
-    fallback: opts.fallback,
-    errorFallback:
-      typeof opts.errorFallback === 'function'
-        ? undefined
-        : opts.errorFallback,
   };
+  if (opts.fallback !== undefined) {
+    boundary.fallback = opts.fallback;
+  }
+  const ef = typeof opts.errorFallback !== 'function' ? opts.errorFallback : undefined;
+  if (ef !== undefined) {
+    boundary.errorFallback = ef;
+  }
 
   return { id, placeholder, boundary };
 }

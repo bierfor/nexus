@@ -194,12 +194,15 @@ export async function withErrorBoundary<T>(
 
 function normalizeError(err: unknown, dev: boolean): BoundaryError {
   if (err instanceof Error) {
-    return {
+    const normalized: BoundaryError = {
       message: err.message,
       name: err.name,
       digest: generateDigest(err.message),
-      stack: dev ? err.stack : undefined,
     };
+    if (dev && err.stack !== undefined) {
+      normalized.stack = err.stack;
+    }
+    return normalized;
   }
   const msg = String(err);
   return {

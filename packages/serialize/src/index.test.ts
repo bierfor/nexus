@@ -10,7 +10,7 @@ describe('Nexus Serialize — round-trip fidelity', () => {
   });
 
   it('preserves Map', () => {
-    const m = new Map([['a', 1], ['b', new Date()]]);
+    const m = new Map<string, unknown>([['a', 1], ['b', new Date()]]);
     const result = deserialize<Map<string, unknown>>(serialize(m));
     expect(result).toBeInstanceOf(Map);
     expect(result.get('a')).toBe(1);

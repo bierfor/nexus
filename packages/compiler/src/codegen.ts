@@ -2,11 +2,12 @@ import type {
   ParsedComponent,
   CompileOptions,
   CompileResult,
+  CompileWarning,
   IslandManifest,
   IslandEntry,
   ServerAction,
 } from './types.js';
-import { scopeCSS, scopeTemplate, componentHash } from './css-scope.js';
+import { scopeCSS, scopeTemplate } from './css-scope.js';
 
 /** Generates a unique stable island ID from filepath + component name */
 function islandId(filepath: string, componentName: string): string {
@@ -19,10 +20,21 @@ export function generate(
   parsed: ParsedComponent,
   opts: CompileOptions,
 ): CompileResult {
-  const warnings = [];
+  const warnings: CompileWarning[] = [];
+
+  // ── CSS (AOT hash scoping — zero runtime) ─────────────────────────────────
+  // Computed first so it can be passed into generateServerModule
+  let css: string | null = null;
+  let processedTemplate = parsed.template?.content ?? '';
+  if (parsed.style) {
+    const scoped = scopeCSS(parsed.style.content, parsed.filepath);
+    css = scoped.css;
+    // Inject data-nx hash onto template root elements
+    processedTemplate = scopeTemplate(processedTemplate, scoped.hash);
+  }
 
   // ── Server module ──────────────────────────────────────────────────────────
-  const serverCode = generateServerModule(parsed, opts);
+  const serverCode = generateServerModule(parsed, opts, processedTemplate);
 
   // ── Client island code (only if there are reactive islands) ───────────────
   const clientCode =
@@ -30,29 +42,22 @@ export function generate(
       ? generateClientIsland(parsed, opts)
       : null;
 
-  // ── CSS (AOT hash scoping — zero runtime) ─────────────────────────────────
-  let css: string | null = null;
-  let scopedTemplate = parsed.template?.content ?? '';
-  if (parsed.style) {
-    const scoped = scopeCSS(parsed.style.content, parsed.filepath);
-    css = scoped.css;
-    // Inject data-nx hash onto template root elements
-    scopedTemplate = scopeTemplate(scopedTemplate, scoped.hash);
-  }
-
   // ── Island manifest ────────────────────────────────────────────────────────
   const islandManifest: IslandManifest | null =
     opts.emitIslandManifest && parsed.islandDirectives.length > 0
       ? {
-          islands: parsed.islandDirectives.map(
-            (d): IslandEntry => ({
+          islands: parsed.islandDirectives.map((d): IslandEntry => {
+            const entry: IslandEntry = {
               id: islandId(parsed.filepath, d.componentName),
               componentPath: parsed.filepath,
               directive: d.directive,
               props: [],
-              mediaQuery: d.mediaQuery,
-            }),
-          ),
+            };
+            if (d.mediaQuery !== undefined) {
+              entry.mediaQuery = d.mediaQuery;
+            }
+            return entry;
+          }),
         }
       : null;
 
@@ -76,7 +81,7 @@ export function generate(
 // ─────────────────────────────────────────────────────────────────────────────
 // Server module: runs on every request
 // ─────────────────────────────────────────────────────────────────────────────
-function generateServerModule(parsed: ParsedComponent, opts: CompileOptions): string {
+function generateServerModule(parsed: ParsedComponent, opts: CompileOptions, processedTemplate: string): string {
   const lines: string[] = [];
 
   lines.push(`// [Nexus] Server module — generated from ${parsed.filepath}`);
@@ -110,7 +115,7 @@ function generateServerModule(parsed: ParsedComponent, opts: CompileOptions): st
   // Template renderer (simple expression interpolation → SSR)
   lines.push('async function renderTemplate(ctx) {');
   lines.push('  // Server-side template rendering (CSS-scoped at compile time)');
-  lines.push(`  return \`${templateToSSR(scopedTemplate)}\`;`);
+  lines.push(`  return \`${templateToSSR(processedTemplate)}\`;`);
   lines.push('}');
 
   return lines.join('\n');

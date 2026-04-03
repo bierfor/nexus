@@ -138,11 +138,14 @@ function extractIslandDirectives(template: string): IslandDirective[] {
     const re = new RegExp(`<(\\w+)[^>]*\\s${directive}(?:=["']([^"']*)["'])?[^>]*>`, 'g');
     let match: RegExpExecArray | null;
     while ((match = re.exec(template)) !== null) {
-      directives.push({
+      const entry: IslandDirective = {
         directive,
         componentName: match[1] ?? 'Unknown',
-        mediaQuery: directive === 'client:media' ? (match[2] ?? undefined) : undefined,
-      });
+      };
+      if (directive === 'client:media' && match[2] !== undefined) {
+        entry.mediaQuery = match[2];
+      }
+      directives.push(entry);
     }
   }
 

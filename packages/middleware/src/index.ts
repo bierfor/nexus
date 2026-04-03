@@ -313,7 +313,7 @@ export function logger(opts: { format?: 'tiny' | 'combined' } = {}): MiddlewareF
 export function toCloudflareHandler(middleware: MiddlewareFn) {
   return {
     async fetch(request: Request, env: unknown, ctx: { waitUntil: (p: Promise<unknown>) => void }): Promise<Response> {
-      return middleware(request, () => new Response('Not Found', { status: 404 }));
+      return middleware(request, () => Promise.resolve(new Response('Not Found', { status: 404 })));
     },
   };
 }
@@ -323,7 +323,7 @@ export function toCloudflareHandler(middleware: MiddlewareFn) {
  */
 export function toVercelEdge(middleware: MiddlewareFn) {
   return async (request: Request): Promise<Response> => {
-    return middleware(request, () => new Response('Not Found', { status: 404 }));
+    return middleware(request, () => Promise.resolve(new Response('Not Found', { status: 404 })));
   };
 }
 

@@ -108,6 +108,7 @@ export function nexus(opts: NexusPluginOptions = {}): Plugin[] {
     resolveId(id) {
       if (id.startsWith(VIRTUAL_SERVER)) return RESOLVED_SERVER + id.slice(VIRTUAL_SERVER.length);
       if (id.startsWith(VIRTUAL_CLIENT)) return RESOLVED_CLIENT + id.slice(VIRTUAL_CLIENT.length);
+      return undefined;
     },
 
     async load(id) {
@@ -121,6 +122,7 @@ export function nexus(opts: NexusPluginOptions = {}): Plugin[] {
         const compiled = compiledCache.get(filepath);
         return compiled?.clientCode ?? null;
       }
+      return null;
     },
 
     async transform(code, id, transformOpts) {
