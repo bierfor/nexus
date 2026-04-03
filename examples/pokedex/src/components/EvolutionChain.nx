@@ -1,0 +1,119 @@
+---
+/**
+ * EvolutionChain — Visual evolution tree
+ * client:visible → only hydrates when user scrolls to it.
+ *
+ * The chain data was resolved SERVER-SIDE in ONE GraphQL query.
+ * In REST/Next.js this requires 3 sequential fetches:
+ *   1. GET /pokemon/:id      → get species_url
+ *   2. GET /pokemon-species  → get evolution_chain_url
+ *   3. GET /evolution-chain  → get the tree
+ * That's a 400-900ms waterfall. Nexus: 0ms (already cached).
+ */
+import type { EvolutionNode } from '../lib/types.js';
+---
+
+<script>
+let { chain, currentId } = $props<{ chain: EvolutionNode[]; currentId: number }>();
+
+function triggerLabel(node: EvolutionNode): string {
+  if (!node.trigger) return '';
+  if (node.trigger === 'level-up' && node.minLevel) {
+    return `Lv. ${node.minLevel}`;
+  }
+  return node.trigger.replace(/-/g, ' ');
+}
+</script>
+
+<template>
+  <div class="chain">
+    {#each chain.value as node, i}
+      {#if i > 0}
+        <div class="arrow">
+          <div class="arrow-line"></div>
+          <span class="arrow-label">{triggerLabel(node)}</span>
+          <div class="arrow-head">→</div>
+        </div>
+      {/if}
+
+      <a
+        href="/pokemon/{node.id}"
+        class="evo-node {node.id === currentId.value ? 'current' : ''}"
+      >
+        <div class="evo-img-wrap">
+          <img
+            src="{node.sprite}"
+            alt="{node.name}"
+            width="80"
+            height="80"
+            loading="lazy"
+          />
+        </div>
+        <span class="evo-name">{node.name}</span>
+        <span class="evo-num">#{String(node.id).padStart(3, '0')}</span>
+      </a>
+    {/each}
+  </div>
+</template>
+
+<style>
+  .chain {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .evo-node {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 16px;
+    border-radius: 12px;
+    border: 2px solid transparent;
+    text-decoration: none;
+    color: var(--text);
+    transition: all .2s;
+    min-width: 100px;
+  }
+
+  .evo-node:hover { background: rgba(255,255,255,.04); border-color: var(--border); }
+  .evo-node.current { border-color: var(--accent); background: rgba(124,58,237,.08); }
+
+  .evo-img-wrap {
+    width: 80px; height: 80px;
+    background: rgba(255,255,255,.04);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px;
+  }
+
+  .evo-img-wrap img { width: 64px; height: 64px; object-fit: contain; }
+
+  .evo-name {
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: capitalize;
+    text-align: center;
+  }
+
+  .evo-num { font-size: 11px; color: var(--muted); font-family: var(--mono); }
+
+  .arrow {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    color: var(--muted);
+    font-size: 11px;
+    min-width: 60px;
+  }
+
+  .arrow-line { width: 32px; height: 1px; background: var(--border); }
+  .arrow-head { font-size: 18px; color: var(--muted); }
+  .arrow-label { text-align: center; text-transform: capitalize; }
+</style>

@@ -1,0 +1,43 @@
+---
+/**
+ * Error Boundary for /pokemon/:id
+ * Catches 404s, API errors, and invalid IDs.
+ */
+const { error } = ctx.errorBoundary;
+---
+
+<template>
+  <div class="error-page">
+    <div class="error-icon">⚠️</div>
+    <h1 class="error-title">Pokémon not found</h1>
+    <p class="error-desc">{error.message}</p>
+    <div class="error-actions">
+      <a href="/" class="btn-primary">← Back to Pokédex</a>
+      <button class="btn-outline" onclick="location.reload()">Try again</button>
+    </div>
+  </div>
+</template>
+
+<style>
+  .error-page {
+    max-width: 480px;
+    margin: 80px auto;
+    text-align: center;
+    padding: 40px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+  }
+  .error-icon  { font-size: 56px; margin-bottom: 16px; }
+  .error-title { font-size: 24px; margin-bottom: 10px; }
+  .error-desc  { color: var(--muted); margin-bottom: 28px; }
+  .error-actions { display: flex; gap: 12px; justify-content: center; }
+  .btn-primary {
+    padding: 10px 24px; background: #7c3aed; color: #fff;
+    border-radius: 8px; text-decoration: none; font-weight: 600;
+  }
+  .btn-outline {
+    padding: 10px 24px; background: transparent; color: var(--text);
+    border: 1px solid var(--border); border-radius: 8px; cursor: pointer;
+  }
+</style>

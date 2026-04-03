@@ -1,0 +1,175 @@
+---
+/**
+ * StatsRadar — SVG Radar Chart for Pokémon base stats
+ * client:idle → hydrates when browser is idle (non-critical, below the fold)
+ *
+ * Pure SVG math — no canvas, no external chart library.
+ * Zero dependencies beyond what Nexus already ships.
+ */
+import type { PokemonStat } from '../lib/types.js';
+---
+
+<script>
+let { stats, color } = $props<{ stats: PokemonStat[]; color: string }>();
+
+const SIZE  = 220;
+const CX    = SIZE / 2;
+const CY    = SIZE / 2;
+const R     = 85;
+
+// Compute polygon points for the radar chart
+const points = $derived(() => {
+  return stats.value.map((stat, i) => {
+    const angle = (Math.PI * 2 * i) / stats.value.length - Math.PI / 2;
+    const r = (stat.value / stat.max) * R;
+    return {
+      x: CX + r * Math.cos(angle),
+      y: CY + r * Math.sin(angle),
+      labelX: CX + (R + 24) * Math.cos(angle),
+      labelY: CY + (R + 24) * Math.sin(angle),
+      name: stat.name.replace('special-', 'sp.').toUpperCase(),
+      value: stat.value,
+    };
+  });
+});
+
+const polygonStr = $derived(
+  points.value.map(p => `${p.x},${p.y}`).join(' ')
+);
+
+// Background grid points for reference circles
+function gridPolygon(ratio: number) {
+  return stats.value.map((_, i) => {
+    const angle = (Math.PI * 2 * i) / stats.value.length - Math.PI / 2;
+    const r = R * ratio;
+    return `${CX + r * Math.cos(angle)},${CY + r * Math.sin(angle)}`;
+  }).join(' ');
+}
+</script>
+
+<template>
+  <div class="stats-container">
+    <!-- SVG Radar -->
+    <div class="radar-wrap">
+      <svg width="{SIZE}" height="{SIZE}" viewBox="0 0 {SIZE} {SIZE}">
+        <!-- Background grid rings -->
+        {#each [0.25, 0.5, 0.75, 1.0] as ratio}
+          <polygon
+            points="{gridPolygon(ratio)}"
+            fill="none"
+            stroke="rgba(255,255,255,0.06)"
+            stroke-width="1"
+          />
+        {/each}
+
+        <!-- Grid spokes -->
+        {#each points.value as p}
+          <line
+            x1="{CX}" y1="{CY}"
+            x2="{CX + R * Math.cos((Math.PI * 2 * points.value.indexOf(p)) / points.value.length - Math.PI / 2)}"
+            y2="{CY + R * Math.sin((Math.PI * 2 * points.value.indexOf(p)) / points.value.length - Math.PI / 2)}"
+            stroke="rgba(255,255,255,0.05)"
+            stroke-width="1"
+          />
+        {/each}
+
+        <!-- Stat polygon (animated) -->
+        <polygon
+          points="{polygonStr}"
+          fill="{color}33"
+          stroke="{color}"
+          stroke-width="2"
+          stroke-linejoin="round"
+        />
+
+        <!-- Dots at vertices -->
+        {#each points.value as p}
+          <circle cx="{p.x}" cy="{p.y}" r="4" fill="{color}" />
+        {/each}
+
+        <!-- Labels -->
+        {#each points.value as p}
+          <text
+            x="{p.labelX}"
+            y="{p.labelY}"
+            text-anchor="middle"
+            dominant-baseline="middle"
+            font-size="8"
+            fill="rgba(255,255,255,0.5)"
+            font-family="monospace"
+          >{p.name}</text>
+        {/each}
+      </svg>
+    </div>
+
+    <!-- Bar stats -->
+    <div class="bars">
+      {#each stats.value as stat}
+        <div class="bar-row">
+          <span class="bar-label">{stat.name.replace('-', ' ')}</span>
+          <div class="bar-track">
+            <div
+              class="bar-fill"
+              style="width: {Math.round(stat.value / stat.max * 100)}%; background: {color}"
+            ></div>
+          </div>
+          <span class="bar-value">{stat.value}</span>
+        </div>
+      {/each}
+    </div>
+  </div>
+</template>
+
+<style>
+  .stats-container {
+    display: flex;
+    gap: 32px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  .radar-wrap {
+    flex-shrink: 0;
+    background: rgba(0,0,0,.2);
+    border-radius: 50%;
+    padding: 8px;
+  }
+
+  .bars { flex: 1; min-width: 200px; }
+
+  .bar-row {
+    display: grid;
+    grid-template-columns: 100px 1fr 40px;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+
+  .bar-label {
+    font-size: 12px;
+    text-transform: capitalize;
+    color: var(--muted);
+    text-align: right;
+  }
+
+  .bar-track {
+    height: 6px;
+    background: rgba(255,255,255,.06);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+
+  .bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width .6s ease;
+  }
+
+  .bar-value {
+    font-size: 13px;
+    font-weight: 700;
+    font-family: var(--mono);
+    color: var(--text);
+    text-align: right;
+  }
+</style>

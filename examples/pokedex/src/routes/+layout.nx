@@ -1,0 +1,118 @@
+---
+/**
+ * Root layout — shared across all Pokédex pages.
+ * The SearchBar island is mounted here so it persists
+ * across SPA navigation (Server-Driven Morphing preserves it).
+ */
+import { defineHead } from '@nexus/head';
+
+defineHead({
+  title: 'Nexus Pokédex — Islands + GraphQL + Shield Cache',
+  meta: [
+    { name: 'theme-color', content: '#1a1a2e' },
+  ],
+  link: [
+    { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
+  ],
+});
+---
+
+<template>
+  <div class="app">
+    <!-- Header — static HTML, zero JS cost -->
+    <header class="header">
+      <a href="/" class="brand">
+        <span class="brand-icon">◆</span>
+        <span class="brand-name">Nexus<em>dex</em></span>
+      </a>
+
+      <!-- SearchBar island: client:load → hydrates immediately (critical UX) -->
+      <SearchBar client:load />
+
+      <div class="header-meta">
+        <a href="https://github.com/bierfor/nexus" class="gh-link" target="_blank">
+          GitHub ↗
+        </a>
+      </div>
+    </header>
+
+    <!-- Page content — the router swaps this on navigation -->
+    <main class="main">
+      <!--nexus:slot-->
+    </main>
+
+    <!-- Footer — static HTML -->
+    <footer class="footer">
+      <p>
+        Powered by <strong>Nexus Framework</strong> ·
+        Data from <a href="https://pokeapi.co" target="_blank">PokéAPI GraphQL</a> ·
+        <span class="cache-note" id="cache-badge"></span>
+      </p>
+    </footer>
+  </div>
+</template>
+
+<style>
+  :root {
+    --bg: #0d0d1a;
+    --surface: #13131f;
+    --border: #1e1e30;
+    --text: #e2e8f0;
+    --muted: #64748b;
+    --accent: #7c3aed;
+    --mono: 'JetBrains Mono', monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', system-ui, sans-serif;
+    min-height: 100vh;
+  }
+
+  .app { display: flex; flex-direction: column; min-height: 100vh; }
+
+  .header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 14px 32px;
+    background: rgba(13, 13, 26, .92);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    text-decoration: none;
+    color: var(--text);
+    font-weight: 700;
+    font-size: 20px;
+    flex-shrink: 0;
+  }
+
+  .brand-icon { color: var(--accent); }
+  .brand-name em { color: var(--accent); font-style: normal; }
+
+  .header-meta { margin-left: auto; }
+  .gh-link { color: var(--muted); text-decoration: none; font-size: 13px; }
+  .gh-link:hover { color: var(--text); }
+
+  .main { flex: 1; padding: 32px; }
+
+  .footer {
+    padding: 16px 32px;
+    border-top: 1px solid var(--border);
+    text-align: center;
+    font-size: 13px;
+    color: var(--muted);
+  }
+  .footer a { color: var(--accent); text-decoration: none; }
+</style>

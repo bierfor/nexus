@@ -1,0 +1,77 @@
+---
+/**
+ * ShinyToggle — Switches between normal and shiny sprite
+ * client:load → hydrates immediately (part of the hero)
+ */
+---
+
+<script>
+let { sprite, spriteShiny, name } = $props<{
+  sprite: string;
+  spriteShiny: string;
+  name: string;
+}>();
+
+let isShiny = $state(false);
+const currentSprite = $derived(isShiny.value ? spriteShiny.value : sprite.value);
+</script>
+
+<template>
+  <div class="sprite-wrap">
+    <img
+      class="pokemon-sprite {isShiny.value ? 'shiny' : ''}"
+      src="{currentSprite}"
+      alt="{name.value}"
+      width="200"
+      height="200"
+    />
+    <button
+      class="shiny-btn {isShiny.value ? 'active' : ''}"
+      onclick={() => isShiny.value = !isShiny.value}
+      title="Toggle shiny form"
+    >
+      ✨ {isShiny.value ? 'Shiny' : 'Normal'}
+    </button>
+  </div>
+</template>
+
+<style>
+  .sprite-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+  }
+
+  .pokemon-sprite {
+    width: 200px;
+    height: 200px;
+    object-fit: contain;
+    filter: drop-shadow(0 8px 24px rgba(0,0,0,.5));
+    transition: all .4s ease;
+  }
+
+  .pokemon-sprite.shiny {
+    filter: drop-shadow(0 8px 24px rgba(247,208,44,.5)) brightness(1.1);
+  }
+
+  .shiny-btn {
+    padding: 6px 16px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all .2s;
+  }
+
+  .shiny-btn:hover { border-color: #f7d02c; color: #f7d02c; }
+  .shiny-btn.active {
+    background: rgba(247,208,44,.15);
+    border-color: #f7d02c;
+    color: #f7d02c;
+  }
+</style>

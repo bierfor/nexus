@@ -1,0 +1,20 @@
+{
+  "name": "pokedex",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node server.mjs",
+    "build": "nexus build",
+    "start": "nexus start"
+  },
+  "dependencies": {
+    "@nexus/runtime": "workspace:*",
+    "@nexus/serialize": "workspace:*"
+  },
+  "devDependencies": {
+    "@nexus/cli": "workspace:*",
+    "@nexus/compiler": "workspace:*",
+    "typescript": "^5.5.0"
+  }
+}
