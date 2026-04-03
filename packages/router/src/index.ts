@@ -4,6 +4,15 @@ import type { RouteManifest, RouteEntry } from '@nexus/compiler';
 
 export type { RouteManifest, RouteEntry };
 
+// Re-export Multi-Tenant support
+export {
+  extractTenant,
+  scopeTenantKey,
+  tenantHeaders,
+  tenantVaryHeader,
+} from './tenant.js';
+export type { TenantInfo, TenantConfig, TenantMode } from './tenant.js';
+
 export interface MatchedRoute {
   route: RouteEntry;
   params: Record<string, string>;

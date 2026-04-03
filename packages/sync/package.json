@@ -1,0 +1,12 @@
+{
+  "name": "@nexus/sync",
+  "version": "0.4.0",
+  "description": "Nexus Local-First Sync Engine — IndexedDB-backed optimistic mutations with conflict resolution",
+  "type": "module",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "keywords": ["nexus", "local-first", "sync", "indexeddb", "offline"],
+  "license": "MIT"
+}

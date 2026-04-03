@@ -73,6 +73,40 @@ function connectSubscribe(topic, res) {
 // ── Global state (Nexus Connect topics) ───────────────────────────────────────
 let globalCaptures = 0;
 
+// ── Nexus Local-First Sync — server-side op receiver ─────────────────────────
+// In a real app this writes to Postgres/SQLite. Here we keep it in-memory.
+const syncedCaptures = new Map(); // pokemonId → { id, name, capturedAt }
+
+function handleSyncOps(ops) {
+  const acked = [];
+  const conflicts = [];
+  for (const op of ops) {
+    if (op.store === 'captures' && op.type === 'put') {
+      const existing = syncedCaptures.get(String(op.key));
+      if (!existing || existing.ts <= op.ts) {
+        syncedCaptures.set(String(op.key), { ...op.data, ts: op.ts });
+        globalCaptures = syncedCaptures.size;
+        connectPublish('global-captures', {
+          count: globalCaptures,
+          lastCapture: op.data,
+          source: 'sync',
+          ts: Date.now(),
+        });
+        acked.push(op.id);
+      } else {
+        // Server has a newer version → conflict
+        conflicts.push({ opId: op.id, serverValue: existing });
+      }
+    } else if (op.store === 'captures' && op.type === 'delete') {
+      syncedCaptures.delete(String(op.key));
+      acked.push(op.id);
+    } else {
+      acked.push(op.id); // unknown store — ack to prevent retry storms
+    }
+  }
+  return { acked, conflicts };
+}
+
 // ── Nexus AI — server-side probability manifest ───────────────────────────────
 // Maps route → [{to, probability}] based on observed patterns.
 // In production this would be generated from real navigation logs.
@@ -268,6 +302,25 @@ const NEXUS_CLIENT_DEV_SCRIPT = `
       console.groupEnd();
     }
   }
+
+  // ── Nexus Sync — offline indicator ─────────────────────────────────────────
+  (function() {
+    function updateOnlineBadge() {
+      var badge = document.getElementById('online-badge');
+      if (!badge) return;
+      badge.textContent = navigator.onLine ? '🟢 Online' : '🔴 Offline';
+      badge.style.color  = navigator.onLine ? '#10b981' : '#ef4444';
+      badge.style.background = navigator.onLine ? 'rgba(16,185,129,.15)' : 'rgba(239,68,68,.15)';
+    }
+    window.addEventListener('online',  function() {
+      updateOnlineBadge();
+      console.log('%c[Nexus Sync]%c 🟢 Connection restored — queued ops will auto-sync', 'color:#818cf8;font-weight:bold', 'color:#a3e635');
+    });
+    window.addEventListener('offline', function() {
+      updateOnlineBadge();
+      console.log('%c[Nexus Sync]%c 🔴 Offline — writes queued in IndexedDB, will sync on reconnect', 'color:#818cf8;font-weight:bold', 'color:#f87171');
+    });
+  })();
 
   // ── Nexus Connect — live counter ────────────────────────────────────────────
   if (typeof EventSource !== 'undefined') {
@@ -825,9 +878,12 @@ function renderDetailPage(p, cached) {
 
         document.getElementById('battle-app').innerHTML = \`
           <div>
-            <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
-              <span style="font-size:11px;background:rgba(16,185,129,.15);color:#10b981;padding:3px 10px;border-radius:999px;font-weight:700">⚡ Saved offline (localStorage)</span>
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;flex-wrap:wrap">
+              <span style="font-size:11px;background:rgba(129,140,248,.15);color:#818cf8;padding:3px 10px;border-radius:999px;font-weight:700">@nexus/sync • IndexedDB</span>
+              <span id="online-badge" style="font-size:11px;background:rgba(16,185,129,.15);color:#10b981;padding:3px 10px;border-radius:999px;font-weight:700">${navigator.onLine ? '🟢 Online' : '🔴 Offline'}</span>
+              <span id="sync-status" style="font-size:11px;color:#94a3b8"></span>
             </div>
+            <p style="font-size:12px;color:#64748b;margin-bottom:12px">Win the battle → capture is saved <strong style="color:#818cf8">instantly to IndexedDB</strong>, synced to server when online. Go offline and try it!</p>
             <div style="background:linear-gradient(180deg,#0d0d1a,#13131f);border:1px solid var(--border);border-radius:12px;padding:24px;margin-bottom:16px">
               <div style="display:flex;justify-content:space-between;margin-bottom:20px">
                 <div style="text-align:right">
@@ -903,25 +959,146 @@ function renderDetailPage(p, cached) {
           document.getElementById('opp-hp-txt').textContent = opp + '/100 HP';
         }
 
+        // ── Nexus Local-First: capture via IndexedDB sync ─────────────────
+        // Uses the same pattern as @nexus/sync: write locally first (0ms),
+        // then queue a sync op for the server. Works offline!
+        var _captureDB = null;
+        function openCaptureDB() {
+          if (_captureDB) return Promise.resolve(_captureDB);
+          return new Promise(function(resolve, reject) {
+            var req = indexedDB.open('nexus_sync', 1);
+            req.onupgradeneeded = function() {
+              var db = req.result;
+              if (!db.objectStoreNames.contains('data')) db.createObjectStore('data');
+              if (!db.objectStoreNames.contains('pending_ops')) {
+                var s = db.createObjectStore('pending_ops', { keyPath: 'id' });
+                s.createIndex('store', 'store');
+              }
+            };
+            req.onsuccess = function() { _captureDB = req.result; resolve(req.result); };
+            req.onerror   = function() { reject(req.error); };
+          });
+        }
+
+        function idbPut(db, store, key, value) {
+          return new Promise(function(resolve) {
+            var tx = db.transaction(store, 'readwrite');
+            tx.objectStore(store).put(value, key);
+            tx.oncomplete = resolve;
+          });
+        }
+
+        function saveCaptureToDB(captureData) {
+          return openCaptureDB().then(function(db) {
+            var op = {
+              id: crypto.randomUUID(),
+              store: 'captures',
+              type: 'put',
+              key: String(captureData.id),
+              data: captureData,
+              ts: Date.now(),
+              retries: 0,
+            };
+            return Promise.all([
+              idbPut(db, 'data', 'captures:' + captureData.id, captureData),
+              idbPut(db, 'pending_ops', op.id, op),
+            ]).then(function() { return op; });
+          });
+        }
+
+        function syncPendingOps(ops) {
+          return fetch('/_nexus/sync', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json', 'x-nexus-sync': '1' },
+            body: JSON.stringify({ ops: ops }),
+          }).then(function(r) { return r.json(); });
+        }
+
+        function flushCaptures() {
+          return openCaptureDB().then(function(db) {
+            return new Promise(function(resolve) {
+              var tx = db.transaction('pending_ops', 'readonly');
+              var req2 = tx.objectStore('pending_ops').getAll();
+              req2.onsuccess = function() {
+                var pending = (req2.result || []).filter(function(o) { return o.store === 'captures'; });
+                if (!pending.length) { resolve([]); return; }
+                syncPendingOps(pending).then(function(result) {
+                  // Remove acked ops
+                  var tx2 = db.transaction('pending_ops', 'readwrite');
+                  var s = tx2.objectStore('pending_ops');
+                  (result.acked || []).forEach(function(id) { s.delete(id); });
+                  resolve(result.acked || []);
+                }).catch(function() { resolve([]); });
+              };
+            });
+          });
+        }
+
         function checkWinner() {
           const w = oppHp <= 0 ? \${JSON.stringify(data.name)} : (myHp <= 0 ? 'Wild Pokémon' : null);
           if (w) {
             const wb = document.getElementById('winner-banner');
             wb.style.display = 'flex';
-            wb.innerHTML = '🏆 ' + w + ' wins!';
             document.getElementById('atk-btn').disabled = true;
             document.getElementById('atk-btn').style.opacity = '.5';
-            // ── Nexus Connect: broadcast capture to all clients ────────────
             if (oppHp <= 0) {
+              // ── @nexus/sync pattern: write locally first (instant!) ──────
+              const captureData = {
+                id: data.id, name: data.name, sprite: data.sprite,
+                types: data.types, capturedAt: new Date().toISOString(),
+              };
               window.__NEXUS_LOG_ACTION__?.(\${JSON.stringify(data.name + '-capture')}, 'call');
               window.__NEXUS_LOG_OPTIMISTIC__?.('captured', true);
-              fetch('/_nexus/action/capture', {
-                method: 'POST',
-                headers: { 'content-type': 'application/json', 'x-nexus-action': '1' },
-                body: JSON.stringify({ pokemonId: data.id, pokemonName: data.name }),
-              }).then(function() {
-                window.__NEXUS_LOG_ACTION__?.(\${JSON.stringify(data.name + '-capture')}, 'success');
+
+              // 1. Update UI immediately
+              wb.innerHTML = '🏆 ' + \${JSON.stringify(data.name)} + ' wins! ✅ Saved offline';
+
+              // 2. Persist to IndexedDB (works even if offline)
+              saveCaptureToDB(captureData).then(function(op) {
+                var statusEl = document.getElementById('sync-status');
+                if (statusEl) statusEl.textContent = navigator.onLine ? '🔄 Syncing...' : '🔴 Offline — will sync when reconnected';
+                if (statusEl) statusEl.style.color = navigator.onLine ? '#f59e0b' : '#ef4444';
+
+                console.log('%c[Nexus Sync]%c 💾 Capture saved to IndexedDB (op: ' + op.id.slice(0,8) + '...)', 'color:#818cf8;font-weight:bold', 'color:#a3e635');
+
+                // 3. Try to flush online — queue for reconnect if offline
+                if (navigator.onLine) {
+                  flushCaptures().then(function(acked) {
+                    if (acked.length > 0) {
+                      if (statusEl) statusEl.textContent = '✅ Synced with server';
+                      if (statusEl) statusEl.style.color = '#10b981';
+                      window.__NEXUS_LOG_ACTION__?.(\${JSON.stringify(data.name + '-capture')}, 'success');
+                      console.log('%c[Nexus Sync]%c ✅ ' + acked.length + ' op(s) synced to server', 'color:#818cf8;font-weight:bold', 'color:#10b981');
+                    }
+                  });
+                } else {
+                  // Auto-sync when back online
+                  console.log('%c[Nexus Sync]%c 📥 Offline capture queued — will auto-sync on reconnect', 'color:#818cf8;font-weight:bold', 'color:#f87171');
+                  window.addEventListener('online', function onOnline() {
+                    window.removeEventListener('online', onOnline);
+                    console.log('%c[Nexus Sync]%c 🟢 Back online — syncing capture...', 'color:#818cf8;font-weight:bold', 'color:#a3e635');
+                    flushCaptures().then(function(acked) {
+                      if (acked.length > 0) {
+                        if (statusEl) statusEl.textContent = '✅ Synced with server (was offline)';
+                        if (statusEl) statusEl.style.color = '#10b981';
+                        window.__NEXUS_LOG_ACTION__?.(\${JSON.stringify(data.name + '-capture')}, 'success');
+                        console.log('%c[Nexus Sync]%c ✅ Offline ops synced: ' + acked.length + ' capture(s)', 'color:#818cf8;font-weight:bold', 'color:#10b981');
+                      }
+                    });
+                  });
+                }
+              }).catch(function(err) {
+                // IndexedDB unavailable — fall back to direct server POST
+                fetch('/_nexus/action/capture', {
+                  method: 'POST',
+                  headers: { 'content-type': 'application/json', 'x-nexus-action': '1' },
+                  body: JSON.stringify({ pokemonId: data.id, pokemonName: data.name }),
+                }).then(function() {
+                  window.__NEXUS_LOG_ACTION__?.(\${JSON.stringify(data.name + '-capture')}, 'success');
+                });
               });
+            } else {
+              wb.innerHTML = '😵 You lost...';
             }
           }
         }
@@ -1070,6 +1247,26 @@ const server = createServer(async (req, res) => {
       log.action('capture', 'success', Date.now() - t0, delivered > 0 ? `→ ${delivered} SSE clients` : '');
       res.writeHead(200, { 'content-type': 'application/json' });
       return res.end(JSON.stringify({ ok: true, ...payload }));
+    }
+
+    // ── Nexus Local-First Sync — receive offline ops ───────────────────────
+    if (path === '/_nexus/sync' && req.method === 'POST') {
+      let body = '';
+      for await (const chunk of req) body += chunk;
+      const { ops = [] } = JSON.parse(body || '{}');
+      const result = handleSyncOps(ops);
+      log.action('sync-flush', 'success', Date.now() - t0, `${ops.length} op(s) → ${result.acked.length} acked`);
+      res.writeHead(200, { 'content-type': 'application/json' });
+      return res.end(JSON.stringify(result));
+    }
+
+    // ── Nexus Local-First — GET synced captures (server state) ────────────
+    if (path === '/_nexus/sync/captures' && req.method === 'GET') {
+      res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' });
+      return res.end(JSON.stringify({
+        total: syncedCaptures.size,
+        captures: [...syncedCaptures.values()],
+      }));
     }
 
     // ── Nexus AI — probability manifest ────────────────────────────────────

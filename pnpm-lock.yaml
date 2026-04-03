@@ -34,6 +34,25 @@ importers:
         specifier: ^5.5.0
         version: 5.9.3
 
+  examples/pokedex:
+    dependencies:
+      '@nexus/runtime':
+        specifier: workspace:*
+        version: link:../../packages/runtime
+      '@nexus/serialize':
+        specifier: workspace:*
+        version: link:../../packages/serialize
+    devDependencies:
+      '@nexus/cli':
+        specifier: workspace:*
+        version: link:../../packages/cli
+      '@nexus/compiler':
+        specifier: workspace:*
+        version: link:../../packages/compiler
+      typescript:
+        specifier: ^5.5.0
+        version: 5.9.3
+
   packages/assets:
     devDependencies:
       '@types/node':
@@ -71,6 +90,18 @@ importers:
         specifier: ^0.30.0
         version: 0.30.21
     devDependencies:
+      typescript:
+        specifier: ^5.5.0
+        version: 5.9.3
+      vitest:
+        specifier: ^2.0.0
+        version: 2.1.9(@types/node@22.19.17)
+
+  packages/connect:
+    devDependencies:
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.19.17
       typescript:
         specifier: ^5.5.0
         version: 5.9.3
@@ -173,6 +204,8 @@ importers:
         specifier: ^2.0.0
         version: 2.1.9(@types/node@22.19.17)
 
+  packages/sync: {}
+
   packages/testing:
     dependencies:
       '@nexus/compiler':
@@ -207,6 +240,8 @@ importers:
       typescript:
         specifier: ^5.5.0
         version: 5.9.3
+
+  packages/ui: {}
 
   packages/vite-plugin-nexus:
     dependencies:

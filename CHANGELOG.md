@@ -7,6 +7,63 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.4.0] — 2026-04-03
+
+### Added
+
+**`@nexus/router` — Multi-Tenant First-Class Support**
+- `extractTenant(request, config)` — extracts tenant from subdomain, custom domain, or URL path
+- `TenantConfig` type with `mode`, `baseDomain`, `pathPrefix`, `resolve`, and `fallback` options
+- `scopeTenantKey(tenant, key)` — scopes Shield Cache keys per tenant, preventing cross-tenant data leaks
+- `tenantHeaders(tenant)` — generates `x-nexus-tenant`, `x-nexus-tenant-domain` headers for CDN routing
+- `tenantVaryHeader(mode)` — generates correct `Vary` header for CDN cache isolation per tenant
+- All exports available via `@nexus/router`
+- Supports `'subdomain'`, `'custom-domain'`, and `'path'` tenancy modes
+- Optional async `resolve` function for loading tenant metadata (plan, name, logo) from your DB
+
+**`@nexus/sync` — Local-First Sync Engine**
+- `NexusSyncEngine` class — IndexedDB-backed operation queue with background server sync
+- Writes are instant (IndexedDB) with zero perceived latency for the user
+- Pending ops survive page refreshes — stored in IDB, not memory
+- Network watcher: auto-flushes on `online` event; marks `offline` on disconnect
+- Configurable conflict resolution: `onConflict` hook receives `{ local, remote, op }`, return the winning value
+- Dead-letter queue: ops that exceed `maxRetries` are dropped with a warning, not retried forever
+- `$localSync<T>(collection, opts)` rune — reactive Local-First state container:
+  - `value` — current local value (reflects all mutations immediately)
+  - `status` — `'synced' | 'pending' | 'syncing' | 'error' | 'offline'`
+  - `pending` — count of unsynced ops
+  - `set(next)`, `push(item)`, `remove(predicate)` — instant local mutations with background sync
+  - `flush()` — force immediate sync attempt
+  - `subscribe(cb)` — reactive change notifications
+- `isOnline()` and `waitForOnline()` utilities
+
+**`@nexus/ui` — Zero-Bundle CSS-Only Components**
+- Every component generates pure HTML+CSS — 0.0 bytes of JavaScript shipped
+- Nexus compiler detects `@zero-bundle` annotation and replaces components at build time
+- Works with JavaScript disabled in the browser
+- Components:
+  - `Accordion` — `<details>/<summary>` with smooth animation
+  - `Tabs` — CSS `:target` pseudo-class for tab switching
+  - `Tooltip` — CSS `:hover` + `aria-label`
+  - `Modal` — CSS `:target` modal (no JS needed)
+  - `ProgressRing` — Pure SVG animated progress indicator
+- `getZeroBundleCSS()` — returns the complete component stylesheet for injection into `<head>`
+- All styles use `@layer nexus.ui` for safe cascade management
+
+**`examples/pokedex` — Local-First Offline Demo**
+- Battle capture now uses `@nexus/sync` pattern: IndexedDB write first, server sync second
+- `/_nexus/sync` POST endpoint — receives sync ops, acks/conflicts back to client
+- `/_nexus/sync/captures` GET endpoint — returns server-side capture state
+- `handleSyncOps(ops)` — server-side op handler with conflict detection
+- Offline indicator badge in BattleMode UI showing `🟢 Online` / `🔴 Offline`
+- Sync status label shows `🔄 Syncing...` → `✅ Synced with server`
+- Auto-sync on `online` event — captures made offline sync automatically when connection returns
+- Connect channel receives `source: 'sync'` flag from synced captures, global counter updates live
+- IndexedDB fallback to direct POST if IDB is unavailable
+- Dev Console: `[Nexus Sync]` log group for all IDB and sync events
+
+---
+
 ## [0.2.0] — 2026-04-03
 
 ### Added
