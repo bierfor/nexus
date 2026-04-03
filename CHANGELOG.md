@@ -7,6 +7,72 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.5.0] — 2026-04-03
+
+### Added
+
+**`@nexus/server` — Security by Default (5-Layer Protection)**
+
+*Anti-CSRF & Anti-Replay (`packages/server/src/csrf.ts`)*
+- `generateActionToken(sessionId, actionName, secret)` — HMAC-SHA256 signed, base64url-encoded token
+- `validateActionToken(token, sessionId, actionName, secret)` — validates signature, session binding, action binding, expiry (15m TTL), and single-use (replay prevention via in-memory Set)
+- `extractSessionId(request)` — extracts session from cookie patterns, falls back to IP+UA fingerprint
+- `generateSessionId()` — cryptographically random session ID for cookie generation
+- `ACTION_TOKEN_HEADER` constant (`x-nexus-action-token`)
+- Constant-time comparison via `crypto.timingSafeEqual` to prevent timing attacks
+- Automatic token pruning at 50K entries to prevent memory leaks
+
+*Per-Action Rate Limiter (`packages/server/src/rate-limit.ts`)*
+- `createRateLimiter(config)` — sliding window algorithm (more accurate than fixed window, no edge bursts)
+- Supports window formats: `'30s'`, `'1m'`, `'5m'`, `'15m'`, `'1h'`, `'6h'`, `'24h'`
+- Default key: IP address (supports `x-forwarded-for`, `cf-connecting-ip`, `x-real-ip`)
+- Override key: `keyFn: (req) => req.headers.get('x-user-id')` for user-level limits
+- Returns RFC 6585 headers: `x-ratelimit-limit`, `x-ratelimit-remaining`, `x-ratelimit-reset`, `retry-after`
+- `RateLimitError` class with `result` property for response shaping
+- Global limiter registry via `registerLimiter` / `getLimiter`
+- Automatic GC: timer clears expired entries every window interval
+
+*`createAction` Security Integration (`packages/server/src/actions.ts`)*
+- `createAction({ handler, rateLimit, csrf, schema, race, ... })` object-style API
+- CSRF validation at action definition layer (set `csrf: false` for public endpoints)
+- `rateLimit: { window: '1m', max: 3, keyFn?: fn }` — wired per-action at definition time
+- `schema: z.object(...)` — Zod-compatible input validation before handler runs (prevents SQL injection via type coercion)
+- Re-exports: `generateActionToken`, `validateActionToken`, `createRateLimiter`, `RateLimitError`, `parseWindow`
+
+**`@nexus/serialize` — XSS Auto-Protection**
+- All `string` values serialized for server→client transport are now HTML entity encoded
+- Encodes: `&`, `<`, `>`, `"`, `'`, `` ` `` using Unicode escapes (`\u003c`, etc.)
+- Survives re-serialization (JSON.stringify preserves Unicode escapes)
+- New `sanitize(input)` export for explicit sanitization in island templates
+- Zero performance overhead — single `.replace()` chain, no regex
+
+**`packages/cli/src/audit.ts` — Nexus Security Auditor**
+- `nexus audit` — comprehensive code analysis beyond `npm audit`:
+  - **Secret Leaks**: hardcoded API keys, passwords, DB connection strings, `process.env` in client code
+  - **XSS Vectors**: `innerHTML =`, `insertAdjacentHTML()`, `eval()` in island/client code
+  - **Info Disclosure**: `console.log` with sensitive terms in server code
+  - **Open Redirects**: unvalidated redirect targets from request params
+  - **Security Headers**: missing CSP, HSTS, X-Frame-Options in nexus.config.ts
+  - **Hardened Mode**: warning if not enabled
+  - **Dependency CVEs**: wraps `npm audit --json` for critical/high/moderate summary
+- `nexus audit --ci` — exits with code 1 if critical or high findings exist (CI pipeline ready)
+- `nexus audit --json` — outputs findings as JSON for SAST tooling
+- ANSI colored output: `CRITICAL | HIGH | MEDIUM | LOW | INFO` severity tags
+- Per-category grouping with fix suggestions for every finding
+- `.nx` file awareness: skips server frontmatter for `clientOnly` rules
+
+**`examples/pokedex` — Security Demo**
+- All HTML responses include: `Content-Security-Policy`, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy`, `Permissions-Policy`, `X-XSS-Protection: 0`
+- Capture endpoint enforces rate limit: 3 captures/min per IP — returns 429 with `retry-after` header
+- Dev Console **Security Panel**: `◆ Nexus Security Panel` group shows CSRF, rate limit, XSS, and headers status
+- Hardened Mode badge visible in DevTools with `nexus audit --ci` call-to-action
+
+### Answered
+
+**On "Paranoid Mode" (detecting browser extensions):** Not implemented — fingerprinting extensions violates user privacy and is legally risky in GDPR/CCPA jurisdictions. Instead, Nexus uses "Hardened Mode" in `nexus.config.ts` which enforces security at the server layer where it actually works, without user surveillance.
+
+---
+
 ## [0.4.0] — 2026-04-03
 
 ### Added

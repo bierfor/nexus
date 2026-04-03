@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Nexus CLI — nexus dev | nexus build | nexus start | nexus check | nexus studio
+ * Nexus CLI — nexus dev | nexus build | nexus start | nexus check | nexus studio | nexus audit
  */
 
 import { parseArgs } from 'node:util';
@@ -29,6 +29,7 @@ function getTime(): string {
     add       Install a Nexus Block from the marketplace
     studio    Open the Nexus Studio dev dashboard
     check     Type-check and lint your Nexus app
+    audit     Security & best practices audit (CSRF, XSS, secrets, headers, CVEs)
     routes    Print the route manifest
 
   ${c.bold}Options:${c.reset}
@@ -45,17 +46,23 @@ function getTime(): string {
     nexus add
     nexus build
     nexus start
+    nexus audit
+    nexus audit --ci    (exits with code 1 on critical/high findings)
+    nexus audit --json  (outputs JSON for CI pipelines)
 `;
 
 async function main(): Promise<void> {
   const { values, positionals } = parseArgs({
     args: process.argv.slice(2),
     options: {
-      port: { type: 'string', short: 'p' },
-      host: { type: 'string' },
-      root: { type: 'string' },
-      help: { type: 'boolean', short: 'h' },
+      port:    { type: 'string',  short: 'p' },
+      host:    { type: 'string' },
+      root:    { type: 'string' },
+      help:    { type: 'boolean', short: 'h' },
       version: { type: 'boolean', short: 'v' },
+      ci:      { type: 'boolean' },
+      json:    { type: 'boolean' },
+      fix:     { type: 'boolean' },
     },
     allowPositionals: true,
     strict: false,
@@ -105,6 +112,16 @@ async function main(): Promise<void> {
     case 'check':
       await runCheck({ root });
       break;
+    case 'audit': {
+      const { runAudit } = await import('./audit.js');
+      await runAudit({
+        root,
+        ci:   values['ci']   === true,
+        json: values['json'] === true,
+        fix:  values['fix']  === true,
+      });
+      break;
+    }
     default:
       if (!command) {
         console.log(HELP);

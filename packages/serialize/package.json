@@ -1,6 +1,6 @@
 {
   "name": "@nexus/serialize",
-  "version": "0.3.0",
+  "version": "0.5.0",
   "description": "Nexus serializer \u2014 lossless transport of Date, Map, Set, BigInt, RegExp, URL between server and client",
   "type": "module",
   "main": "./dist/index.js",

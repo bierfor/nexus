@@ -31,6 +31,17 @@
 import { createContext } from './context.js';
 import type { NexusContext } from './context.js';
 import { serialize, deserialize } from '@nexus/serialize';
+import {
+  validateActionToken,
+  extractSessionId,
+  ACTION_TOKEN_HEADER,
+} from './csrf.js';
+import {
+  createRateLimiter,
+  registerLimiter,
+  RateLimitError,
+  type RateLimitConfig,
+} from './rate-limit.js';
 
 export type ActionFn<TInput = FormData, TOutput = void> = (
   input: TInput,
@@ -63,6 +74,26 @@ export interface ActionOptions {
    * Default: 0
    */
   retries?: number;
+  /**
+   * Per-action rate limiting.
+   * Example: { window: '1m', max: 3 } → 3 calls per minute per IP.
+   * Override the key with keyFn: { window: '1m', max: 3, keyFn: r => userId }
+   */
+  rateLimit?: RateLimitConfig;
+  /**
+   * Require a valid CSRF action token in the x-nexus-action-token header.
+   * Default: true for all state-mutating actions.
+   * Set to false for read-only or public actions.
+   */
+  csrf?: boolean;
+  /**
+   * A Zod-compatible schema for input validation.
+   * If provided, the action will reject requests with invalid input before
+   * calling the handler. Prevents SQL injection and type coercion attacks.
+   */
+  schema?: {
+    parse: (data: unknown) => unknown;
+  };
 }
 
 export interface ActionResult<T = unknown> {
@@ -96,30 +127,78 @@ const actionQueues = new Map<string, QueueEntry[]>();
 
 // ── Registry ──────────────────────────────────────────────────────────────────
 interface RegisteredAction {
-  fn: ActionFn<unknown, unknown>;
+  fn:   ActionFn<unknown, unknown>;
   opts: ActionOptions;
+  name: string;
 }
 const actionRegistry = new Map<string, RegisteredAction>();
 
 // ── Public API ────────────────────────────────────────────────────────────────
 
 /**
- * Wraps a server function with:
- *   - Request validation (CSRF)
- *   - AbortController (cancellation + timeout)
- *   - Idempotency deduplication
- *   - Race condition strategy
- *   - Nexus serialization for complex types
+ * Defines a Server Action with integrated security, rate limiting, and
+ * race-condition management. The returned object is registered automatically
+ * and ready to be called by the client.
+ *
+ * Security layers applied (in order):
+ *   1. CSRF token validation (x-nexus-action-token header)
+ *   2. Rate limiting (sliding window, per-IP or per-user)
+ *   3. Input schema validation (Zod or any .parse() compatible schema)
+ *   4. AbortController (client disconnect + timeout)
+ *   5. Idempotency deduplication
+ *   6. Race condition strategy (cancel | queue | reject | ignore)
+ *
+ * @example
+ * export const capture = createAction({
+ *   rateLimit: { window: '1m', max: 3, keyFn: (req) => req.headers.get('x-user-id') ?? extractIP(req) },
+ *   schema: z.object({ pokemonId: z.number().int().min(1).max(1010) }),
+ *   race: 'cancel',
+ *   async handler(data, ctx) {
+ *     const { pokemonId } = data;
+ *     await db.captures.create({ userId: ctx.user.id, pokemonId });
+ *   },
+ * });
  */
 export function createAction<TInput = FormData, TOutput = void>(
-  fn: ActionFn<TInput, TOutput>,
-  opts: ActionOptions = {},
+  optsOrFn:
+    | ActionFn<TInput, TOutput>
+    | (ActionOptions & { handler: ActionFn<TInput, TOutput> }),
+  legacyOpts: ActionOptions = {},
 ): ActionFn<TInput, TOutput> {
+  // Support both createAction(fn, opts) and createAction({ handler, ...opts })
+  const fn   = typeof optsOrFn === 'function' ? optsOrFn : optsOrFn.handler;
+  const opts = typeof optsOrFn === 'function' ? legacyOpts : optsOrFn;
+
+  // Wire up rate limiter at definition time (not per-request)
+  const limiter = opts.rateLimit ? createRateLimiter(opts.rateLimit) : null;
+
   return async (
     input: TInput,
     ctx: NexusContext & { signal: AbortSignal },
   ): Promise<TOutput> => {
-    await validateRequest(ctx);
+    // 1. CSRF validation
+    if (opts.csrf !== false) {
+      await validateRequest(ctx);
+    }
+
+    // 2. Rate limiting
+    if (limiter) {
+      const result = limiter.check(ctx.request);
+      if (!result.allowed) {
+        throw new RateLimitError(result);
+      }
+    }
+
+    // 3. Schema validation
+    if (opts.schema) {
+      try {
+        input = opts.schema.parse(input) as TInput;
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'Input validation failed';
+        throw new ActionError(`Invalid input: ${msg}`, 400, 'VALIDATION_ERROR');
+      }
+    }
+
     return fn(input, ctx);
   };
 }
@@ -129,7 +208,9 @@ export function registerAction(
   fn: ActionFn<unknown, unknown>,
   opts: ActionOptions = {},
 ): void {
-  actionRegistry.set(name, { fn, opts });
+  const limiter = opts.rateLimit ? createRateLimiter(opts.rateLimit) : null;
+  if (limiter) registerLimiter(name, limiter);
+  actionRegistry.set(name, { fn, opts, name });
 }
 
 export class ActionError extends Error {
@@ -175,8 +256,54 @@ export async function handleActionRequest(request: Request): Promise<Response> {
   }
 
   const { fn, opts } = registered;
-  const race = opts.race ?? 'cancel';
+  const race    = opts.race    ?? 'cancel';
   const timeout = opts.timeout ?? 30_000;
+
+  // ── CSRF token validation ──────────────────────────────────────────────────
+  if (opts.csrf !== false) {
+    const token     = request.headers.get(ACTION_TOKEN_HEADER);
+    const secret    = process.env['NEXUS_SECRET'] ?? 'nexus-dev-secret-change-me';
+    const sessionId = extractSessionId(request);
+    if (!token) {
+      return jsonResponse({
+        error:  'Missing action token — possible CSRF attack',
+        status: 403,
+        code:   'MISSING_CSRF_TOKEN',
+      }, 403);
+    }
+    const validation = validateActionToken(token, sessionId, actionName, secret);
+    if (!validation.valid) {
+      return jsonResponse({
+        error:  validation.reason ?? 'Invalid action token',
+        status: 403,
+        code:   validation.replayed ? 'REPLAY_ATTACK' : 'INVALID_CSRF_TOKEN',
+      }, 403);
+    }
+  }
+
+  // ── Rate limiting ──────────────────────────────────────────────────────────
+  if (opts.rateLimit) {
+    const limiter = createRateLimiter(opts.rateLimit);
+    const result  = limiter.check(request);
+    if (!result.allowed) {
+      return new Response(
+        JSON.stringify({
+          error:       `Rate limit exceeded. Retry in ${result.retryAfter}s.`,
+          status:      429,
+          code:        'RATE_LIMITED',
+          retryAfter:  result.retryAfter,
+          resetAt:     result.resetAt,
+        }),
+        {
+          status:  429,
+          headers: {
+            'content-type':  'application/json',
+            ...limiter.headers(result),
+          },
+        },
+      );
+    }
+  }
 
   // ── Idempotency check ──────────────────────────────────────────────────────
   const idempotencyKey = request.headers.get('x-nexus-idempotency');
@@ -306,6 +433,7 @@ export async function handleActionRequest(request: Request): Promise<Response> {
 
 /**
  * Validates that a request comes from a trusted Nexus client.
+ * Checks x-nexus-action header and CSRF token.
  */
 export async function validateRequest(ctx: NexusContext): Promise<void> {
   const nexusHeader = ctx.request.headers.get('x-nexus-action');
@@ -313,6 +441,11 @@ export async function validateRequest(ctx: NexusContext): Promise<void> {
     throw new ActionError('Missing Nexus action header', 403, 'MISSING_HEADER');
   }
 }
+
+// Re-export security primitives for use in app code
+export { generateActionToken, validateActionToken, extractSessionId, generateSessionId } from './csrf.js';
+export { createRateLimiter, RateLimitError, parseWindow } from './rate-limit.js';
+export type { RateLimitConfig, RateLimitResult, RateLimiter } from './rate-limit.js';
 
 // ── Client-side race guard ────────────────────────────────────────────────────
 

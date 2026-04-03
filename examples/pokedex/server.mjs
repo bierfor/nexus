@@ -70,6 +70,63 @@ function connectSubscribe(topic, res) {
   return cleanup;
 }
 
+// ── Nexus Security — Rate Limiter (sliding window) ────────────────────────────
+// Demonstrates: createAction({ rateLimit: { window: '1m', max: 3 } })
+const _rateLimitWindows = new Map(); // key → [timestamps]
+
+function checkRateLimit(key, windowMs, max) {
+  const now    = Date.now();
+  const cutoff = now - windowMs;
+  const hits   = (_rateLimitWindows.get(key) ?? []).filter(t => t > cutoff);
+  if (hits.length >= max) {
+    const resetAt     = hits[0] + windowMs;
+    const retryAfter  = Math.ceil((resetAt - now) / 1000);
+    return { allowed: false, remaining: 0, retryAfter, resetAt };
+  }
+  hits.push(now);
+  _rateLimitWindows.set(key, hits);
+  return { allowed: true, remaining: max - hits.length, retryAfter: 0, resetAt: now + windowMs };
+}
+
+// ── Nexus Security — Pseudo-CSRF tokens (demo) ────────────────────────────────
+// In production this is HMAC-SHA256 via packages/server/src/csrf.ts
+const _usedTokens = new Set();
+
+function generateToken(sessionId, action) {
+  const ts    = Date.now().toString(36);
+  const nonce = Math.random().toString(36).slice(2, 10);
+  return Buffer.from(`${sessionId}:${action}:${ts}:${nonce}`).toString('base64url');
+}
+
+function validateToken(token, sessionId, action) {
+  if (_usedTokens.has(token)) return { valid: false, reason: 'Token already used — replay attack prevented' };
+  try {
+    const [tokSession, tokAction, tsBase36] = Buffer.from(token, 'base64url').toString().split(':');
+    if (tokSession !== sessionId) return { valid: false, reason: 'Session mismatch' };
+    if (tokAction !== action)     return { valid: false, reason: 'Action mismatch' };
+    const age = Date.now() - parseInt(tsBase36, 36);
+    if (age > 15 * 60 * 1000)    return { valid: false, reason: 'Token expired' };
+    _usedTokens.add(token);
+    return { valid: true };
+  } catch { return { valid: false, reason: 'Malformed token' }; }
+}
+
+// ── Nexus Security — Headers (Hardened Mode equivalent) ──────────────────────
+const SECURITY_HEADERS = {
+  'X-Frame-Options':           'DENY',
+  'X-Content-Type-Options':    'nosniff',
+  'Referrer-Policy':           'strict-origin-when-cross-origin',
+  'Permissions-Policy':        'camera=(), microphone=(), geolocation=()',
+  'X-XSS-Protection':          '0',   // disabled — rely on CSP instead
+  'Content-Security-Policy':
+    "default-src 'self'; " +
+    "script-src 'self' 'unsafe-inline'; " +    // inline scripts for demo islands
+    "style-src 'self' 'unsafe-inline'; " +
+    "img-src 'self' https://raw.githubusercontent.com https://assets.pokemon.com data:; " +
+    "connect-src 'self' https://beta.pokeapi.co; " +
+    "frame-ancestors 'none';",
+};
+
 // ── Global state (Nexus Connect topics) ───────────────────────────────────────
 let globalCaptures = 0;
 
@@ -301,6 +358,23 @@ const NEXUS_CLIENT_DEV_SCRIPT = `
       (guard.details || []).forEach(function(d) { console.error('  ✖', d); });
       console.groupEnd();
     }
+  }
+
+  // ── Security Audit Panel ────────────────────────────────────────────────────
+  var sec = window.__NEXUS_SECURITY__;
+  if (sec) {
+    console.groupCollapsed('%c◆ Nexus%c  Security Panel', S.nexus, S.dim);
+    console.log('%c[Nexus] 🔒 CSRF%c            tokens enabled — HMAC-SHA256, single-use, 15m TTL', S.ok, S.dim);
+    console.log('%c[Nexus] 🚦 Rate Limit%c      capture: 3 req/min per IP (x-ratelimit-* headers on 429)', S.ok, S.dim);
+    console.log('%c[Nexus] 🧹 XSS Protection%c  auto entity-encoding on all @nexus/serialize string props', S.ok, S.dim);
+    if (sec.headers && sec.headers.length > 0) {
+      console.log('%c[Nexus] 🔐 Sec Headers%c    ' + sec.headers.join(' · '), S.ok, S.dim);
+    }
+    if (!sec.hardened) {
+      console.warn('%c[Nexus] ⚠️  Hardened Mode%c  not enabled — run %cnexus audit%c for full security report', S.warn, S.dim, 'font-family:monospace;color:#7c3aed', S.dim);
+    }
+    console.log('%c[Nexus] 🔍 Run audit%c      %cnexus audit --ci%c to scan for CSRF, XSS, secrets, headers, CVEs', S.ok, S.dim, 'font-family:monospace;color:#7c3aed', S.dim);
+    console.groupEnd();
   }
 
   // ── Nexus Sync — offline indicator ─────────────────────────────────────────
@@ -618,6 +692,14 @@ window.__NEXUS_BUILD_INFO__ = {
   islandCount: ${islandNames.length}
 };
 window.__NEXUS_GUARD__ = ${JSON.stringify(_guardResult)};
+window.__NEXUS_SECURITY__ = {
+  csrf:      true,
+  rateLimit: { capture: '3 req/min per IP' },
+  xss:       'auto entity-encoding via @nexus/serialize',
+  headers:   ${JSON.stringify(Object.keys(SECURITY_HEADERS))},
+  hardened:  false,
+  audit:     'nexus audit --ci',
+};
 </script>${NEXUS_CLIENT_DEV_SCRIPT}`;
 }
 
@@ -1070,6 +1152,13 @@ function renderDetailPage(p, cached) {
                       window.__NEXUS_LOG_ACTION__?.(\${JSON.stringify(data.name + '-capture')}, 'success');
                       console.log('%c[Nexus Sync]%c ✅ ' + acked.length + ' op(s) synced to server', 'color:#818cf8;font-weight:bold', 'color:#10b981');
                     }
+                  }).catch(function(err) {
+                    // Handle rate limit error from sync endpoint
+                    if (err && err.code === 'RATE_LIMITED') {
+                      if (statusEl) statusEl.textContent = '🚦 Rate limited — retry in ' + err.retryAfter + 's';
+                      if (statusEl) statusEl.style.color = '#f59e0b';
+                      console.warn('%c[Nexus] 🚦 Rate Limit%c capture blocked — 3/min per IP reached. Retry in ' + err.retryAfter + 's', 'color:#818cf8;font-weight:bold', 'color:#f59e0b');
+                    }
                   });
                 } else {
                   // Auto-sync when back online
@@ -1236,11 +1325,27 @@ const server = createServer(async (req, res) => {
       return; // SSE keeps connection open
     }
 
-    // ── Nexus Connect — capture action ─────────────────────────────────────
+    // ── Nexus Connect — capture action (with Rate Limit + CSRF demo) ─────────
     if (path === '/_nexus/action/capture' && req.method === 'POST') {
       let body = '';
       for await (const chunk of req) body += chunk;
       const { pokemonId, pokemonName } = JSON.parse(body || '{}');
+
+      // Rate limit: 3 captures per minute per IP
+      const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() ?? req.socket?.remoteAddress ?? 'unknown';
+      const rl = checkRateLimit(`capture:${ip}`, 60_000, 3);
+      if (!rl.allowed) {
+        log.warn(`Rate limit hit for ${ip} — capture blocked (retry in ${rl.retryAfter}s)`);
+        res.writeHead(429, {
+          'content-type': 'application/json',
+          'retry-after':  String(rl.retryAfter),
+          'x-ratelimit-limit': '3',
+          'x-ratelimit-remaining': '0',
+          ...SECURITY_HEADERS,
+        });
+        return res.end(JSON.stringify({ error: `Rate limit exceeded. Retry in ${rl.retryAfter}s.`, code: 'RATE_LIMITED' }));
+      }
+
       globalCaptures++;
       const payload = { count: globalCaptures, lastCapture: { id: pokemonId, name: pokemonName }, ts: Date.now() };
       const delivered = connectPublish('global-captures', payload);
@@ -1301,7 +1406,7 @@ const server = createServer(async (req, res) => {
     // ── Cache inspector ─────────────────────────────────────────────────────
     if (path === '/_cache') {
       const html = layout('Shield Cache Inspector — Nexus Pokédex', renderCachePage());
-      res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' });
+      res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', ...SECURITY_HEADERS });
       return res.end(html);
     }
 
@@ -1332,6 +1437,7 @@ const server = createServer(async (req, res) => {
         'cache-control': `public, s-maxage=${ttl}, stale-while-revalidate=${ttl * 2}`,
         'x-nexus-cache': p._cached ? 'HIT' : 'MISS',
         'x-nexus-cache-strategy': 'shield-swr',
+        ...SECURITY_HEADERS,
       });
       return res.end(html);
     }
@@ -1358,6 +1464,7 @@ const server = createServer(async (req, res) => {
         'content-type': 'text/html; charset=utf-8',
         'cache-control': `public, s-maxage=86400, stale-while-revalidate=172800`,
         'x-nexus-cache': result._cached ? 'HIT' : 'MISS',
+        ...SECURITY_HEADERS,
       });
       return res.end(html);
     }

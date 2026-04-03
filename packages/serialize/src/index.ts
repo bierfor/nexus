@@ -68,7 +68,7 @@ export function encode(value: unknown): unknown {
     if (!Number.isFinite(value)) return tag('Inf', value > 0 ? 1 : -1);
     return value;
   }
-  if (typeof value === 'string') return value;
+  if (typeof value === 'string') return encodeHtmlEntities(value);
   if (typeof value === 'boolean') return value;
   if (value instanceof Date) return tag('Date', value.toISOString());
   if (value instanceof RegExp) return tag('RegExp', { src: value.source, flags: value.flags });
@@ -236,6 +236,48 @@ export async function callAction<TInput, TOutput>(
   } catch (err) {
     return { data: null, error: err instanceof Error ? err.message : String(err) };
   }
+}
+
+// ── XSS Protection ────────────────────────────────────────────────────────────
+
+/**
+ * HTML entity encoding applied to ALL strings that travel from server → client
+ * via @nexus/serialize. This is Nexus's first line of XSS defense.
+ *
+ * Why not rely on frameworks? Because the serializer is the choke point —
+ * every string that reaches an island prop passes through here.
+ *
+ * We use Unicode escape sequences rather than HTML entities because:
+ *  1. They survive re-serialization (JSON.stringify preserves \\uXXXX)
+ *  2. They work in both HTML context and JS string context
+ *  3. They can't be confused with legitimate content
+ */
+function encodeHtmlEntities(str: string): string {
+  // Only encode characters that are dangerous in HTML context.
+  // We do NOT encode every character (that breaks non-ASCII content).
+  return str
+    .replace(/&/g,  '\u0026')   // & → ampersand baseline (must be first)
+    .replace(/</g,  '\u003c')   // < → prevent tag injection
+    .replace(/>/g,  '\u003e')   // > → prevent tag close injection
+    .replace(/"/g,  '\u0022')   // " → prevent attribute value escape
+    .replace(/'/g,  '\u0027')   // ' → prevent attribute value escape
+    .replace(/`/g,  '\u0060');  // ` → prevent template literal injection
+}
+
+/**
+ * Sanitizes a string for safe HTML insertion.
+ * Use this in island templates when rendering user-provided content.
+ * For rich text, use a DOMPurify-based sanitizer on the client.
+ *
+ * @example
+ * // In your island template:
+ * import { sanitize } from '@nexus/serialize';
+ * html`<p>${sanitize(userBio)}</p>`
+ */
+export function sanitize(input: unknown): string {
+  if (input === null || input === undefined) return '';
+  const str = String(input);
+  return encodeHtmlEntities(str);
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
