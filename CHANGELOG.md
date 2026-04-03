@@ -7,6 +7,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.2.0] — 2026-04-03
+
+### Added
+
+**`@nexus/server` — Production-grade request pipeline**
+- `RequestLogInfo` interface: structured per-request data (method, path, status, duration, cacheStrategy, isAction)
+- `onRequest` hook in `NexusServerOptions` — lets the CLI (or any host) receive request events without coupling ANSI formatting to the server package
+- `cacheStrategy` field populated from `x-nexus-cache-strategy` renderer header and exposed via the hook
+- `isAction` flag to distinguish Server Action traffic in logs
+- Detailed dev-mode error page in the browser with stack trace `<details>` block
+- Detailed dev-mode error output in the terminal with stack trace (first 5 frames)
+- `listen()` now returns `Promise<void>` — resolves when the port is bound; callers can `await` before printing the banner
+
+### Changed
+
+**`@nexus/cli` — Developer Experience overhaul (DX 2.0)**
+- `nexus dev` now shows a Vite-style ANSI startup banner: `◆ NEXUS v0.2.0  ready in Xms` with local URL
+- `nexus dev` prints a request access log for every request: timestamp · method · path · status · duration · cache tag (`⚡ cached`, `🌐 dynamic`, `🔒 private`, `⚡ action`)
+- `nexus dev` file watcher now debounces at 100ms and logs `[HMR] filename event — reloading routes` on every `.nx`/`.ts` change
+- `nexus dev` prints `◆ Nexus stopped` on Ctrl+C
+- `nexus build` shows compilation time alongside route count
+- `nexus start` shows the same startup banner as dev mode (without Studio URL)
+- `nexus check` uses unified ANSI color system; prints `✖ Type errors found` on failure
+
+**Internal**
+- Unified ANSI color constants `c` object in `packages/cli/src/bin.ts` — consistent palette across all commands
+- `listen()` return type changed from `void` to `Promise<void>` (non-breaking for `await server.listen()` usage)
+
+**Pokédex example (`examples/pokedex`)**
+- Dev server port changed from `3456` → `3000`
+- `node --watch --watch-path=./src` hot-restart built into `pnpm dev`
+- Same Vite-style banner and request access log as the real CLI
+- Browser error overlay with collapsible stack trace on 500 responses
+- Added `npm run dev:pokedex` and `npm run dev:all` to root `package.json`
+
+### Fixed
+- Server `listen()` was printing its own banner unconditionally — now the banner is the CLI's responsibility, keeping the server package presentation-agnostic
+
+---
+
 ## [0.1.0] — 2026-04-03
 
 ### Added

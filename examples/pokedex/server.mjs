@@ -27,9 +27,46 @@
  */
 
 import { createServer } from 'node:http';
+import { watch, existsSync } from 'node:fs';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const PORT = process.env.PORT ?? 3456;
-const GQL  = 'https://beta.pokeapi.co/graphql/v1beta';
+const __dir  = dirname(fileURLToPath(import.meta.url));
+const PORT   = Number(process.env.PORT ?? 3000);
+const IS_DEV = process.env.NODE_ENV !== 'production';
+const GQL    = 'https://beta.pokeapi.co/graphql/v1beta';
+const _start = Date.now();
+
+// ── ANSI palette ──────────────────────────────────────────────────────────────
+const c = {
+  reset:   '\x1b[0m',   bold:  '\x1b[1m',  dim:    '\x1b[2m',
+  red:     '\x1b[31m',  green: '\x1b[32m', yellow: '\x1b[33m',
+  blue:    '\x1b[34m',  mag:   '\x1b[35m', cyan:   '\x1b[36m',
+  gray:    '\x1b[90m',
+};
+
+const log = {
+  info:  (...a) => console.log(`  ${c.cyan}◆${c.reset}`, ...a),
+  ok:    (...a) => console.log(`  ${c.green}✔${c.reset}`, ...a),
+  warn:  (...a) => console.log(`  ${c.yellow}⚠${c.reset}`, ...a),
+  error: (...a) => console.error(`  ${c.red}✖${c.reset}`, ...a),
+  req: (method, path, status, ms, cacheStatus) => {
+    const mCol  = method === 'GET' ? c.cyan : c.mag;
+    const sCol  = status >= 500 ? c.red : status >= 400 ? c.yellow : c.green;
+    const cache = cacheStatus === 'HIT'
+      ? ` ${c.green}⚡ Shield HIT${c.reset}`
+      : cacheStatus === 'MISS'
+        ? ` ${c.yellow}🌐 API fetch${c.reset}`
+        : '';
+    console.log(
+      `  ${c.gray}${new Date().toLocaleTimeString()}${c.reset}` +
+      `  ${mCol}${method.padEnd(4)}${c.reset}` +
+      `  ${path.padEnd(38)}` +
+      `  ${sCol}${status}${c.reset}` +
+      `  ${c.dim}${ms}ms${c.reset}${cache}`
+    );
+  },
+};
 
 // ── Shield Cache ──────────────────────────────────────────────────────────────
 const cache   = new Map();
@@ -616,8 +653,20 @@ function renderCachePage() {
 // ── HTTP Router ───────────────────────────────────────────────────────────────
 
 const server = createServer(async (req, res) => {
+  const t0  = Date.now();
   const url = new URL(req.url, `http://localhost:${PORT}`);
   const path = url.pathname;
+
+  // Intercept writeHead to capture cache status for the access log
+  const _wh = res.writeHead.bind(res);
+  let _cacheHeader = '';
+  res.writeHead = (status, headers) => {
+    if (headers?.['x-nexus-cache']) _cacheHeader = headers['x-nexus-cache'];
+    return _wh(status, headers);
+  };
+  res.on('finish', () => {
+    log.req(req.method, path, res.statusCode, Date.now() - t0, _cacheHeader);
+  });
 
   try {
     // ── JSON API (used for prefetch + JS fetch) ─────────────────────────────
@@ -696,26 +745,72 @@ const server = createServer(async (req, res) => {
     res.end(layout('404 — Nexus Pokédex', '<div style="text-align:center;padding:80px"><h1 style="font-size:64px;color:var(--muted)">404</h1><p style="color:var(--muted)">This page does not exist.</p><br><a href="/" style="color:#7c3aed">← Back to Pokédex</a></div>'));
 
   } catch (err) {
-    console.error('[Nexus] Request error:', err.message);
+    log.error(`${req.method} ${path} → ${err.message}`);
+    if (err.stack) {
+      err.stack.split('\n').slice(1, 5).forEach(line => {
+        console.error(`     ${c.dim}${line.trim()}${c.reset}`);
+      });
+    }
+    const errHtml = `
+      <div style="max-width:720px;margin:60px auto">
+        <div style="background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);border-radius:12px;padding:28px">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+            <span style="font-size:24px">⚠️</span>
+            <h1 style="font-size:20px;font-weight:700;color:#ef4444">Server Error</h1>
+          </div>
+          <pre style="font-family:var(--mono);font-size:13px;line-height:1.6;color:#fca5a5;white-space:pre-wrap;word-break:break-word;margin-bottom:12px">${err.message}</pre>
+          ${err.stack ? `<details style="margin-top:12px">
+            <summary style="cursor:pointer;font-size:12px;color:var(--muted);margin-bottom:8px">Stack trace</summary>
+            <pre style="font-family:var(--mono);font-size:11px;color:var(--muted);white-space:pre-wrap;line-height:1.5">${err.stack.replace(/</g,'&lt;')}</pre>
+          </details>` : ''}
+          <div style="margin-top:20px;font-size:13px;color:var(--muted)">
+            Route: <code style="color:#7c3aed">${req.method} ${path}</code>
+          </div>
+        </div>
+        <div style="margin-top:16px;text-align:center">
+          <a href="/" style="color:var(--accent)">← Back to Pokédex</a>
+        </div>
+      </div>`;
     res.writeHead(500, { 'content-type': 'text/html; charset=utf-8' });
-    res.end(layout('Error', `<div style="max-width:600px;margin:80px auto;text-align:center"><h1>⚠️ Error</h1><pre style="color:#ef4444;margin:16px 0;text-align:left;background:var(--surface);padding:16px;border-radius:8px">${err.message}</pre><a href="/">← Back</a></div>`));
+    res.end(layout('Error — Nexus Pokédex', errHtml));
   }
 });
 
 server.listen(PORT, () => {
-  console.log(`
-  ◆ Nexus Pokédex
-  
-  → App:            http://localhost:${PORT}
-  → Cache Inspector: http://localhost:${PORT}/_cache
-  → JSON API:        http://localhost:${PORT}/api/pokemon
+  const elapsed = Date.now() - _start;
 
-  Concepts showcased:
-    ⚡ Shield Cache      — 200-500ms API → <1ms after first hit
-    🔄 Data Transform   — 20KB GraphQL → 2KB per card
-    📊 Cache-Control    — Auto s-maxage=86400, swr=172800
-    🏝️ Islands          — ShinyToggle (load), Battle (idle)
-    ⚔️ Offline-First    — $sync via localStorage
-    🌊 One GQL query    — name + types + stats + evolution chain
-  `);
+  if (process.stdout.isTTY) console.clear();
+
+  console.log(`
+  ${c.mag}${c.bold}◆ NEXUS${c.reset} ${c.dim}v0.1.0${c.reset}   ${c.green}ready in ${elapsed}ms${c.reset}
+
+  ${c.green}➜${c.reset}  ${c.bold}App${c.reset}              ${c.cyan}http://localhost:${PORT}/${c.reset}
+  ${c.green}➜${c.reset}  ${c.bold}Cache Inspector${c.reset}  ${c.cyan}http://localhost:${PORT}/_cache${c.reset}
+  ${c.green}➜${c.reset}  ${c.bold}JSON API${c.reset}         ${c.cyan}http://localhost:${PORT}/api/pokemon${c.reset}
+  ${c.green}➜${c.reset}  ${c.bold}GraphQL source${c.reset}   ${c.dim}beta.pokeapi.co/graphql/v1beta${c.reset}
+
+  ${c.dim}Shield Cache:${c.reset}  TTL ${c.cyan}24h${c.reset}  ·  SWR ${c.cyan}48h${c.reset}  ·  in-memory Map
+  ${c.dim}Features:${c.reset}      ⚡ Cache  🔄 Transform  🏝️ Islands  ⚔️ Offline-First
+
+  ${c.dim}press Ctrl+C to stop${c.reset}
+`);
+
+  // ── File watcher (dev only) ─────────────────────────────────────────────────
+  if (IS_DEV) {
+    const srcDir = join(__dir, 'src');
+    if (existsSync(srcDir)) {
+      let debounce;
+      watch(srcDir, { recursive: true }, (event, filename) => {
+        if (!filename) return;
+        clearTimeout(debounce);
+        debounce = setTimeout(() => {
+          const time = new Date().toLocaleTimeString();
+          console.log(
+            `  ${c.gray}${time}${c.reset}  ${c.mag}[HMR]${c.reset}  ${c.cyan}${filename}${c.reset}  ${c.dim}${event}${c.reset}`
+          );
+        }, 50);
+      });
+      console.log(`  ${c.dim}Watching ${c.reset}${c.cyan}src/${c.reset}${c.dim} — server auto-restarts on changes${c.reset}\n`);
+    }
+  }
 });

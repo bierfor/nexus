@@ -4,9 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "node server.mjs",
-    "build": "nexus build",
-    "start": "nexus start"
+    "dev": "node --watch --watch-path=./src server.mjs",
+    "start": "node server.mjs",
+    "build": "nexus build"
   },
   "dependencies": {
     "@nexus/runtime": "workspace:*",

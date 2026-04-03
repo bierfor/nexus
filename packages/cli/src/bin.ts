@@ -5,6 +5,17 @@
 
 import { parseArgs } from 'node:util';
 
+// ── ANSI palette (shared across all CLI commands) ─────────────────────────────
+const c = {
+  reset: '\x1b[0m', bold: '\x1b[1m',  dim:  '\x1b[2m',
+  red:   '\x1b[31m', green: '\x1b[32m', yellow: '\x1b[33m',
+  mag:   '\x1b[35m', cyan:  '\x1b[36m', gray:   '\x1b[90m',
+};
+
+function getTime(): string {
+  return new Date().toLocaleTimeString('en', { hour12: false });
+}
+
 const HELP = `
   \x1b[36m◆ Nexus\x1b[0m — The Definitive Full-Stack Framework
 
@@ -97,42 +108,93 @@ async function main(): Promise<void> {
 }
 
 async function runDev(opts: { root: string; port: number }): Promise<void> {
-  console.log('\n  \x1b[36m◆ Nexus\x1b[0m starting dev server...\n');
+  const _start = Date.now();
+
+  const { createRequire } = await import('node:module');
+  const req = createRequire(import.meta.url);
+  const pkg = req('../package.json') as { version: string };
 
   const { createNexusServer } = await import('@nexus/server');
+  type RequestLogInfo = import('@nexus/server').RequestLogInfo;
 
   const server = await createNexusServer({
     root: opts.root,
     port: opts.port,
     dev: true,
+
+    onRequest(info: RequestLogInfo) {
+      const mCol = info.method === 'GET' ? c.cyan : c.mag;
+      const sCol = info.status >= 500 ? c.red : info.status >= 400 ? c.yellow : c.green;
+
+      let tag = '';
+      if (info.isAction) {
+        tag = ` ${c.mag}⚡ action${c.reset}`;
+      } else if (info.cacheStrategy === 'swr' || info.cacheStrategy === 'static-immutable') {
+        tag = ` ${c.green}⚡ cached${c.reset}`;
+      } else if (info.cacheStrategy === 'dynamic-no-store' || info.cacheStrategy === 'streaming-no-store') {
+        tag = ` ${c.yellow}🌐 dynamic${c.reset}`;
+      } else if (info.cacheStrategy === 'private-no-store') {
+        tag = ` ${c.gray}🔒 private${c.reset}`;
+      }
+
+      process.stdout.write(
+        `  ${c.gray}${getTime()}${c.reset}` +
+        `  ${mCol}${info.method.padEnd(4)}${c.reset}` +
+        `  ${info.path.padEnd(36)}` +
+        `  ${sCol}${info.status}${c.reset}` +
+        `  ${c.dim}${info.duration}ms${c.reset}` +
+        tag + '\n',
+      );
+    },
   });
 
-  server.listen();
+  // Wait for the server to be bound before printing the banner
+  await server.listen();
 
-  // Watch for file changes
+  if (process.stdout.isTTY) console.clear();
+
+  const elapsed = Date.now() - _start;
+
+  console.log(
+    `\n  ${c.mag}${c.bold}◆ NEXUS${c.reset} ${c.dim}v${pkg.version}${c.reset}` +
+    `   ${c.green}ready in ${elapsed}ms${c.reset}\n` +
+    `\n  ${c.green}➜${c.reset}  ${c.bold}Local${c.reset}    ${c.cyan}http://localhost:${opts.port}/${c.reset}` +
+    `\n  ${c.green}➜${c.reset}  ${c.bold}Studio${c.reset}   ${c.cyan}http://localhost:7822/${c.reset}` +
+    `   ${c.dim}nexus studio${c.reset}` +
+    `\n\n  ${c.dim}press Ctrl+C to stop${c.reset}\n`,
+  );
+
+  // File watcher — triggers route reload on .nx / .ts changes
   const { watch } = await import('node:fs');
   const { join } = await import('node:path');
-  const routesDir = join(opts.root, 'src');
+  const srcDir = join(opts.root, 'src');
 
-  let reloadTimeout: ReturnType<typeof setTimeout> | null = null;
-  watch(routesDir, { recursive: true }, (event, filename) => {
+  let debounce: ReturnType<typeof setTimeout> | null = null;
+  watch(srcDir, { recursive: true }, (event, filename) => {
     if (!filename) return;
-    if (reloadTimeout) clearTimeout(reloadTimeout);
-    reloadTimeout = setTimeout(async () => {
-      console.log(`  \x1b[33m⚡ HMR\x1b[0m ${filename} changed — reloading routes`);
+    if (debounce) clearTimeout(debounce);
+    debounce = setTimeout(async () => {
+      console.log(
+        `  ${c.gray}${getTime()}${c.reset}` +
+        `  ${c.mag}[HMR]${c.reset}` +
+        `  ${c.cyan}${filename}${c.reset}` +
+        `  ${c.dim}${event} — reloading routes${c.reset}`,
+      );
       await server.reload();
     }, 100);
   });
 
   // Graceful shutdown
   process.on('SIGINT', () => {
+    console.log(`\n  ${c.dim}◆ Nexus stopped${c.reset}\n`);
     server.close();
     process.exit(0);
   });
 }
 
 async function runBuild(opts: { root: string }): Promise<void> {
-  console.log('\n  \x1b[36m◆ Nexus\x1b[0m building for production...\n');
+  const _start = Date.now();
+  console.log(`\n  ${c.mag}${c.bold}◆ NEXUS${c.reset}  ${c.dim}building for production...${c.reset}\n`);
 
   const { compile } = await import('@nexus/compiler');
   const { buildRouteManifest } = await import('@nexus/router');
@@ -173,13 +235,14 @@ async function runBuild(opts: { root: string }): Promise<void> {
     'utf-8',
   );
 
-  console.log(`  \x1b[32m✓\x1b[0m Compiled ${compiled} routes`);
-  console.log(`  \x1b[32m✓\x1b[0m Output written to .nexus/output/\n`);
-  console.log(`  Run \x1b[1mnexus start\x1b[0m to serve the production build.\n`);
+  const elapsed = Date.now() - _start;
+  console.log(`  ${c.green}✔${c.reset}  Compiled ${c.bold}${compiled} routes${c.reset}  ${c.dim}(${elapsed}ms)${c.reset}`);
+  console.log(`  ${c.green}✔${c.reset}  Output → ${c.cyan}.nexus/output/${c.reset}\n`);
+  console.log(`  Run ${c.bold}nexus start${c.reset} to serve the production build.\n`);
 }
 
 async function runStart(opts: { root: string; port: number }): Promise<void> {
-  console.log('\n  \x1b[36m◆ Nexus\x1b[0m starting production server...\n');
+  const _start = Date.now();
 
   const { createNexusServer } = await import('@nexus/server');
 
@@ -189,9 +252,17 @@ async function runStart(opts: { root: string; port: number }): Promise<void> {
     dev: false,
   });
 
-  server.listen();
+  await server.listen();
+
+  const elapsed = Date.now() - _start;
+  console.log(
+    `\n  ${c.mag}${c.bold}◆ NEXUS${c.reset} ${c.dim}production${c.reset}` +
+    `   ${c.green}ready in ${elapsed}ms${c.reset}\n` +
+    `\n  ${c.green}➜${c.reset}  ${c.bold}Local${c.reset}    ${c.cyan}http://localhost:${opts.port}/${c.reset}\n`,
+  );
 
   process.on('SIGINT', () => {
+    console.log(`\n  ${c.dim}◆ Nexus stopped${c.reset}\n`);
     server.close();
     process.exit(0);
   });
@@ -226,12 +297,13 @@ async function runStudio(opts: { port: number }): Promise<void> {
 }
 
 async function runCheck(opts: { root: string }): Promise<void> {
-  console.log('\n  \x1b[36m◆ Nexus Check\x1b[0m — type-checking your app...\n');
+  console.log(`\n  ${c.mag}${c.bold}◆ NEXUS check${c.reset}  ${c.dim}type-checking your app...${c.reset}\n`);
   const { execSync } = await import('node:child_process');
   try {
     execSync('tsc --noEmit', { cwd: opts.root, stdio: 'inherit' });
-    console.log('\n  \x1b[32m✓\x1b[0m No type errors found.\n');
+    console.log(`\n  ${c.green}✔${c.reset}  No type errors found.\n`);
   } catch {
+    console.error(`\n  ${c.red}✖${c.reset}  Type errors found.\n`);
     process.exit(1);
   }
 }

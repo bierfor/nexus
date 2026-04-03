@@ -18,15 +18,33 @@ export { createContext } from './context.js';
 export type { NexusContext, CookieOptions } from './context.js';
 export type { RenderResult, RenderOptions } from './renderer.js';
 
+export interface RequestLogInfo {
+  method: string;
+  path: string;
+  status: number;
+  /** Request duration in milliseconds */
+  duration: number;
+  /** Cache strategy used by the renderer (e.g. 'swr', 'static-immutable', 'no-store') */
+  cacheStrategy?: string;
+  /** True when the route was served from a Server Action */
+  isAction?: boolean;
+}
+
 export interface NexusServerOptions {
   /** Root directory of the Nexus app */
   root: string;
-  /** Port to listen on */
+  /** Port to listen on (default: 3000) */
   port?: number;
-  /** Enable dev mode (HMR, verbose errors) */
+  /** Enable dev mode (HMR, verbose errors, detailed logs) */
   dev?: boolean;
   /** Static assets directory */
   publicDir?: string;
+  /**
+   * Called after each HTTP request completes.
+   * Use this to implement a custom request logger in the CLI or integrations.
+   * The server itself does NOT print request logs — the host controls formatting.
+   */
+  onRequest?: (info: RequestLogInfo) => void;
 }
 
 const MIME_TYPES: Record<string, string> = {
@@ -64,11 +82,30 @@ export async function createNexusServer(opts: NexusServerOptions) {
   };
 
   const server = createServer(async (req: IncomingMessage, res: ServerResponse) => {
+    const t0  = Date.now();
     const url = new URL(req.url ?? '/', `http://${req.headers.host ?? 'localhost'}`);
     const method = req.method ?? 'GET';
 
+    // Capture cache strategy before headers are flushed, then call onRequest hook
+    let _cacheStrategy: string | undefined;
+    let _isAction = false;
+    if (opts.onRequest) {
+      res.on('finish', () => {
+        const info: RequestLogInfo = {
+          method,
+          path: url.pathname,
+          status: res.statusCode,
+          duration: Date.now() - t0,
+          isAction: _isAction,
+        };
+        if (_cacheStrategy !== undefined) info.cacheStrategy = _cacheStrategy;
+        opts.onRequest!(info);
+      });
+    }
+
     // ── Server Actions ──────────────────────────────────────────────────────
     if (url.pathname.startsWith('/_nexus/action/')) {
+      _isAction = true;
       const request = nodeToWebRequest(req);
       const response = await handleActionRequest(request);
       await webToNodeResponse(response, res);
@@ -96,6 +133,7 @@ export async function createNexusServer(opts: NexusServerOptions) {
 
     try {
       const result = await renderRoute(matched, ctx, renderOpts);
+      _cacheStrategy = result.headers['x-nexus-cache-strategy'];
       res.writeHead(result.status, result.headers);
       res.end(result.html);
     } catch (err) {
@@ -109,28 +147,37 @@ export async function createNexusServer(opts: NexusServerOptions) {
         res.end(notFoundPage(url.pathname, dev));
         return;
       }
-      console.error('[Nexus] Unhandled error:', err);
+      if (dev) {
+        const message = err instanceof Error ? err.message : String(err);
+        const stack   = err instanceof Error ? (err.stack ?? '') : '';
+        console.error(`\x1b[31m[Nexus Error]\x1b[0m ${method} ${url.pathname}\n  ${message}`);
+        if (stack) stack.split('\n').slice(1, 6).forEach(l => console.error(`  \x1b[2m${l.trim()}\x1b[0m`));
+      } else {
+        console.error('[Nexus] Unhandled error:', err);
+      }
       res.writeHead(500, { 'content-type': 'text/html' });
-      res.end('<h1>500 — Internal Server Error</h1>');
+      res.end(serverErrorPage(err, dev));
     }
   });
 
   return {
-    listen() {
-      server.listen(port, () => {
-        console.log(`\n  \x1b[36m◆ Nexus\x1b[0m running at \x1b[1mhttp://localhost:${port}\x1b[0m`);
-        if (dev) console.log(`  \x1b[33m⚡ Dev mode\x1b[0m — HMR enabled`);
-        console.log('');
+    /** Starts listening. Resolves when the server is bound to the port. */
+    listen(): Promise<void> {
+      return new Promise((resolve) => {
+        server.listen(port, () => resolve());
       });
     },
 
-    async reload() {
+    /** Re-scans src/routes — called on file changes in dev mode. */
+    async reload(): Promise<void> {
       manifest = await buildRouteManifest(routesDir);
     },
 
-    close() {
+    close(): void {
       server.close();
     },
+
+    get port() { return port; },
   };
 }
 
@@ -170,6 +217,18 @@ async function serveStatic(
   } catch {
     return null;
   }
+}
+
+function serverErrorPage(err: unknown, dev: boolean): string {
+  const message = err instanceof Error ? err.message : String(err);
+  const stack   = dev && err instanceof Error ? (err.stack ?? '') : '';
+  return `<!DOCTYPE html><html lang="en"><body style="font-family:monospace;padding:2rem;background:#0a0a0f;color:#e8e8f0">
+    <h1 style="color:#ff3e00">◆ Nexus — 500 Server Error</h1>
+    <pre style="color:#ff6b6b;background:#0d0d1a;padding:1rem;border-radius:6px;overflow:auto">${message}</pre>
+    ${dev && stack ? `<details open><summary style="cursor:pointer;color:#6b6b80">Stack trace</summary>
+      <pre style="font-size:0.75rem;color:#4b5563">${stack.replace(/</g, '&lt;')}</pre>
+    </details>` : ''}
+  </body></html>`;
 }
 
 function notFoundPage(pathname: string, dev: boolean): string {
