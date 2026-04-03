@@ -1,6 +1,6 @@
 {
   "name": "@nexus/compiler",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Nexus compiler \u2014 transforms .nx files into optimized server/client bundles",
   "type": "module",
   "main": "./dist/index.js",

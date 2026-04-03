@@ -16,30 +16,33 @@ function getTime(): string {
   return new Date().toLocaleTimeString('en', { hour12: false });
 }
 
-const HELP = `
-  \x1b[36m◆ Nexus\x1b[0m — The Definitive Full-Stack Framework
+  const HELP = `
+  ${c.mag}${c.bold}◆ Nexus${c.reset} — The Definitive Full-Stack Framework
 
-  \x1b[1mUsage:\x1b[0m
+  ${c.bold}Usage:${c.reset}
     nexus <command> [options]
 
-  \x1b[1mCommands:\x1b[0m
-    dev       Start the development server with HMR
-    build     Build for production
+  ${c.bold}Commands:${c.reset}
+    dev       Start the development server with HMR + Guard + AI Prefetch
+    build     Build for production (runs Nexus Guard on all files)
     start     Start the production server
+    add       Install a Nexus Block from the marketplace
     studio    Open the Nexus Studio dev dashboard
     check     Type-check and lint your Nexus app
     routes    Print the route manifest
 
-  \x1b[1mOptions:\x1b[0m
+  ${c.bold}Options:${c.reset}
     --port, -p    Port number (default: 3000)
     --host        Host to bind (default: localhost)
     --root        App root directory (default: .)
     --help, -h    Show this help
     --version, -v Show version
 
-  \x1b[1mExamples:\x1b[0m
+  ${c.bold}Examples:${c.reset}
     nexus dev
     nexus dev --port 4000
+    nexus add auth
+    nexus add
     nexus build
     nexus start
 `;
@@ -87,6 +90,12 @@ async function main(): Promise<void> {
     case 'start':
       await runStart({ root, port });
       break;
+    case 'add': {
+      const { runAdd } = await import('./add.js');
+      const bid = positionals[1];
+      await runAdd({ ...(bid !== undefined ? { blockId: bid } : {}), root });
+      break;
+    }
     case 'studio':
       await runStudio({ port });
       break;

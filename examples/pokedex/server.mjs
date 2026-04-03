@@ -37,6 +37,105 @@ const IS_DEV = process.env.NODE_ENV !== 'production';
 const GQL    = 'https://beta.pokeapi.co/graphql/v1beta';
 const _start = Date.now();
 
+// ── Nexus Connect — SSE pub/sub (no external deps) ────────────────────────────
+const sseChannels = new Map(); // topic → Set<{res, unsubFn}>
+
+function connectPublish(topic, data) {
+  const msg = { data, id: `${Date.now()}-${Math.random().toString(36).slice(2,7)}`, ts: Date.now() };
+  const clients = sseChannels.get(topic);
+  if (!clients) return 0;
+  let delivered = 0;
+  for (const client of clients) {
+    try { client.res.write(`id: ${msg.id}\nevent: message\ndata: ${JSON.stringify(data)}\n\n`); delivered++; }
+    catch { clients.delete(client); }
+  }
+  return delivered;
+}
+
+function connectSubscribe(topic, res) {
+  if (!sseChannels.has(topic)) sseChannels.set(topic, new Set());
+  res.writeHead(200, {
+    'content-type':              'text/event-stream; charset=utf-8',
+    'cache-control':             'no-cache',
+    'connection':                'keep-alive',
+    'x-accel-buffering':         'no',
+    'access-control-allow-origin': '*',
+  });
+  res.write(`event: connected\ndata: ${JSON.stringify({ topic, ts: Date.now() })}\n\n`);
+  const client = { res };
+  sseChannels.get(topic).add(client);
+  const heartbeat = setInterval(() => { try { res.write(': heartbeat\n\n'); } catch { clearInterval(heartbeat); } }, 15_000);
+  const cleanup = () => { clearInterval(heartbeat); sseChannels.get(topic)?.delete(client); };
+  res.on('close', cleanup);
+  return cleanup;
+}
+
+// ── Global state (Nexus Connect topics) ───────────────────────────────────────
+let globalCaptures = 0;
+
+// ── Nexus AI — server-side probability manifest ───────────────────────────────
+// Maps route → [{to, probability}] based on observed patterns.
+// In production this would be generated from real navigation logs.
+const PREFETCH_MANIFEST = {
+  generated: Date.now(),
+  version:   'server-1.0',
+  routes: {
+    // Pokémon detail pages — sequential browsing is extremely common
+    ...Object.fromEntries(Array.from({ length: 1010 }, (_, i) => {
+      const id = i + 1;
+      const next = id + 1;
+      const prev = id - 1;
+      const predictions = [];
+      if (next <= 1010) predictions.push({ to: `/pokemon/${next}`, probability: 0.91, estimatedBytes: 9200 });
+      if (prev >= 1)    predictions.push({ to: `/pokemon/${prev}`, probability: 0.72, estimatedBytes: 9200 });
+      return [`/pokemon/${id}`, predictions];
+    })),
+    '/': [{ to: '/pokemon/1', probability: 0.78, estimatedBytes: 9200 }],
+  },
+};
+
+// ── Nexus Guard — startup security scan ───────────────────────────────────────
+function guardScan(source, filepath) {
+  const SECRET_RE = /process\.env\.(\w*(?:PASSWORD|SECRET|PRIVATE|KEY|TOKEN|CERT)\w*)/gi;
+  const DB_RE     = /(['"`])(postgresql|mysql|mongodb|redis):\/\/[^'"`\s]+\1/gi;
+  const leaks = [];
+  const lines = source.split('\n');
+  // Only check lines OUTSIDE the server block (---) for secrets
+  let inServer = false, serverDone = false, lineNum = 0;
+  for (const line of lines) {
+    lineNum++;
+    if (line.trim() === '---') { if (!serverDone) { inServer = !inServer; if (!inServer) serverDone = true; } continue; }
+    if (!inServer) {
+      let m;
+      SECRET_RE.lastIndex = 0;
+      while ((m = SECRET_RE.exec(line)) !== null) leaks.push({ line: lineNum, variable: m[0], severity: 'error' });
+      DB_RE.lastIndex = 0;
+      while ((m = DB_RE.exec(line)) !== null) leaks.push({ line: lineNum, variable: m[0].slice(0, 40), severity: 'error' });
+    }
+  }
+  return { filepath, passed: leaks.filter(l => l.severity === 'error').length === 0, leaks };
+}
+
+async function runGuardOnAllNxFiles() {
+  const { readdir, readFile } = await import('node:fs/promises');
+  const srcDir = join(__dir, 'src');
+  const results = [];
+  async function scan(dir) {
+    let entries;
+    try { entries = await readdir(dir, { withFileTypes: true }); } catch { return; }
+    for (const e of entries) {
+      const full = join(dir, e.name);
+      if (e.isDirectory()) { await scan(full); }
+      else if (e.name.endsWith('.nx')) {
+        const source = await readFile(full, 'utf-8').catch(() => '');
+        results.push(guardScan(source, full.replace(__dir + '/', '')));
+      }
+    }
+  }
+  await scan(srcDir);
+  return results;
+}
+
 // ── Dev Bridge — injected into every HTML page in dev mode ────────────────────
 // The client script reads window.__NEXUS_SERVER_LOGS__ and prints the SSR
 // report in DevTools. It also sets up hooks for island/state/action/nav logging.
@@ -158,6 +257,84 @@ const NEXUS_CLIENT_DEV_SCRIPT = `
     }
   }, 1200);
 
+  // ── Guard result ────────────────────────────────────────────────────────────
+  var guard = window.__NEXUS_GUARD__;
+  if (guard) {
+    if (guard.passed) {
+      console.log('%c[Nexus] 🛡️  Guard%c — ' + guard.files + ' files scanned, 0 leaks', S.ok, S.dim);
+    } else {
+      console.groupCollapsed('%c[Nexus] 🛡️  Guard — ' + guard.leaks + ' security leak' + (guard.leaks !== 1 ? 's' : '') + ' found!', S.err);
+      (guard.details || []).forEach(function(d) { console.error('  ✖', d); });
+      console.groupEnd();
+    }
+  }
+
+  // ── Nexus Connect — live counter ────────────────────────────────────────────
+  if (typeof EventSource !== 'undefined') {
+    var es = new EventSource('/_nexus/connect/global-captures');
+    es.addEventListener('message', function(e) {
+      try {
+        var d = JSON.parse(e.data);
+        var el = document.getElementById('capture-count');
+        if (el) el.textContent = d.count;
+        console.log('%c[Nexus] 🛰️  Connect%c "global-captures" →', S.nexus, S.dim, d);
+      } catch {}
+    });
+    es.addEventListener('connected', function() {
+      console.log('%c[Nexus] 🛰️  Connect%c "global-captures" established', S.nexus, 'color:#10b981;font-weight:700');
+    });
+  }
+
+  // ── Nexus AI — predictive prefetch (network-aware) ─────────────────────────
+  var conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+  var saveData   = conn && conn.saveData;
+  var effectType = conn ? conn.effectiveType : '4g';
+  var isFast     = !saveData && (effectType === '4g' || !conn);
+
+  if (saveData) {
+    console.log('%c[Nexus] 🧠 AI%c 🚫 Save-Data mode — prefetch disabled. Your data is protected.', S.nexus, S.dim);
+  } else if (!isFast) {
+    console.log('%c[Nexus] 🧠 AI%c ⚠️  Slow connection (' + effectType + ') — prefetch skipped.', S.nexus, S.dim);
+  } else {
+    fetch('/nexus-prefetch-manifest.json', { priority: 'low' })
+      .then(function(r) { return r.json(); })
+      .then(function(manifest) {
+        var currentPath = window.location.pathname;
+        var predictions = (manifest.routes[currentPath] || []).filter(function(p) { return p.probability >= 0.85; });
+        var budget = parseInt(sessionStorage.getItem('__nx_budget__') || '0', 10);
+        var MAX_BUDGET = 512 * 1024;
+
+        if (!predictions.length) {
+          console.log('%c[Nexus] 🧠 AI%c ℹ️  No high-confidence predictions for "' + currentPath + '".', S.nexus, S.dim);
+          return;
+        }
+
+        predictions.forEach(function(pred) {
+          if (budget >= MAX_BUDGET) {
+            console.log('%c[Nexus] 🧠 AI%c 🛑 Session budget exhausted — no more prefetches.', S.nexus, S.dim);
+            return;
+          }
+          if (document.querySelector('link[rel="prefetch"][href="' + pred.to + '"]')) return;
+          var el = document.createElement('link');
+          el.rel = 'prefetch'; el.href = pred.to; el.as = 'document';
+          document.head.appendChild(el);
+          var estKB = ((pred.estimatedBytes || 9000) / 1024).toFixed(1);
+          budget += pred.estimatedBytes || 9000;
+          sessionStorage.setItem('__nx_budget__', String(budget));
+          console.log(
+            '%c[Nexus] 🧠 AI%c ✅ Predicting → ' + pred.to +
+            ' (' + Math.round(pred.probability * 100) + '% confidence)' +
+            ' — prefetched ' + estKB + 'KB HTML-only.',
+            S.nexus, S.dim
+          );
+        });
+
+        var usedKB = (budget / 1024).toFixed(0);
+        var maxKB  = (MAX_BUDGET / 1024).toFixed(0);
+        console.log('%c[Nexus] 🧠 AI%c 💾 Session budget: ' + usedKB + 'KB / ' + maxKB + 'KB.', S.nexus, S.dim);
+      }).catch(function() {});
+  }
+
 })();
 </script>`;
 
@@ -174,6 +351,16 @@ const log = {
   ok:    (...a) => console.log(`  ${c.green}✔${c.reset}`, ...a),
   warn:  (...a) => console.log(`  ${c.yellow}⚠${c.reset}`, ...a),
   error: (...a) => console.error(`  ${c.red}✖${c.reset}`, ...a),
+  action: (name, status, ms, extra = '') => {
+    const sCol = status === 'success' ? c.green : c.red;
+    const sym  = status === 'success' ? `${c.green}▲${c.reset}` : `${c.red}▲${c.reset}`;
+    process.stdout.write(
+      `  ${sym} ${c.gray}${new Date().toLocaleTimeString()}${c.reset}` +
+      `  ${c.mag}ACTION${c.reset}  ${c.bold}${name.padEnd(20)}${c.reset}` +
+      `  ${sCol}${status}${c.reset}  ${c.dim}+${ms}ms${c.reset}` +
+      (extra ? `  ${c.dim}${extra}${c.reset}` : '') + '\n'
+    );
+  },
   req: (method, path, status, ms, cacheStatus) => {
     const mCol  = method === 'GET' ? c.cyan : c.mag;
     const sCol  = status >= 500 ? c.red : status >= 400 ? c.yellow : c.green;
@@ -363,6 +550,9 @@ function typeBadge(type) {
   return `<span style="background:${bg};color:${fg};padding:3px 12px;border-radius:999px;font-size:12px;font-weight:700;text-transform:capitalize">${type}</span>`;
 }
 
+// Guard results cached at startup (re-run on HMR)
+let _guardResult = { passed: true, files: 0, leaks: 0, details: [] };
+
 function buildDevBridge(serverLogs, islandNames = []) {
   if (!IS_DEV) return '';
   const totalJs = 8_400 + islandNames.length * 1_200;
@@ -374,6 +564,7 @@ window.__NEXUS_BUILD_INFO__ = {
   reactEquivalent: 148000,
   islandCount: ${islandNames.length}
 };
+window.__NEXUS_GUARD__ = ${JSON.stringify(_guardResult)};
 </script>${NEXUS_CLIENT_DEV_SCRIPT}`;
 }
 
@@ -414,9 +605,14 @@ function layout(title, body, extraHead = '', devLogs = [], islandNames = []) {
       </div>
     </form>
     <div style="margin-left:auto;display:flex;gap:12px;align-items:center">
+      <div id="global-captures" style="font-size:12px;color:var(--muted);border:1px solid var(--border);padding:4px 10px;border-radius:6px;display:flex;align-items:center;gap:6px">
+        <span style="width:7px;height:7px;background:#10b981;border-radius:50%;animation:pulse 2s infinite"></span>
+        <span id="capture-count">0</span> global captures
+      </div>
       <a href="/_cache" style="font-size:12px;color:var(--muted);border:1px solid var(--border);padding:4px 10px;border-radius:6px">📊 Cache</a>
       <a href="https://github.com/bierfor/nexus" target="_blank" style="font-size:13px;color:var(--muted)">GitHub ↗</a>
     </div>
+    <style>@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}</style>
   </header>
   <main style="padding:32px;max-width:1400px;margin:0 auto">
     ${body}
@@ -715,6 +911,18 @@ function renderDetailPage(p, cached) {
             wb.innerHTML = '🏆 ' + w + ' wins!';
             document.getElementById('atk-btn').disabled = true;
             document.getElementById('atk-btn').style.opacity = '.5';
+            // ── Nexus Connect: broadcast capture to all clients ────────────
+            if (oppHp <= 0) {
+              window.__NEXUS_LOG_ACTION__?.(\${JSON.stringify(data.name + '-capture')}, 'call');
+              window.__NEXUS_LOG_OPTIMISTIC__?.('captured', true);
+              fetch('/_nexus/action/capture', {
+                method: 'POST',
+                headers: { 'content-type': 'application/json', 'x-nexus-action': '1' },
+                body: JSON.stringify({ pokemonId: data.id, pokemonName: data.name }),
+              }).then(function() {
+                window.__NEXUS_LOG_ACTION__?.(\${JSON.stringify(data.name + '-capture')}, 'success');
+              });
+            }
           }
         }
       }
@@ -844,6 +1052,32 @@ const server = createServer(async (req, res) => {
   });
 
   try {
+    // ── Nexus Connect — SSE endpoint ────────────────────────────────────────
+    if (path.startsWith('/_nexus/connect/')) {
+      const topic = decodeURIComponent(path.slice('/_nexus/connect/'.length));
+      connectSubscribe(topic, res);
+      return; // SSE keeps connection open
+    }
+
+    // ── Nexus Connect — capture action ─────────────────────────────────────
+    if (path === '/_nexus/action/capture' && req.method === 'POST') {
+      let body = '';
+      for await (const chunk of req) body += chunk;
+      const { pokemonId, pokemonName } = JSON.parse(body || '{}');
+      globalCaptures++;
+      const payload = { count: globalCaptures, lastCapture: { id: pokemonId, name: pokemonName }, ts: Date.now() };
+      const delivered = connectPublish('global-captures', payload);
+      log.action('capture', 'success', Date.now() - t0, delivered > 0 ? `→ ${delivered} SSE clients` : '');
+      res.writeHead(200, { 'content-type': 'application/json' });
+      return res.end(JSON.stringify({ ok: true, ...payload }));
+    }
+
+    // ── Nexus AI — probability manifest ────────────────────────────────────
+    if (path === '/nexus-prefetch-manifest.json') {
+      res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'public, max-age=300' });
+      return res.end(JSON.stringify(PREFETCH_MANIFEST));
+    }
+
     // ── JSON API (used for prefetch + JS fetch) ─────────────────────────────
 
     if (path === '/api/pokemon' || path.startsWith('/api/pokemon?')) {
@@ -985,6 +1219,28 @@ server.listen(PORT, () => {
 
   ${c.dim}press Ctrl+C to stop${c.reset}
 `);
+
+  // ── Nexus Guard — scan all .nx files at startup ─────────────────────────────
+  if (IS_DEV) {
+    runGuardOnAllNxFiles().then(results => {
+      const totalLeaks = results.flatMap(r => r.leaks).filter(l => l.severity === 'error').length;
+      const allPassed  = results.every(r => r.passed);
+      _guardResult = {
+        passed:  allPassed,
+        files:   results.length,
+        leaks:   totalLeaks,
+        details: results.flatMap(r => r.leaks.map(l => `${r.filepath}:${l.line} — ${l.variable}`)),
+      };
+      if (allPassed) {
+        console.log(`  ${c.green}🛡️  Guard${c.reset}  ${c.dim}${results.length} files scanned — 0 leaks found${c.reset}`);
+      } else {
+        console.log(`  ${c.red}🛡️  Guard${c.reset}  ${c.red}${totalLeaks} security leak${totalLeaks !== 1 ? 's' : ''} found!${c.reset}`);
+        _guardResult.details.forEach(d => console.log(`         ${c.red}✖${c.reset}  ${c.dim}${d}${c.reset}`));
+      }
+      console.log(`  ${c.green}🛰️  Connect${c.reset}  ${c.dim}SSE broker ready — topic: global-captures${c.reset}`);
+      console.log(`  ${c.mag}🧠 AI${c.reset}      ${c.dim}Probability manifest: /nexus-prefetch-manifest.json (${Object.keys(PREFETCH_MANIFEST.routes).length} routes)${c.reset}\n`);
+    }).catch(() => {});
+  }
 
   // ── File watcher (dev only) ─────────────────────────────────────────────────
   if (IS_DEV) {
