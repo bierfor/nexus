@@ -5,174 +5,468 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Nexus Framework — Documentation</title>
   <meta name="description" content="The Definitive Full-Stack Framework. Islands Architecture + Svelte 5 Runes + Server Actions + Edge-First.">
+  <meta name="theme-color" content="#fafafa">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <!-- Prism.js for syntax highlighting -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400..700;1,400..700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <!-- Prism.js for syntax highlighting (light) -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism.min.css">
   <style>
     :root {
-      --bg:       #08080f;
-      --bg2:      #0e0e1a;
-      --surface:  #13131f;
-      --border:   #1e1e30;
-      --accent:   #7c3aed;
-      --accent2:  #06b6d4;
-      --green:    #10b981;
-      --amber:    #f59e0b;
-      --red:      #ef4444;
-      --text:     #e2e8f0;
-      --muted:    #64748b;
-      --mono:     'JetBrains Mono', monospace;
-      --sans:     'Space Grotesk', system-ui, sans-serif;
-      --sidebar-w: 260px;
+      --bg: #fafafa;
+      --bg2: #ffffff;
+      --surface: #f4f4f5;
+      --surface-elevated: #ffffff;
+      --border: #e4e4e7;
+      --border-strong: #d4d4d8;
+      --accent: #18181b;
+      --accent-soft: #3b82f6;
+      --accent2: #2563eb;
+      --accent-muted: rgba(37, 99, 235, 0.08);
+      --green: #15803d;
+      --amber: #b45309;
+      --red: #b91c1c;
+      --text: #18181b;
+      --text-secondary: #52525b;
+      --muted: #71717a;
+      --mono: 'JetBrains Mono', ui-monospace, monospace;
+      --sans: 'Plus Jakarta Sans', system-ui, sans-serif;
+      --sidebar-w: 272px;
+      --radius: 12px;
+      --shadow-sm: 0 1px 2px rgba(0,0,0,.04);
+      --shadow-md: 0 4px 24px rgba(0,0,0,.06);
     }
 
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     html { scroll-behavior: smooth; }
 
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+    }
+
+    /* Anchor targets clear fixed mobile header */
+    section[id] {
+      scroll-margin-top: 1rem;
+    }
+    @media (max-width: 900px) {
+      section[id] {
+        scroll-margin-top: 4.5rem;
+      }
+    }
+
     body {
       background: var(--bg);
       color: var(--text);
       font-family: var(--sans);
       font-size: 15px;
-      line-height: 1.7;
+      line-height: 1.65;
       display: flex;
       min-height: 100vh;
+      letter-spacing: -0.01em;
     }
 
-    /* ── Sidebar ───────────────────────────────────────────────────────── */
     aside {
       width: var(--sidebar-w);
-      min-height: 100vh;
+      height: 100vh;
+      max-height: 100vh;
       background: var(--bg2);
       border-right: 1px solid var(--border);
       position: fixed;
       top: 0; left: 0;
-      overflow-y: auto;
-      padding: 24px 0 40px;
       z-index: 10;
+      box-shadow: var(--shadow-sm);
+      display: flex;
+      flex-direction: column;
+      padding: 0;
+      overflow: hidden;
     }
 
     .sidebar-logo {
       display: flex;
       align-items: center;
       gap: 10px;
-      padding: 0 20px 24px;
+      flex-shrink: 0;
+      padding: 28px 22px 24px;
       border-bottom: 1px solid var(--border);
       text-decoration: none;
     }
 
+    aside nav#sidebar-nav {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      overflow-x: hidden;
+      -webkit-overflow-scrolling: touch;
+      padding: 16px 0 40px;
+      overscroll-behavior: contain;
+    }
+
     .logo-mark {
-      width: 32px; height: 32px;
-      background: linear-gradient(135deg, var(--accent), var(--accent2));
-      border-radius: 8px;
+      width: 36px; height: 36px;
+      background: linear-gradient(145deg, #18181b 0%, #3f3f46 100%);
+      border-radius: 10px;
       display: grid;
       place-items: center;
-      font-size: 16px;
+      font-size: 17px;
       font-weight: 700;
       color: #fff;
       font-family: var(--mono);
       flex-shrink: 0;
+      box-shadow: 0 2px 8px rgba(0,0,0,.12);
     }
 
     .logo-text {
-      font-size: 18px;
+      font-size: 17px;
       font-weight: 700;
       color: var(--text);
+      letter-spacing: -0.02em;
     }
 
     .logo-version {
       font-size: 10px;
-      background: rgba(124,58,237,.2);
-      color: var(--accent);
-      border: 1px solid rgba(124,58,237,.3);
-      border-radius: 4px;
-      padding: 1px 5px;
+      background: var(--surface);
+      color: var(--muted);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 2px 7px;
       margin-left: auto;
       font-family: var(--mono);
     }
 
-    nav {
-      padding: 16px 0;
-    }
-
     .nav-section {
-      padding: 4px 20px 2px;
+      padding: 6px 22px 4px;
       font-size: 10px;
       font-weight: 600;
-      letter-spacing: .1em;
+      letter-spacing: .12em;
       text-transform: uppercase;
       color: var(--muted);
-      margin-top: 16px;
+      margin-top: 18px;
     }
 
     nav a {
       display: flex;
       align-items: center;
       gap: 8px;
-      padding: 6px 20px;
-      color: var(--muted);
+      padding: 7px 22px;
+      color: var(--text-secondary);
       text-decoration: none;
-      font-size: 14px;
+      font-size: 13.5px;
       border-left: 2px solid transparent;
-      transition: all .15s;
+      transition: color .15s, background .15s, border-color .15s;
     }
 
-    nav a:hover { color: var(--text); background: rgba(255,255,255,.03); }
+    nav a:hover { color: var(--text); background: rgba(0,0,0,.03); }
     nav a.active {
       color: var(--accent2);
       border-left-color: var(--accent2);
-      background: rgba(6,182,212,.06);
+      background: var(--accent-muted);
+      font-weight: 500;
     }
 
-    /* ── Main ──────────────────────────────────────────────────────────── */
+    nav a:focus-visible {
+      outline: 2px solid var(--accent2);
+      outline-offset: -2px;
+    }
+
+    .skip-link {
+      position: absolute;
+      left: -9999px;
+      top: auto;
+      z-index: 10000;
+      padding: 12px 20px;
+      background: var(--accent);
+      color: #fff;
+      font-weight: 600;
+      border-radius: 0 0 8px 0;
+      text-decoration: none;
+    }
+    .skip-link:focus {
+      left: 0;
+      top: 0;
+    }
+
+    .visually-hidden {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    .read-progress {
+      position: fixed;
+      top: 0;
+      left: 0;
+      height: 3px;
+      width: 100%;
+      z-index: 9999;
+      pointer-events: none;
+      background: transparent;
+    }
+    .read-progress__bar {
+      height: 100%;
+      width: 100%;
+      transform-origin: 0 50%;
+      transform: scaleX(0);
+      background: linear-gradient(90deg, var(--accent2), #1d4ed8);
+    }
+
+    .mobile-topbar {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 52px;
+      padding: 0 12px 0 8px;
+      align-items: center;
+      gap: 10px;
+      background: rgba(255,255,255,.92);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--border);
+      z-index: 95;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .nav-toggle {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 44px;
+      height: 44px;
+      border: none;
+      background: transparent;
+      border-radius: 10px;
+      cursor: pointer;
+      color: var(--text);
+    }
+    .nav-toggle:hover { background: var(--surface); }
+    .nav-toggle:focus-visible {
+      outline: 2px solid var(--accent2);
+      outline-offset: 2px;
+    }
+    .nav-toggle-icon {
+      display: grid;
+      gap: 5px;
+      width: 20px;
+    }
+    .nav-toggle-icon span {
+      display: block;
+      height: 2px;
+      background: currentColor;
+      border-radius: 1px;
+    }
+
+    .mobile-brand {
+      flex: 1;
+      font-weight: 700;
+      font-size: 16px;
+      color: var(--text);
+      text-decoration: none;
+      letter-spacing: -0.02em;
+    }
+    .mobile-brand span {
+      font-weight: 500;
+      color: var(--muted);
+      font-size: 13px;
+      margin-left: 6px;
+    }
+
+    .mobile-lang {
+      display: none;
+      align-items: center;
+      gap: 2px;
+    }
+    .mobile-lang .lang-btn {
+      padding: 6px 10px;
+      font-size: 11px;
+    }
+
+    .nav-backdrop {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.45);
+      z-index: 150;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+    }
+    body.nav-open .nav-backdrop {
+      display: block;
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .nav-filter-wrap {
+      padding: 0 14px 12px;
+      margin: 0 8px 4px;
+      border-bottom: 1px solid var(--border);
+    }
+    .nav-filter {
+      width: 100%;
+      padding: 8px 10px 8px 32px;
+      font-size: 13px;
+      font-family: var(--sans);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--surface) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%2371717a' viewBox='0 0 16 16'%3E%3Cpath d='M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z'/%3E%3C/svg%3E") 10px center no-repeat;
+      background-size: 14px;
+    }
+    .nav-filter::placeholder { color: var(--muted); }
+    .nav-filter:focus {
+      outline: none;
+      border-color: var(--accent2);
+      box-shadow: 0 0 0 3px var(--accent-muted);
+    }
+
+    .copy-code-btn {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      z-index: 2;
+      padding: 5px 10px;
+      font-size: 11px;
+      font-weight: 600;
+      font-family: var(--sans);
+      color: var(--muted);
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      cursor: pointer;
+      opacity: 0.85;
+      transition: opacity 0.15s, color 0.15s, border-color 0.15s;
+    }
+    @media (hover: hover) and (pointer: fine) {
+      .copy-code-btn { opacity: 0; }
+      pre[class*="language-"]:hover .copy-code-btn { opacity: 1; }
+    }
+    .copy-code-btn:focus {
+      opacity: 1;
+    }
+    .copy-code-btn:hover {
+      color: var(--text);
+      border-color: var(--border-strong);
+    }
+    .copy-code-btn:focus-visible {
+      opacity: 1;
+      outline: 2px solid var(--accent2);
+    }
+    .copy-code-btn.is-copied {
+      color: var(--green);
+      border-color: rgba(22,163,74,.4);
+    }
+
+    .to-top {
+      position: fixed;
+      right: 20px;
+      bottom: 24px;
+      z-index: 90;
+      width: 44px;
+      height: 44px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: var(--bg2);
+      color: var(--text);
+      font-size: 18px;
+      line-height: 1;
+      cursor: pointer;
+      box-shadow: var(--shadow-md);
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(8px);
+      transition: opacity 0.2s, transform 0.2s, border-color 0.15s;
+    }
+    .to-top.is-visible {
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateY(0);
+    }
+    .to-top:hover {
+      border-color: var(--accent2);
+      color: var(--accent2);
+    }
+    .to-top:focus-visible {
+      outline: 2px solid var(--accent2);
+    }
+
     main {
       margin-left: var(--sidebar-w);
       flex: 1;
       max-width: calc(100% - var(--sidebar-w));
     }
 
-    /* ── Hero ──────────────────────────────────────────────────────────── */
     .hero {
-      background: radial-gradient(ellipse 80% 60% at 50% -10%, rgba(124,58,237,.25) 0%, transparent 60%),
-                  var(--bg);
+      position: relative;
+      overflow: hidden;
+      background:
+        linear-gradient(180deg, #ffffff 0%, #fafafa 55%, #f4f4f5 100%);
       border-bottom: 1px solid var(--border);
-      padding: 80px 80px 60px;
+      padding: 96px 80px 72px;
       text-align: center;
     }
+
+    /* Triangle mesh: tiled rhombi (each cell reads as four triangles) */
+    .hero::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='48' height='42' viewBox='0 0 48 42'%3E%3Cpath d='M24 0 L48 21 L24 42 L0 21 Z' fill='none' stroke='rgba(0,0,0,0.06)' stroke-width='0.9'/%3E%3C/svg%3E");
+      background-size: 48px 42px;
+      mask-image: radial-gradient(ellipse 95% 75% at 50% 0%, black 18%, transparent 72%);
+      pointer-events: none;
+    }
+
+    .hero::after {
+      content: '';
+      position: absolute;
+      top: -30%;
+      left: 50%;
+      transform: translateX(-50%);
+      width: min(900px, 90vw);
+      height: 420px;
+      background: radial-gradient(ellipse at center, rgba(59, 130, 246, 0.12) 0%, transparent 65%);
+      pointer-events: none;
+    }
+
+    .hero > * { position: relative; z-index: 1; }
 
     .hero-badge {
       display: inline-flex;
       align-items: center;
-      gap: 6px;
-      background: rgba(124,58,237,.15);
-      border: 1px solid rgba(124,58,237,.3);
+      gap: 8px;
+      background: var(--surface);
+      border: 1px solid var(--border);
       border-radius: 999px;
-      padding: 4px 14px;
+      padding: 6px 16px;
       font-size: 12px;
-      color: var(--accent2);
+      color: var(--text-secondary);
       font-family: var(--mono);
-      margin-bottom: 24px;
+      margin-bottom: 28px;
+      box-shadow: var(--shadow-sm);
     }
 
     .hero h1 {
-      font-size: clamp(36px, 5vw, 60px);
+      font-size: clamp(34px, 4.5vw, 56px);
       font-weight: 700;
-      line-height: 1.1;
-      background: linear-gradient(135deg, #fff 30%, rgba(124,58,237,.8));
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-      margin-bottom: 16px;
+      line-height: 1.08;
+      letter-spacing: -0.035em;
+      color: var(--text);
+      margin-bottom: 18px;
     }
 
     .hero p {
       font-size: 18px;
       color: var(--muted);
       max-width: 560px;
-      margin: 0 auto 32px;
+      margin: 0 auto 36px;
+      font-weight: 450;
     }
 
     .hero-actions {
@@ -186,12 +480,12 @@
       display: inline-flex;
       align-items: center;
       gap: 8px;
-      padding: 10px 22px;
-      border-radius: 8px;
+      padding: 11px 24px;
+      border-radius: 10px;
       font-size: 14px;
       font-weight: 600;
       text-decoration: none;
-      transition: all .2s;
+      transition: transform .15s, box-shadow .15s, background .15s, border-color .15s;
       cursor: pointer;
       border: none;
     }
@@ -199,71 +493,89 @@
     .btn-primary {
       background: var(--accent);
       color: #fff;
+      box-shadow: 0 2px 12px rgba(0,0,0,.15);
     }
-    .btn-primary:hover { background: #6d28d9; transform: translateY(-1px); }
+    .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 20px rgba(0,0,0,.2); }
 
     .btn-outline {
-      background: transparent;
+      background: var(--bg2);
       color: var(--text);
-      border: 1px solid var(--border);
+      border: 1px solid var(--border-strong);
     }
-    .btn-outline:hover { border-color: var(--accent); color: var(--accent2); }
+    .btn-outline:hover { border-color: var(--text); color: var(--text); }
 
     .hero-stats {
       display: flex;
       justify-content: center;
-      gap: 48px;
-      margin-top: 48px;
-      padding-top: 32px;
+      gap: 32px;
+      margin-top: 52px;
+      padding-top: 36px;
       border-top: 1px solid var(--border);
+      flex-wrap: wrap;
     }
 
-    .stat { text-align: center; }
+    .stat {
+      text-align: center;
+      min-width: 76px;
+      position: relative;
+      padding-top: 14px;
+    }
+
+    /* Small triangle marker above each stat (not square boxes) */
+    .stat::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 0;
+      height: 0;
+      border-left: 7px solid transparent;
+      border-right: 7px solid transparent;
+      border-bottom: 10px solid rgba(37, 99, 235, 0.35);
+    }
+
     .stat-num {
       font-size: 28px;
       font-weight: 700;
-      background: linear-gradient(135deg, var(--accent), var(--accent2));
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
+      letter-spacing: -0.03em;
+      color: var(--text);
     }
-    .stat-label { font-size: 12px; color: var(--muted); margin-top: 2px; }
+    .stat-label { font-size: 12px; color: var(--muted); margin-top: 6px; font-weight: 500; }
 
-    /* ── Content ───────────────────────────────────────────────────────── */
     .content {
-      padding: 0 80px 80px;
-      max-width: 900px;
+      padding: 0 80px 100px;
+      max-width: 920px;
     }
 
-    section {
-      padding-top: 60px;
-    }
-
-    section:first-of-type { padding-top: 48px; }
+    section { padding-top: 64px; }
+    section:first-of-type { padding-top: 56px; }
 
     .section-label {
       font-size: 11px;
       font-weight: 600;
-      letter-spacing: .1em;
+      letter-spacing: .14em;
       text-transform: uppercase;
-      color: var(--accent);
-      margin-bottom: 8px;
+      color: var(--accent2);
+      margin-bottom: 10px;
       font-family: var(--mono);
     }
 
     h2 {
-      font-size: 30px;
+      font-size: 28px;
       font-weight: 700;
       color: var(--text);
-      margin-bottom: 12px;
+      margin-bottom: 14px;
       line-height: 1.2;
+      letter-spacing: -0.03em;
     }
 
     h3 {
-      font-size: 20px;
+      font-size: 19px;
       font-weight: 600;
       color: var(--text);
-      margin: 32px 0 12px;
+      margin: 36px 0 12px;
+      letter-spacing: -0.02em;
     }
 
     h4 {
@@ -273,24 +585,26 @@
       margin: 24px 0 8px;
     }
 
-    p { color: #94a3b8; margin-bottom: 16px; }
+    p { color: var(--text-secondary); margin-bottom: 16px; }
 
     .lead {
       font-size: 17px;
       color: var(--muted);
       margin-bottom: 32px;
+      line-height: 1.7;
     }
 
-    /* ── Code blocks ───────────────────────────────────────────────────── */
     pre[class*="language-"] {
-      background: var(--surface) !important;
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 20px 24px !important;
+      position: relative;
+      background: var(--surface-elevated) !important;
+      border: 1px solid var(--border) !important;
+      border-radius: var(--radius) !important;
+      padding: 20px 76px 20px 24px !important;
       margin: 20px 0;
       overflow-x: auto;
       font-size: 13px !important;
       line-height: 1.6 !important;
+      box-shadow: var(--shadow-sm);
     }
 
     code[class*="language-"] {
@@ -302,40 +616,41 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      background: var(--border);
-      padding: 8px 16px;
-      border-radius: 8px 8px 0 0;
+      background: var(--surface);
+      padding: 10px 16px;
+      border-radius: var(--radius) var(--radius) 0 0;
+      border: 1px solid var(--border);
+      border-bottom: none;
       font-size: 12px;
       color: var(--muted);
       font-family: var(--mono);
-      margin-bottom: -1px;
+      margin-bottom: 0;
     }
 
     .code-title + pre[class*="language-"] {
-      border-radius: 0 0 10px 10px;
-      margin-top: 0;
+      border-radius: 0 0 var(--radius) var(--radius) !important;
+      margin-top: 0 !important;
     }
 
     .code-lang {
       font-size: 10px;
-      background: rgba(124,58,237,.2);
-      color: var(--accent);
-      padding: 2px 8px;
-      border-radius: 4px;
+      background: var(--bg2);
+      color: var(--accent2);
+      padding: 3px 8px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
     }
 
-    /* Inline code */
     :not(pre) > code {
       background: var(--surface);
       border: 1px solid var(--border);
-      padding: 2px 6px;
-      border-radius: 4px;
+      padding: 2px 7px;
+      border-radius: 6px;
       font-family: var(--mono);
       font-size: 13px;
       color: var(--accent2);
     }
 
-    /* ── Cards ─────────────────────────────────────────────────────────── */
     .cards {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
@@ -344,22 +659,19 @@
     }
 
     .card {
-      background: var(--surface);
+      background: var(--surface-elevated);
       border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 20px;
-      transition: border-color .2s;
+      border-radius: var(--radius);
+      padding: 22px;
+      transition: border-color .2s, box-shadow .2s;
+      box-shadow: var(--shadow-sm);
     }
-    .card:hover { border-color: var(--accent); }
+    .card:hover { border-color: var(--border-strong); box-shadow: var(--shadow-md); }
 
-    .card-icon {
-      font-size: 22px;
-      margin-bottom: 10px;
-    }
-    .card h4 { margin: 0 0 6px; font-size: 14px; }
-    .card p { font-size: 13px; margin: 0; }
+    .card-icon { font-size: 22px; margin-bottom: 10px; }
+    .card h4 { margin: 0 0 6px; font-size: 14px; color: var(--text); }
+    .card p { font-size: 13px; margin: 0; color: var(--muted); }
 
-    /* ── Directive table ───────────────────────────────────────────────── */
     .dir-table {
       width: 100%;
       border-collapse: collapse;
@@ -369,7 +681,7 @@
 
     .dir-table th {
       text-align: left;
-      padding: 10px 16px;
+      padding: 12px 16px;
       background: var(--surface);
       border-bottom: 2px solid var(--border);
       font-size: 11px;
@@ -379,57 +691,50 @@
     }
 
     .dir-table td {
-      padding: 10px 16px;
+      padding: 11px 16px;
       border-bottom: 1px solid var(--border);
-      color: #94a3b8;
+      color: var(--text-secondary);
     }
 
-    .dir-table tr:hover td { background: rgba(255,255,255,.02); }
+    .dir-table tr:hover td { background: rgba(0,0,0,.02); }
 
     .dir-table code { font-size: 12px; }
 
-    /* ── Badges ────────────────────────────────────────────────────────── */
     .badge {
       display: inline-block;
       padding: 2px 8px;
-      border-radius: 4px;
+      border-radius: 6px;
       font-size: 11px;
       font-weight: 600;
       font-family: var(--mono);
     }
-    .badge-purple { background: rgba(124,58,237,.15); color: var(--accent); }
-    .badge-cyan   { background: rgba(6,182,212,.15);  color: var(--accent2); }
-    .badge-green  { background: rgba(16,185,129,.15); color: var(--green); }
-    .badge-amber  { background: rgba(245,158,11,.15); color: var(--amber); }
-    .badge-red    { background: rgba(239,68,68,.15);  color: var(--red); }
+    .badge-purple { background: rgba(124,58,237,.1); color: #6d28d9; }
+    .badge-cyan   { background: rgba(6,182,212,.1);  color: #0891b2; }
+    .badge-green  { background: rgba(22,163,74,.1); color: var(--green); }
+    .badge-amber  { background: rgba(217,119,6,.1); color: var(--amber); }
+    .badge-red    { background: rgba(220,38,38,.1);  color: var(--red); }
 
-    /* ── Callouts ──────────────────────────────────────────────────────── */
     .callout {
-      border-left: 3px solid var(--accent);
-      background: rgba(124,58,237,.08);
-      padding: 14px 18px;
-      border-radius: 0 8px 8px 0;
+      border-left: 3px solid var(--accent2);
+      background: var(--accent-muted);
+      padding: 16px 20px;
+      border-radius: 0 var(--radius) var(--radius) 0;
       margin: 20px 0;
       font-size: 14px;
-      color: #94a3b8;
+      color: var(--text-secondary);
     }
-    .callout.tip  { border-color: var(--green);  background: rgba(16,185,129,.08); }
-    .callout.warn { border-color: var(--amber);  background: rgba(245,158,11,.08); }
-    .callout.info { border-color: var(--accent2); background: rgba(6,182,212,.08); }
-    .callout strong { display: block; margin-bottom: 4px; }
+    .callout.tip  { border-color: var(--green);  background: rgba(22,163,74,.08); }
+    .callout.warn { border-color: var(--amber);  background: rgba(217,119,6,.08); }
+    .callout.info { border-color: var(--accent2); background: var(--accent-muted); }
+    .callout strong { display: block; margin-bottom: 6px; color: var(--text); }
 
-    /* ── Steps ─────────────────────────────────────────────────────────── */
     .steps { counter-reset: step; margin: 24px 0; }
-    .step {
-      display: flex;
-      gap: 16px;
-      margin-bottom: 24px;
-    }
+    .step { display: flex; gap: 16px; margin-bottom: 24px; }
     .step-num {
       counter-increment: step;
-      width: 28px; height: 28px;
+      width: 30px; height: 30px;
       border-radius: 50%;
-      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      background: var(--accent);
       color: #fff;
       font-size: 13px;
       font-weight: 700;
@@ -439,56 +744,73 @@
       flex-shrink: 0;
       margin-top: 2px;
     }
-    .step-content h4 { margin: 0 0 6px; }
+    .step-content h4 { margin: 0 0 6px; color: var(--text); }
 
-    /* ── Divider ────────────────────────────────────────────────────────── */
     hr {
       border: none;
       border-top: 1px solid var(--border);
       margin: 48px 0;
     }
 
-    /* ── Comparison table ───────────────────────────────────────────────── */
+    .cmp-scroll {
+      overflow-x: auto;
+      margin: 24px 0;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow-sm);
+    }
+
     .cmp-table {
       width: 100%;
+      min-width: 1040px;
       border-collapse: collapse;
-      margin: 20px 0;
-      font-size: 13px;
+      font-size: 12px;
     }
     .cmp-table th {
-      padding: 10px 14px;
+      padding: 12px 10px;
       background: var(--surface);
       text-align: center;
       font-weight: 600;
-      font-size: 12px;
+      font-size: 11px;
       border: 1px solid var(--border);
+      white-space: nowrap;
     }
-    .cmp-table th:first-child { text-align: left; }
+    .cmp-table th:first-child { text-align: left; padding-left: 14px; }
     .cmp-table td {
-      padding: 9px 14px;
+      padding: 9px 10px;
       border: 1px solid var(--border);
       text-align: center;
       color: var(--muted);
+      background: var(--bg2);
     }
-    .cmp-table td:first-child { text-align: left; color: var(--text); font-weight: 500; }
-    .cmp-table tr:hover td { background: rgba(255,255,255,.015); }
-    .check { color: var(--green); font-size: 16px; }
-    .cross { color: var(--red);   font-size: 16px; }
-    .partial { color: var(--amber); font-size: 14px; }
+    .cmp-table td:first-child {
+      text-align: left;
+      color: var(--text);
+      font-weight: 500;
+      padding-left: 14px;
+    }
+    .cmp-table tr:hover td { background: var(--surface); }
+    .check { color: var(--green); font-size: 15px; }
+    .cross { color: var(--red);   font-size: 15px; }
+    .partial { color: var(--amber); font-size: 13px; }
 
-    /* ── Lang switcher ──────────────────────────────────────────────────── */
     .lang-bar {
       position: fixed;
       top: 16px; right: 24px;
       display: flex;
       gap: 6px;
       z-index: 100;
+      padding: 4px;
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      box-shadow: var(--shadow-md);
     }
     .lang-btn {
-      padding: 4px 12px;
-      border-radius: 6px;
-      border: 1px solid var(--border);
-      background: var(--surface);
+      padding: 6px 14px;
+      border-radius: 8px;
+      border: none;
+      background: transparent;
       color: var(--muted);
       font-size: 12px;
       font-weight: 600;
@@ -496,23 +818,137 @@
       transition: all .15s;
     }
     .lang-btn.active, .lang-btn:hover {
-      border-color: var(--accent);
-      color: var(--accent2);
+      background: var(--surface);
+      color: var(--text);
     }
 
-    /* ── Scrollbar ───────────────────────────────────────────────────────── */
-    ::-webkit-scrollbar { width: 6px; }
+    .enterprise-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 16px;
+      margin: 28px 0 20px;
+    }
+
+    .enterprise-card {
+      background: var(--surface-elevated);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      box-shadow: var(--shadow-sm);
+      transition: border-color .2s, box-shadow .2s;
+    }
+    .enterprise-card:hover {
+      border-color: var(--border-strong);
+      box-shadow: var(--shadow-md);
+    }
+
+    .ec-icon {
+      width: 40px; height: 40px;
+      border-radius: 10px;
+      background: linear-gradient(145deg, #eff6ff, #dbeafe);
+      color: var(--accent2);
+      display: grid;
+      place-items: center;
+      font-size: 18px;
+      margin-bottom: 14px;
+    }
+
+    .enterprise-card h4 {
+      margin: 0 0 8px;
+      font-size: 15px;
+      color: var(--text);
+    }
+    .enterprise-card p {
+      font-size: 13px;
+      margin: 0;
+      line-height: 1.6;
+    }
+
+    .enterprise-foot {
+      margin-top: 8px;
+      font-size: 14px;
+    }
+    .enterprise-foot a {
+      color: var(--accent2);
+      font-weight: 600;
+      text-decoration: none;
+    }
+    .enterprise-foot a:hover { text-decoration: underline; }
+
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
     ::-webkit-scrollbar-track { background: var(--bg); }
-    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 4px; }
+
+    main .content a:not(.btn) {
+      color: var(--accent2);
+      text-decoration: none;
+      font-weight: 500;
+    }
+    main .content a:not(.btn):hover { text-decoration: underline; }
 
     @media (max-width: 900px) {
-      aside { display: none; }
-      main { margin-left: 0; max-width: 100%; }
-      .hero, .content { padding-left: 24px; padding-right: 24px; }
+      .mobile-topbar {
+        display: flex;
+      }
+      .mobile-lang {
+        display: flex;
+      }
+      .lang-bar {
+        display: none;
+      }
+      aside {
+        display: flex;
+        transform: translateX(-105%);
+        transition: transform 0.25s ease;
+        box-shadow: none;
+        z-index: 200;
+      }
+      body.nav-open aside {
+        transform: translateX(0);
+        box-shadow: 8px 0 40px rgba(0,0,0,.12);
+      }
+      body.nav-open {
+        overflow: hidden;
+      }
+      main {
+        margin-left: 0;
+        max-width: 100%;
+        padding-top: 52px;
+      }
+      .hero, .content {
+        padding-left: 20px;
+        padding-right: 20px;
+      }
+      .hero {
+        padding-top: 72px;
+      }
+      .to-top {
+        right: 14px;
+        bottom: 16px;
+      }
     }
+
   </style>
 </head>
 <body>
+
+<a href="#main-content" class="skip-link">Skip to content</a>
+
+<div class="read-progress" aria-hidden="true"><div class="read-progress__bar" id="read-progress-bar"></div></div>
+
+<header class="mobile-topbar">
+  <button type="button" class="nav-toggle" id="nav-toggle" aria-expanded="false" aria-controls="sidebar-nav" aria-label="Open menu">
+    <span class="nav-toggle-icon" aria-hidden="true"><span></span><span></span><span></span></span>
+  </button>
+  <a href="#top" class="mobile-brand">Nexus <span>docs</span></a>
+  <div class="mobile-lang">
+    <button type="button" class="lang-btn active" onclick="setLang('en')">EN</button>
+    <button type="button" class="lang-btn" onclick="setLang('es')">ES</button>
+    <button type="button" class="lang-btn" onclick="setLang('pt')">PT</button>
+  </div>
+</header>
+
+<div class="nav-backdrop" id="nav-backdrop" aria-hidden="true"></div>
 
 <!-- ── Language switcher ──────────────────────────────────────────────────── -->
 <div class="lang-bar">
@@ -526,9 +962,13 @@
   <a href="#top" class="sidebar-logo">
     <div class="logo-mark">N</div>
     <span class="logo-text">Nexus</span>
-    <span class="logo-version">v0.6</span>
+    <span class="logo-version">v0.7</span>
   </a>
   <nav id="sidebar-nav">
+    <div class="nav-filter-wrap">
+      <label for="nav-filter" class="visually-hidden">Filter navigation</label>
+      <input type="search" class="nav-filter" id="nav-filter" placeholder="Filter sections…" autocomplete="off" spellcheck="false">
+    </div>
     <div class="nav-section" data-i18n="nav.gettingStarted">Getting Started</div>
     <a href="#install" class="active">⚡ Installation</a>
     <a href="#quickstart">🚀 Quick Start</a>
@@ -547,6 +987,7 @@
     <a href="#streaming">🌊 Streaming SSR</a>
 
     <div class="nav-section" data-i18n="nav.advanced">Advanced</div>
+    <a href="#enterprise" data-i18n="nav.enterprise">🏢 Enterprise &amp; subdomains</a>
     <a href="#store">🌐 Global Store</a>
     <a href="#navigation">↔️ SPA Navigation</a>
     <a href="#middleware">🔒 Middleware</a>
@@ -594,11 +1035,55 @@
       <div class="stat"><div class="stat-num">18</div><div class="stat-label" data-i18n="hero.stat1">Packages</div></div>
       <div class="stat"><div class="stat-num">0kb</div><div class="stat-label" data-i18n="hero.stat2">JS by Default</div></div>
       <div class="stat"><div class="stat-num">100%</div><div class="stat-label" data-i18n="hero.stat3">TypeScript</div></div>
-      <div class="stat"><div class="stat-num">v0.6</div><div class="stat-label" data-i18n="hero.stat4">Latest</div></div>
+      <div class="stat"><div class="stat-num">v0.7</div><div class="stat-label" data-i18n="hero.stat4">Latest</div></div>
     </div>
   </div>
 
   <div class="content">
+
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- ENTERPRISE — overview (deep dive: #multitenant)                    -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+
+    <section id="enterprise">
+      <div class="section-label" data-i18n="ent.label">Enterprise</div>
+      <h2 data-i18n="ent.title">Built for multi-tenant products</h2>
+      <p class="lead" data-i18n="ent.lead">
+        Nexus treats <strong>tenant subdomains</strong> and <strong>custom domains</strong> as first-class routing concerns — not middleware glue. Ideal for B2B SaaS, agencies with white-label portals, and internal tools per company.
+      </p>
+
+      <div class="enterprise-grid">
+        <div class="enterprise-card">
+          <div class="ec-icon">◇</div>
+          <h4 data-i18n="ent.c1t">Subdomain per tenant</h4>
+          <p data-i18n="ent.c1d">Serve <code>acme.yourplatform.com</code>, <code>globex.yourplatform.com</code>, and <code>staging--client.app.com</code> from one deployment. The router resolves the tenant from <code>Host</code> before your handlers run.</p>
+        </div>
+        <div class="enterprise-card">
+          <div class="ec-icon">◎</div>
+          <h4 data-i18n="ent.c2t">Custom domains</h4>
+          <p data-i18n="ent.c2d">Map customer-owned DNS (CNAME) to your edge. <code>tenant.isCustomDomain</code> distinguishes branded URLs from shared subdomains for analytics and billing.</p>
+        </div>
+        <div class="enterprise-card">
+          <div class="ec-icon">▣</div>
+          <h4 data-i18n="ent.c3t">Isolation by default</h4>
+          <p data-i18n="ent.c3d">Cache keys are prefixed per tenant, responses can carry <code>Vary: Host</code>, and the DB adapter warns when queries omit <code>tenantId</code> — reducing cross-tenant mistakes in production.</p>
+        </div>
+        <div class="enterprise-card">
+          <div class="ec-icon">↗</div>
+          <h4 data-i18n="ent.c4t">Typed <code>ctx.tenant</code></h4>
+          <p data-i18n="ent.c4d">Resolve branding, plan limits, and feature flags in <code>resolveMeta()</code> once; consume <code>tenant.meta</code> in every server block without parsing headers by hand.</p>
+        </div>
+      </div>
+
+      <div class="callout info">
+        <strong data-i18n="ent.calloutTitle">Typical rollout</strong>
+        <span data-i18n="ent.calloutBody">Wildcard DNS <code>*.app.com</code> → your load balancer → Nexus with <code>tenant.mode: 'subdomain'</code>. For enterprise customers, add a row in your DB and point their domain with a CNAME to your edge — same codebase, isolated context.</span>
+      </div>
+
+      <p class="enterprise-foot"><a href="#multitenant" data-i18n="ent.link">Full multi-tenant API &amp; configuration →</a></p>
+    </section>
+
+    <hr>
 
     <!-- ═══════════════════════════════════════════════════════════════════ -->
     <!-- GETTING STARTED                                                    -->
@@ -1636,12 +2121,30 @@ export default toCloudflareHandler(server.fetch);</code></pre>
     <!-- ═══════════════════════════════════════════════════════════════════ -->
 
     <section id="multitenant">
-      <div class="section-label">Advanced — v0.4</div>
-      <h2>🏢 Multi-Tenant (First-Class Support)</h2>
-      <p class="lead">Nexus natively manages subdomains and custom domains. No boilerplate: every request carries a fully-typed <code>tenant</code> context.</p>
+      <div class="section-label">Advanced — multi-tenant</div>
+      <h2>🏢 Multi-Tenant — configuration &amp; API</h2>
+      <p class="lead">This section complements <a href="#enterprise">Enterprise &amp; subdomains</a>: here is the concrete <code>nexus.config.ts</code> surface and how <code>tenant</code> flows into routes.</p>
+
+      <h3>Routing modes</h3>
+      <table class="dir-table">
+        <thead><tr><th><code>tenant.mode</code></th><th>Use case</th><th>Example</th></tr></thead>
+        <tbody>
+          <tr><td><code>'subdomain'</code></td><td>Wildcard SaaS — one app, many tenants on <code>*.baseDomain</code></td><td><code>acme.app.com</code> → tenant <code>acme</code></td></tr>
+          <tr><td><code>'domain'</code></td><td>Bring-your-own-domain — customer CNAMEs to your edge</td><td><code>portal.customer.com</code> → resolved tenant row</td></tr>
+          <tr><td><code>'path'</code></td><td>Single host, tenant in URL (admin consoles, docs)</td><td><code>app.com/t/acme/dashboard</code></td></tr>
+        </tbody>
+      </table>
 
       <h3>How it works</h3>
-      <p>The router detects whether the request originates from <code>acme.app.com</code>, <code>custom-domain.io</code>, or a path prefix and automatically scopes the cache, cookies, and server context to that tenant.</p>
+      <p>The router inspects <code>Host</code> (and path when using <code>'path'</code> mode), resolves a stable <code>tenantId</code>, and merges <code>resolveMeta()</code> into <code>ctx.tenant</code> before your <code>.nx</code> server block runs. Cache tags, server cache keys, and optional DB helpers can all key off that id — so subdomains for companies are not a second-class concern layered on top of routing.</p>
+
+      <h3>DNS checklist (subdomain SaaS)</h3>
+      <ol style="margin:16px 0 16px 22px; color:var(--text-secondary); line-height:1.8">
+        <li><strong style="color:var(--text)">Wildcard record</strong> — <code>*.app.com</code> A/AAAA or CNAME to your edge (Vercel, Cloudflare, Fly, etc.).</li>
+        <li><strong style="color:var(--text)">APEX</strong> — <code>app.com</code> for marketing or login; tenant app lives on subdomains or custom hosts.</li>
+        <li><strong style="color:var(--text)">TLS</strong> — issue a wildcard cert for <code>*.app.com</code>; per-customer certs when using custom domains (often via your provider’s automation).</li>
+        <li><strong style="color:var(--text)">Staging</strong> — separate <code>*.staging.app.com</code> or path-based tenants to avoid polluting production metadata.</li>
+      </ol>
 
       <div class="code-title"><span>packages/router/src/tenant.ts — key API</span><span class="code-lang">typescript</span></div>
       <pre><code class="language-typescript">import { extractTenant } from '@nexus_js/router';
@@ -1684,7 +2187,8 @@ const data = await db.products.findMany({
           <tr><td>Cache keys</td><td>Prefixed with <code>tenant:{id}:</code> — zero cross-tenant cache bleed</td></tr>
           <tr><td>Cookies</td><td>Scoped per tenant domain / subdomain by the browser</td></tr>
           <tr><td>DB queries</td><td><code>@nexus_js/db</code> adapter warns if <code>tenantId</code> filter is missing</td></tr>
-          <tr><td>Vary headers</td><td>Automatic <code>Vary: Host</code> on all tenant-aware responses</td></tr>
+          <tr><td>Vary headers</td><td>Automatic <code>Vary: Host</code> on tenant-aware responses where applicable</td></tr>
+          <tr><td>Server Actions</td><td>Action tokens are bound to the same session + host as the page that rendered the island — avoids cross-subdomain replay</td></tr>
         </tbody>
       </table>
     </section>
@@ -2099,8 +2603,11 @@ nexus fix --force        # Also fix medium + low severity</code></pre>
     <section id="comparison">
       <div class="section-label">Reference</div>
       <h2 data-i18n="cmp.title">Framework Comparison</h2>
-      <p class="lead" data-i18n="cmp.lead">How Nexus stacks up against the frameworks it improves upon.</p>
+      <p class="lead" data-i18n="cmp.lead">How Nexus compares to mainstream full-stack and meta-frameworks — including B2B-style multi-tenancy, where Nexus is intentionally opinionated.</p>
 
+      <p style="font-size:14px;color:var(--muted);margin-bottom:16px">Legend: ✓ first-class · ✗ not a goal / not built-in · ⚠ partial or DIY · — varies by hosting</p>
+
+      <div class="cmp-scroll">
       <table class="cmp-table">
         <thead>
           <tr>
@@ -2109,33 +2616,37 @@ nexus fix --force        # Also fix medium + low severity</code></pre>
             <th>Next.js 15</th>
             <th>Astro 5</th>
             <th>SvelteKit</th>
+            <th>Remix</th>
+            <th>Nuxt 3</th>
           </tr>
         </thead>
         <tbody>
-          <tr><td>Islands Architecture</td><td><span class="check">✓</span></td><td><span class="cross">✗</span></td><td><span class="check">✓</span></td><td><span class="cross">✗</span></td></tr>
-          <tr><td>Svelte 5 Runes</td><td><span class="check">✓</span></td><td><span class="cross">✗</span></td><td><span class="cross">✗</span></td><td><span class="check">✓</span></td></tr>
-          <tr><td>Server Actions</td><td><span class="check">✓</span></td><td><span class="check">✓</span></td><td><span class="cross">✗</span></td><td><span class="check">✓</span></td></tr>
-          <tr><td>SPA Navigation (Morphing)</td><td><span class="check">✓</span></td><td><span class="check">✓</span></td><td><span class="partial">⚠ partial</span></td><td><span class="check">✓</span></td></tr>
-          <tr><td>Streaming SSR</td><td><span class="check">✓</span></td><td><span class="check">✓</span></td><td><span class="cross">✗</span></td><td><span class="cross">✗</span></td></tr>
-          <tr><td>Auto Edge-Cache Headers</td><td><span class="check">✓</span></td><td><span class="cross">✗</span></td><td><span class="cross">✗</span></td><td><span class="cross">✗</span></td></tr>
-          <tr><td>Global State Store</td><td><span class="check">✓</span></td><td><span class="cross">✗</span></td><td><span class="cross">✗</span></td><td><span class="cross">✗</span></td></tr>
-          <tr><td>E2E Type Safety</td><td><span class="check">✓</span></td><td><span class="partial">⚠ partial</span></td><td><span class="cross">✗</span></td><td><span class="partial">⚠ partial</span></td></tr>
-          <tr><td>Bundle Budget Analyzer</td><td><span class="check">✓</span></td><td><span class="cross">✗</span></td><td><span class="cross">✗</span></td><td><span class="cross">✗</span></td></tr>
-          <tr><td>Race Condition Strategies</td><td><span class="check">✓</span></td><td><span class="cross">✗</span></td><td><span class="cross">✗</span></td><td><span class="cross">✗</span></td></tr>
-          <tr><td>BYOD Database</td><td><span class="check">✓</span></td><td><span class="check">✓</span></td><td><span class="check">✓</span></td><td><span class="check">✓</span></td></tr>
-          <tr><td>Zero config</td><td><span class="check">✓</span></td><td><span class="partial">⚠</span></td><td><span class="check">✓</span></td><td><span class="partial">⚠</span></td></tr>
-          <tr><td>React runtime</td><td><span class="cross">✗ (lighter)</span></td><td><span class="check">required</span></td><td><span class="partial">optional</span></td><td><span class="cross">✗ (lighter)</span></td></tr>
-          <tr><td>Native Multi-Tenant</td><td><span class="check">✓</span></td><td><span class="cross">✗</span></td><td><span class="cross">✗</span></td><td><span class="cross">✗</span></td></tr>
-          <tr><td>Local-First Sync (IndexedDB)</td><td><span class="check">✓</span></td><td><span class="cross">✗</span></td><td><span class="cross">✗</span></td><td><span class="cross">✗</span></td></tr>
-          <tr><td>Zero-Bundle CSS Components</td><td><span class="check">✓</span></td><td><span class="cross">✗</span></td><td><span class="partial">⚠ manual</span></td><td><span class="cross">✗</span></td></tr>
-          <tr><td>Anti-CSRF by Default</td><td><span class="check">✓</span></td><td><span class="cross">✗</span></td><td><span class="cross">✗</span></td><td><span class="cross">✗</span></td></tr>
-          <tr><td>Secret Leak Detection (Build)</td><td><span class="check">✓</span></td><td><span class="cross">✗</span></td><td><span class="cross">✗</span></td><td><span class="cross">✗</span></td></tr>
-          <tr><td>Integrated CVE Auditing</td><td><span class="check">✓</span></td><td><span class="cross">✗</span></td><td><span class="cross">✗</span></td><td><span class="cross">✗</span></td></tr>
-          <tr><td>Supply Chain Guard</td><td><span class="check">✓</span></td><td><span class="cross">✗</span></td><td><span class="cross">✗</span></td><td><span class="cross">✗</span></td></tr>
-          <tr><td>Predictive AI Prefetch</td><td><span class="check">✓</span></td><td><span class="cross">✗</span></td><td><span class="cross">✗</span></td><td><span class="cross">✗</span></td></tr>
-          <tr><td>Real-Time Edge State (SSE)</td><td><span class="check">✓</span></td><td><span class="cross">✗</span></td><td><span class="cross">✗</span></td><td><span class="cross">✗</span></td></tr>
+          <tr><td>Islands Architecture</td><td><span class="check">✓</span></td><td><span class="cross">✗</span></td><td><span class="check">✓</span></td><td><span class="cross">✗</span></td><td><span class="cross">✗</span></td><td><span class="partial">⚠ islands module</span></td></tr>
+          <tr><td>Svelte 5 Runes</td><td><span class="check">✓</span></td><td><span class="cross">✗</span></td><td><span class="cross">✗</span></td><td><span class="check">✓</span></td><td><span class="cross">✗</span></td><td><span class="cross">✗</span></td></tr>
+          <tr><td>Server Actions / mutations</td><td><span class="check">✓</span></td><td><span class="check">✓</span></td><td><span class="cross">✗</span></td><td><span class="check">✓</span></td><td><span class="partial">⚠ forms + actions</span></td><td><span class="check">✓</span></td></tr>
+          <tr><td>SPA Navigation (Morphing)</td><td><span class="check">✓</span></td><td><span class="check">✓</span></td><td><span class="partial">⚠ partial</span></td><td><span class="check">✓</span></td><td><span class="check">✓</span></td><td><span class="check">✓</span></td></tr>
+          <tr><td>Streaming SSR</td><td><span class="check">✓</span></td><td><span class="check">✓</span></td><td><span class="cross">✗</span></td><td><span class="cross">✗</span></td><td><span class="check">✓</span></td><td><span class="check">✓</span></td></tr>
+          <tr><td>Auto Edge-Cache Headers</td><td><span class="check">✓</span></td><td><span class="cross">✗</span></td><td><span class="cross">✗</span></td><td><span class="cross">✗</span></td><td><span class="partial">⚠</span></td><td><span class="partial">⚠</span></td></tr>
+          <tr><td>Global State Store</td><td><span class="check">✓</span></td><td><span class="cross">✗</span></td><td><span class="cross">✗</span></td><td><span class="cross">✗</span></td><td><span class="cross">✗</span></td><td><span class="partial">⚠ Pinia</span></td></tr>
+          <tr><td>E2E Type Safety</td><td><span class="check">✓</span></td><td><span class="partial">⚠ partial</span></td><td><span class="cross">✗</span></td><td><span class="partial">⚠ partial</span></td><td><span class="partial">⚠ partial</span></td><td><span class="partial">⚠ partial</span></td></tr>
+          <tr><td>Bundle Budget Analyzer</td><td><span class="check">✓</span></td><td><span class="cross">✗</span></td><td><span class="cross">✗</span></td><td><span class="cross">✗</span></td><td><span class="cross">✗</span></td><td><span class="cross">✗</span></td></tr>
+          <tr><td>BYOD Database</td><td><span class="check">✓</span></td><td><span class="check">✓</span></td><td><span class="check">✓</span></td><td><span class="check">✓</span></td><td><span class="check">✓</span></td><td><span class="check">✓</span></td></tr>
+          <tr><td>Zero config (DX)</td><td><span class="check">✓</span></td><td><span class="partial">⚠</span></td><td><span class="check">✓</span></td><td><span class="partial">⚠</span></td><td><span class="partial">⚠</span></td><td><span class="partial">⚠</span></td></tr>
+          <tr><td>React / Vue default runtime</td><td><span class="cross">✗ (Svelte)</span></td><td><span class="check">React</span></td><td><span class="partial">agnostic</span></td><td><span class="cross">✗ (Svelte)</span></td><td><span class="check">React</span></td><td><span class="check">Vue</span></td></tr>
+          <tr><td><strong>Native multi-tenant (subdomain / domain)</strong></td><td><span class="check">✓</span></td><td><span class="cross">✗ DIY</span></td><td><span class="cross">✗ DIY</span></td><td><span class="cross">✗ DIY</span></td><td><span class="cross">✗ DIY</span></td><td><span class="cross">✗ DIY</span></td></tr>
+          <tr><td>Local-First Sync (IndexedDB)</td><td><span class="check">✓</span></td><td><span class="cross">✗</span></td><td><span class="cross">✗</span></td><td><span class="cross">✗</span></td><td><span class="cross">✗</span></td><td><span class="cross">✗</span></td></tr>
+          <tr><td>Zero-Bundle CSS UI primitives</td><td><span class="check">✓</span></td><td><span class="cross">✗</span></td><td><span class="partial">⚠ manual</span></td><td><span class="cross">✗</span></td><td><span class="cross">✗</span></td><td><span class="cross">✗</span></td></tr>
+          <tr><td>Anti-CSRF for mutations (built-in)</td><td><span class="check">✓</span></td><td><span class="partial">⚠</span></td><td><span class="cross">✗</span></td><td><span class="partial">⚠</span></td><td><span class="partial">⚠</span></td><td><span class="partial">⚠</span></td></tr>
+          <tr><td>Secret leak detection (build)</td><td><span class="check">✓</span></td><td><span class="cross">✗</span></td><td><span class="cross">✗</span></td><td><span class="cross">✗</span></td><td><span class="cross">✗</span></td><td><span class="cross">✗</span></td></tr>
+          <tr><td>Integrated CVE / supply-chain audit</td><td><span class="check">✓</span></td><td><span class="cross">✗</span></td><td><span class="cross">✗</span></td><td><span class="cross">✗</span></td><td><span class="cross">✗</span></td><td><span class="cross">✗</span></td></tr>
+          <tr><td>Predictive prefetch / edge state</td><td><span class="check">✓</span></td><td><span class="cross">✗</span></td><td><span class="cross">✗</span></td><td><span class="cross">✗</span></td><td><span class="partial">⚠ prefetch</span></td><td><span class="partial">⚠</span></td></tr>
         </tbody>
       </table>
+      </div>
+
+      <p style="font-size:14px;color:var(--text-secondary);margin-top:20px">
+        <strong>Takeaway:</strong> Next, Remix, Nuxt, and SvelteKit are excellent — but if you are standardizing on <em>tenant subdomains + custom domains + cache isolation</em> in one framework contract, Nexus documents and types that path explicitly. Other stacks can do multi-tenancy at the infrastructure layer; Nexus aims to make it a first-class routing and <code>ctx</code> concern.
+      </p>
     </section>
 
     <section id="packages">
@@ -2177,6 +2688,8 @@ nexus fix --force        # Also fix medium + low severity</code></pre>
 
   </div><!-- /content -->
 </main>
+
+<button type="button" class="to-top" id="to-top" aria-label="Back to top">↑</button>
 
 <!-- Scripts -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
@@ -2235,8 +2748,23 @@ const translations = {
     'studio.title': 'Nexus Studio', 'studio.lead': 'A real-time developer dashboard with zero external dependencies.',
     'testing.title': 'Testing', 'testing.lead': 'First-class Vitest integration for SSR, islands, and Server Actions.',
     'deploy.title': 'Deployment', 'deploy.lead': 'Any runtime that speaks Request/Response works.',
-    'cmp.title': 'Framework Comparison', 'cmp.lead': 'How Nexus stacks up against the frameworks it improves upon.',
+    'cmp.title': 'Framework Comparison', 'cmp.lead': 'How Nexus compares to mainstream full-stack frameworks — including B2B-style multi-tenancy.',
     'pkg.title': 'Package Reference',
+    'nav.enterprise': 'Enterprise & subdomains',
+    'ent.label': 'Enterprise',
+    'ent.title': 'Built for multi-tenant products',
+    'ent.lead': 'Nexus treats <strong>tenant subdomains</strong> and <strong>custom domains</strong> as first-class routing concerns — not middleware glue. Ideal for B2B SaaS, agencies with white-label portals, and internal tools per company.',
+    'ent.c1t': 'Subdomain per tenant',
+    'ent.c1d': 'Serve <code>acme.yourplatform.com</code>, <code>globex.yourplatform.com</code>, and <code>staging--client.app.com</code> from one deployment. The router resolves the tenant from <code>Host</code> before your handlers run.',
+    'ent.c2t': 'Custom domains',
+    'ent.c2d': 'Map customer-owned DNS (CNAME) to your edge. <code>tenant.isCustomDomain</code> distinguishes branded URLs from shared subdomains for analytics and billing.',
+    'ent.c3t': 'Isolation by default',
+    'ent.c3d': 'Cache keys are prefixed per tenant, responses can carry <code>Vary: Host</code>, and the DB adapter warns when queries omit <code>tenantId</code> — reducing cross-tenant mistakes in production.',
+    'ent.c4t': 'Typed <code>ctx.tenant</code>',
+    'ent.c4d': 'Resolve branding, plan limits, and feature flags in <code>resolveMeta()</code> once; consume <code>tenant.meta</code> in every server block without parsing headers by hand.',
+    'ent.calloutTitle': 'Typical rollout',
+    'ent.calloutBody': 'Wildcard DNS <code>*.app.com</code> → your load balancer → Nexus with <code>tenant.mode: \'subdomain\'</code>. For enterprise customers, add a row in your DB and point their domain with a CNAME to your edge — same codebase, isolated context.',
+    'ent.link': 'Full multi-tenant API & configuration →',
   },
   es: {
     'hero.badge': 'Arquitectura de Islas + Svelte 5 Runes + Server Actions',
@@ -2268,8 +2796,23 @@ const translations = {
     'studio.title': 'Nexus Studio', 'studio.lead': 'Un dashboard de desarrollo en tiempo real sin dependencias externas.',
     'testing.title': 'Testing', 'testing.lead': 'Integración de primera clase con Vitest para SSR, islas y Server Actions.',
     'deploy.title': 'Despliegue', 'deploy.lead': 'Cualquier runtime que hable Request/Response funciona.',
-    'cmp.title': 'Comparación de Frameworks', 'cmp.lead': 'Cómo Nexus se compara con los frameworks que mejora.',
+    'cmp.title': 'Comparación de Frameworks', 'cmp.lead': 'Cómo Nexus se compara con frameworks full-stack — incluido el multi-tenant estilo B2B.',
     'pkg.title': 'Referencia de Paquetes',
+    'nav.enterprise': 'Empresa y subdominios',
+    'ent.label': 'Empresa',
+    'ent.title': 'Pensado para productos multi-tenant',
+    'ent.lead': 'Nexus trata los <strong>subdominios por tenant</strong> y los <strong>dominios personalizados</strong> como parte del routing — no como capa de middleware. Ideal para SaaS B2B, agencias con portales white-label y herramientas internas por empresa.',
+    'ent.c1t': 'Subdominio por tenant',
+    'ent.c1d': 'Sirve <code>acme.tuplataforma.com</code>, <code>globex.tuplataforma.com</code>, etc. desde un solo despliegue. El router resuelve el tenant desde <code>Host</code> antes de tus handlers.',
+    'ent.c2t': 'Dominios personalizados',
+    'ent.c2d': 'Asocia DNS del cliente (CNAME) a tu edge. <code>tenant.isCustomDomain</code> separa URLs de marca de los subdominios compartidos.',
+    'ent.c3t': 'Aislamiento por defecto',
+    'ent.c3d': 'Claves de caché por tenant, <code>Vary: Host</code> donde aplica, y avisos en el adaptador de BD si falta <code>tenantId</code>.',
+    'ent.c4t': '<code>ctx.tenant</code> tipado',
+    'ent.c4d': 'Resuelve branding y límites de plan en <code>resolveMeta()</code> una vez; usa <code>tenant.meta</code> en cada bloque servidor.',
+    'ent.calloutTitle': 'Despliegue típico',
+    'ent.calloutBody': 'DNS comodín <code>*.app.com</code> → balanceador → Nexus con <code>tenant.mode: \'subdomain\'</code>. Para clientes enterprise, fila en BD y CNAME a tu edge — mismo código, contexto aislado.',
+    'ent.link': 'API multi-tenant y configuración completa →',
   },
   pt: {
     'hero.badge': 'Arquitetura de Ilhas + Svelte 5 Runes + Server Actions',
@@ -2301,8 +2844,23 @@ const translations = {
     'studio.title': 'Nexus Studio', 'studio.lead': 'Um dashboard de desenvolvimento em tempo real sem dependências externas.',
     'testing.title': 'Testes', 'testing.lead': 'Integração de primeira classe com Vitest para SSR, ilhas e Server Actions.',
     'deploy.title': 'Deploy', 'deploy.lead': 'Qualquer runtime que fale Request/Response funciona.',
-    'cmp.title': 'Comparação de Frameworks', 'cmp.lead': 'Como o Nexus se compara aos frameworks que melhora.',
+    'cmp.title': 'Comparação de Frameworks', 'cmp.lead': 'Como o Nexus se compara a frameworks full-stack — incluindo multi-tenant estilo B2B.',
     'pkg.title': 'Referência de Pacotes',
+    'nav.enterprise': 'Empresa e subdomínios',
+    'ent.label': 'Empresa',
+    'ent.title': 'Feito para produtos multi-tenant',
+    'ent.lead': 'O Nexus trata <strong>subdomínios por tenant</strong> e <strong>domínios customizados</strong> como roteamento de primeira classe — não como middleware. Ideal para SaaS B2B, agências white-label e ferramentas internas por empresa.',
+    'ent.c1t': 'Subdomínio por tenant',
+    'ent.c1d': 'Sirva <code>acme.suaplataforma.com</code>, <code>globex.suaplataforma.com</code> num único deploy. O router resolve o tenant pelo <code>Host</code>.',
+    'ent.c2t': 'Domínios próprios',
+    'ent.c2d': 'DNS do cliente (CNAME) para o edge. <code>tenant.isCustomDomain</code> separa URLs de marca.',
+    'ent.c3t': 'Isolamento por padrão',
+    'ent.c3d': 'Chaves de cache por tenant, <code>Vary: Host</code> onde aplicável, avisos no DB se faltar <code>tenantId</code>.',
+    'ent.c4t': '<code>ctx.tenant</code> tipado',
+    'ent.c4d': 'Branding e planos em <code>resolveMeta()</code>; use <code>tenant.meta</code> em todo server block.',
+    'ent.calloutTitle': 'Rollout típico',
+    'ent.calloutBody': 'DNS curinga <code>*.app.com</code> → load balancer → Nexus com <code>tenant.mode: \'subdomain\'</code>. Clientes enterprise: linha na BD e CNAME para o edge.',
+    'ent.link': 'API multi-tenant e configuração completa →',
   },
 };
 
@@ -2316,10 +2874,130 @@ function setLang(lang) {
     if (t[key]) el.innerHTML = t[key];
   });
   document.querySelectorAll('.lang-btn').forEach(btn => {
-    btn.classList.toggle('active', btn.textContent.toLowerCase() === lang);
+    const code = btn.textContent.trim().toLowerCase();
+    btn.classList.toggle('active', code === lang);
   });
   document.documentElement.lang = lang;
 }
+
+// ── Mobile drawer ───────────────────────────────────────────────────────────
+const mqMobile = window.matchMedia('(max-width: 900px)');
+function closeNav() {
+  document.body.classList.remove('nav-open');
+  const t = document.getElementById('nav-toggle');
+  if (t) {
+    t.setAttribute('aria-expanded', 'false');
+    t.setAttribute('aria-label', 'Open menu');
+  }
+}
+function openNav() {
+  document.body.classList.add('nav-open');
+  const t = document.getElementById('nav-toggle');
+  if (t) {
+    t.setAttribute('aria-expanded', 'true');
+    t.setAttribute('aria-label', 'Close menu');
+  }
+}
+function toggleNav() {
+  if (document.body.classList.contains('nav-open')) closeNav();
+  else openNav();
+}
+
+document.getElementById('nav-toggle')?.addEventListener('click', toggleNav);
+document.getElementById('nav-backdrop')?.addEventListener('click', closeNav);
+
+document.querySelectorAll('#sidebar-nav a').forEach(a => {
+  a.addEventListener('click', () => {
+    if (mqMobile.matches) closeNav();
+  });
+});
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && document.body.classList.contains('nav-open')) {
+    closeNav();
+  }
+});
+
+// ── Reading progress + back to top ──────────────────────────────────────────
+const progressBar = document.getElementById('read-progress-bar');
+const toTop = document.getElementById('to-top');
+
+function onScroll() {
+  const doc = document.documentElement;
+  const st = window.scrollY || doc.scrollTop;
+  const max = doc.scrollHeight - window.innerHeight;
+  const p = max > 0 ? Math.min(1, st / max) : 0;
+  if (progressBar) progressBar.style.transform = 'scaleX(' + p + ')';
+
+  if (toTop) {
+    toTop.classList.toggle('is-visible', st > 420);
+  }
+}
+window.addEventListener('scroll', onScroll, { passive: true });
+onScroll();
+
+toTop?.addEventListener('click', () => {
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+});
+
+// ── Copy code blocks ────────────────────────────────────────────────────────
+document.querySelectorAll('pre[class*="language-"] > code').forEach(code => {
+  const pre = code.parentElement;
+  if (!pre || pre.querySelector('.copy-code-btn')) return;
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'copy-code-btn';
+  btn.textContent = 'Copy';
+  btn.addEventListener('click', async () => {
+    const text = code.textContent || '';
+    try {
+      await navigator.clipboard.writeText(text);
+      btn.textContent = 'Copied';
+      btn.classList.add('is-copied');
+      setTimeout(() => {
+        btn.textContent = 'Copy';
+        btn.classList.remove('is-copied');
+      }, 2000);
+    } catch {
+      btn.textContent = 'Failed';
+      setTimeout(() => { btn.textContent = 'Copy'; }, 2000);
+    }
+  });
+  pre.appendChild(btn);
+});
+
+// ── Sidebar filter ────────────────────────────────────────────────────────────
+const navFilter = document.getElementById('nav-filter');
+const sidebarNav = document.getElementById('sidebar-nav');
+
+function applyNavFilter() {
+  if (!sidebarNav || !navFilter) return;
+  const term = navFilter.value.trim().toLowerCase();
+  const links = sidebarNav.querySelectorAll('a[href^="#"]');
+  const navSections = sidebarNav.querySelectorAll('.nav-section');
+
+  if (!term) {
+    links.forEach(a => { a.style.display = ''; });
+    navSections.forEach(s => { s.style.display = ''; });
+    return;
+  }
+
+  links.forEach(a => {
+    a.style.display = a.textContent.toLowerCase().includes(term) ? '' : 'none';
+  });
+
+  navSections.forEach(section => {
+    let el = section.nextElementSibling;
+    let any = false;
+    while (el && !el.classList.contains('nav-section')) {
+      if (el.tagName === 'A' && el.style.display !== 'none') any = true;
+      el = el.nextElementSibling;
+    }
+    section.style.display = any ? '' : 'none';
+  });
+}
+
+navFilter?.addEventListener('input', applyNavFilter);
 </script>
 </body>
 </html>

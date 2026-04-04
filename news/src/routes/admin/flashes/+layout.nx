@@ -1,0 +1,34 @@
+---
+import { createAction } from '@nexus_js/server';
+import { runAdminFlashSave, runAdminFlashDelete } from '$lib/admin-flash-mutations.ts';
+
+const adminFlashSave = createAction(
+  async (input, ctx) => {
+    return await runAdminFlashSave(input, ctx);
+  },
+  {
+    csrf: false,
+    rateLimit: { window: '1m', max: 120 },
+  },
+);
+
+const adminFlashDelete = createAction(
+  async (input, ctx) => {
+    return await runAdminFlashDelete(input, ctx);
+  },
+  {
+    csrf: false,
+    rateLimit: { window: '1m', max: 40 },
+  },
+);
+---
+
+<div class="pf-admin-flashes-root" data-nx-layout="/admin/flashes">
+  <!--nexus:slot-->
+</div>
+
+<style>
+  :global(.pf-admin-flashes-root) {
+    min-width: 0;
+  }
+</style>

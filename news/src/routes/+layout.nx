@@ -1,0 +1,520 @@
+---
+import { createAction } from '@nexus_js/server';
+import { appendVisit } from '$lib/visit-log.ts';
+import {
+getLocale,
+langHref,
+langActiveClass,
+layoutCopy,
+pathWithLang,
+} from '$lib/i18n';
+import { renderAuthNavHtml, escAttr } from '$lib/auth-nav';
+
+// nexus:pretext
+export async function load(ctx) {
+  const locale = getLocale(ctx);
+  return {
+    locale,
+    layout: layoutCopy(locale),
+    paths: {
+      logout: pathWithLang(ctx, '/logout'),
+      login: pathWithLang(ctx, '/login'),
+      register: pathWithLang(ctx, '/register'),
+      home: pathWithLang(ctx, '/'),
+      flash: pathWithLang(ctx, '/flash'),
+      tags: pathWithLang(ctx, '/tags'),
+      authors: pathWithLang(ctx, '/authors'),
+      admin: pathWithLang(ctx, '/admin'),
+    },
+    langHref: { en: langHref(ctx, 'en'), es: langHref(ctx, 'es'), pt: langHref(ctx, 'pt') },
+    langActive: { en: langActiveClass(ctx, 'en'), es: langActiveClass(ctx, 'es'), pt: langActiveClass(ctx, 'pt') },
+  };
+}
+
+// nexus:server
+const recordVisit = createAction(
+  async (input, ctx) => {
+    const o = input && typeof input === 'object' ? input : {};
+    const path = String(o?.path ?? '');
+    if (!path || path.startsWith('/admin')) return;
+    const ref = String(o?.referrer ?? '');
+    const host = String(o?.host ?? '');
+    const ua = ctx.request.headers.get('user-agent') ?? '';
+    const xf = ctx.request.headers.get('x-forwarded-for');
+    const ip =
+      xf?.split(',')[0]?.trim() || ctx.request.headers.get('x-real-ip') || '—';
+    appendVisit({
+      ts: Date.now(),
+      path: path.slice(0, 512),
+      referrer: ref.slice(0, 512),
+      host: host.slice(0, 256),
+      ua: ua.slice(0, 512),
+      ip: ip.slice(0, 64),
+    });
+  },
+  {
+    csrf: false,
+    rateLimit: { window: '1m', max: 200 },
+    idempotent: true,
+    race: 'ignore',
+  },
+);
+---
+
+<script>
+  import { callAction } from '@nexus_js/serialize';
+  import { navigation } from '@nexus_js/runtime';
+
+  const TOKEN_KEY = 'pf_admin_token';
+
+  function readToken() {
+    const prefix = TOKEN_KEY + '=';
+    const parts = document.cookie.split(';');
+    for (const p of parts) {
+      const s = p.trim();
+      if (s.startsWith(prefix)) {
+        try {
+          return decodeURIComponent(s.slice(prefix.length));
+        } catch {
+          return s.slice(prefix.length);
+        }
+      }
+    }
+    try {
+      return sessionStorage.getItem(TOKEN_KEY);
+    } catch {
+      return null;
+    }
+  }
+
+  /** Decode JWT payload (display only — not a security check). */
+  function decodeJwtPayload(token) {
+    try {
+      const parts = token.split('.');
+      if (parts.length < 2) return null;
+      let b64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+      const pad = b64.length % 4;
+      if (pad) b64 += '='.repeat(4 - pad);
+      const json = atob(b64);
+      return JSON.parse(json);
+    } catch {
+      return null;
+    }
+  }
+
+  function label(key) {
+    return document.querySelector('#pf-nav-labels [data-pf-l="' + key + '"]')?.textContent?.trim() ?? '';
+  }
+
+  function shortText(s, max) {
+    if (s.length <= max) return s;
+    return s.slice(0, max - 1) + '…';
+  }
+
+  /** Depends only on SPA `navigation.url` so we do not re-fire on unrelated island updates. */
+  $effect(() => {
+    const href = navigation.url.value;
+    let path = '';
+    try {
+      path = new URL(href).pathname + new URL(href).search;
+    } catch {
+      path = typeof location !== 'undefined' ? location.pathname + location.search : '';
+    }
+    if (path.startsWith('/admin')) return;
+    const host = typeof location !== 'undefined' ? location.host : '';
+    const referrer = typeof document !== 'undefined' ? document.referrer || '' : '';
+    void callAction('recordVisit', { path, referrer, host });
+  });
+
+  $effect(() => {
+    try {
+      const el = document.querySelector('.nx-auth');
+      if (!el) return;
+      const root = document.documentElement;
+      const logoutHref = root.dataset.pfLogoutHref || '/logout';
+      const loginHref = root.dataset.pfLoginHref || '/login';
+      const regHref = root.dataset.pfRegisterHref || '/register';
+      const token = readToken();
+      const showSession = Boolean(token && token.length > 10);
+
+      const lo = label('logout') || 'Sign out';
+      const li = label('login') || 'Sign in';
+      const re = label('register') || 'Register';
+
+      el.replaceChildren();
+
+      if (showSession) {
+        const payload = token ? decodeJwtPayload(token) : null;
+        const raw =
+          payload && (payload.email || payload.sub) ? String(payload.email || payload.sub) : '';
+        if (raw) {
+          const span = document.createElement('span');
+          span.className = 'nx-auth-email';
+          span.title = raw;
+          span.textContent = shortText(raw, 28);
+          el.appendChild(span);
+        }
+        const a = document.createElement('a');
+        a.className = 'nx-auth-out';
+        a.href = logoutHref;
+        a.setAttribute('data-nx-prefetch', 'false');
+        a.textContent = lo;
+        /** Full page navigation + clear client copy (login also writes sessionStorage). */
+        a.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          try {
+            sessionStorage.removeItem(TOKEN_KEY);
+          } catch {
+            /* ignore */
+          }
+          document.cookie =
+            TOKEN_KEY + '=; Path=/; Max-Age=0; SameSite=Lax';
+          window.location.assign(logoutHref);
+        });
+        el.appendChild(a);
+      } else {
+        const a1 = document.createElement('a');
+        a1.className = 'nx-auth-in';
+        a1.href = loginHref;
+        a1.setAttribute('data-nx-prefetch', 'false');
+        a1.textContent = li;
+        const a2 = document.createElement('a');
+        a2.className = 'nx-auth-up';
+        a2.href = regHref;
+        a2.setAttribute('data-nx-prefetch', 'false');
+        a2.textContent = re;
+        el.appendChild(a1);
+        el.appendChild(a2);
+      }
+    } catch (e) {
+      console.warn('[auth nav]', e);
+    }
+  });
+</script>
+
+<html
+  lang="{pretext.locale}"
+  data-pf-logout-href="{escAttr(pretext.paths.logout)}"
+  data-pf-login-href="{escAttr(pretext.paths.login)}"
+  data-pf-register-href="{escAttr(pretext.paths.register)}"
+>
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="{pretext.layout.metaDescription}">
+  <title>{pretext.layout.appName}</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400..700;1,9..40,400&family=Outfit:wght@400;500;600;700&display=swap"
+    rel="stylesheet">
+</head>
+
+<body class="nx-body">
+  <div class="nx-bg" aria-hidden="true"></div>
+  <div id="pf-nav-labels" hidden aria-hidden="true">
+    <span data-pf-l="logout">{pretext.layout.navLogout}</span>
+    <span data-pf-l="login">{pretext.layout.navLogin}</span>
+    <span data-pf-l="register">{pretext.layout.navRegister}</span>
+  </div>
+  <header class="nx-header">
+    <a class="nx-brand" href="{pretext.paths.home}">
+      <span class="nx-brand-mark" aria-hidden="true">◆</span>
+      <span>{pretext.layout.appName}</span>
+    </a>
+    <div class="nx-header-actions">
+      <nav class="nx-nav" aria-label="{pretext.layout.navAria}">
+        <a href="{pretext.paths.home}">{pretext.layout.navHome}</a>
+        <a href="{pretext.paths.flash}">{pretext.layout.navFlash}</a>
+        <a href="{pretext.paths.tags}">{pretext.layout.navTags}</a>
+        <a href="{pretext.paths.authors}">{pretext.layout.navAuthors}</a>
+        <a href="{pretext.paths.admin}">{pretext.layout.navAdmin}</a>
+      </nav>
+      <div class="nx-auth">{await renderAuthNavHtml(ctx)}</div>
+      <span class="pf-auth-nav-mount" client:load aria-hidden="true"></span>
+      <div class="nx-lang" role="group" aria-label="{pretext.layout.langAria}">
+        <a class="nx-lang-btn {pretext.langActive.en}" href="{pretext.langHref.en}">EN</a>
+        <a class="nx-lang-btn {pretext.langActive.es}" href="{pretext.langHref.es}">ES</a>
+        <a class="nx-lang-btn {pretext.langActive.pt}" href="{pretext.langHref.pt}">PT</a>
+      </div>
+    </div>
+  </header>
+  <main class="nx-main">
+    <!--nexus:slot-->
+    <span class="pf-visit-beacon" client:load aria-hidden="true"></span>
+  </main>
+  <footer class="nx-footer">
+    <p>
+      {pretext.layout.footerMade}
+      <a href="https://nexusjs.dev" target="_blank" rel="noopener noreferrer">Nexus</a>
+      · {pretext.layout.footerTagline}
+    </p>
+  </footer>
+</body>
+
+</html>
+
+<style>
+  :global(:root) {
+    --nx-bg0: #ffffff;
+    --nx-bg1: #f8fafc;
+    --nx-surface: #ffffff;
+    --nx-border: #e8ecf0;
+    --nx-text: #0f172a;
+    --nx-muted: #64748b;
+    --nx-accent: #0f172a;
+    --nx-accent-soft: #2563eb;
+    --nx-radius: 12px;
+    --nx-font: 'DM Sans', system-ui, -apple-system, sans-serif;
+    --nx-display: 'Outfit', var(--nx-font);
+  }
+
+  :global(.nx-body) {
+    margin: 0;
+    min-height: 100vh;
+    font-family: var(--nx-font);
+    color: var(--nx-text);
+    background: var(--nx-bg0);
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  :global(.nx-bg) {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background:
+      radial-gradient(ellipse 100% 60% at 50% -15%, rgba(15, 23, 42, 0.04), transparent 55%),
+      radial-gradient(ellipse 70% 50% at 100% 0%, rgba(37, 99, 235, 0.03), transparent 45%),
+      linear-gradient(180deg, #fafbfc 0%, #ffffff 28%, #ffffff 100%);
+  }
+
+  :global(.nx-header) {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1rem 1.5rem;
+    max-width: 1100px;
+    margin: 0 auto;
+    border-bottom: 1px solid var(--nx-border);
+    background: rgba(255, 255, 255, 0.92);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+
+  :global(.nx-header-actions) {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem 1.25rem;
+    justify-content: flex-end;
+  }
+
+  :global(.nx-brand) {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-family: var(--nx-display);
+    font-weight: 600;
+    font-size: 1.05rem;
+    letter-spacing: -0.02em;
+    color: var(--nx-text);
+    text-decoration: none;
+  }
+
+  :global(.nx-brand-mark) {
+    color: var(--nx-accent-soft);
+    font-size: 1.15rem;
+    line-height: 1;
+    font-weight: 400;
+    opacity: 0.9;
+  }
+
+  :global(.nx-nav) {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem 1.15rem;
+    align-items: center;
+  }
+
+  :global(.nx-nav a) {
+    color: var(--nx-muted);
+    text-decoration: none;
+    font-size: 0.875rem;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    transition: color 0.15s ease;
+  }
+
+  :global(.nx-nav a:hover) {
+    color: var(--nx-text);
+  }
+
+  :global(.nx-auth) {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.35rem;
+    max-width: min(22rem, 42vw);
+    padding-left: 0.25rem;
+    border-left: 1px solid var(--nx-border);
+    margin-left: 0.15rem;
+  }
+
+  :global(.nx-auth-email) {
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--nx-muted, #64748b);
+    max-width: 10rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  :global(.pf-auth-nav-mount),
+  :global(.pf-visit-beacon) {
+    position: absolute;
+    width: 0;
+    height: 0;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    pointer-events: none;
+  }
+
+  /* Utility islands: never intercept pointer (wrapper can still be a wide flex row without host CSS). */
+  :global(nexus-island:has(.pf-auth-nav-mount)),
+  :global(nexus-island:has(.pf-visit-beacon)) {
+    pointer-events: none;
+  }
+
+  :global(.nx-nav a),
+  :global(.nx-brand),
+  :global(.nx-lang-btn),
+  :global(.nx-auth a),
+  :global(.nx-footer a),
+  :global(.nx-main a[href]) {
+    cursor: pointer;
+    touch-action: manipulation;
+  }
+
+  :global(.nx-auth-in) {
+    padding: 0.35rem 0.65rem;
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--nx-muted);
+    text-decoration: none;
+    border-radius: 6px;
+    transition: color 0.15s ease, background 0.15s ease;
+  }
+
+  :global(.nx-auth-in:hover) {
+    color: var(--nx-text);
+    background: rgba(15, 23, 42, 0.05);
+  }
+
+  :global(.nx-auth-up) {
+    padding: 0.35rem 0.75rem;
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    color: #fff;
+    background: var(--nx-text);
+    text-decoration: none;
+    border-radius: 999px;
+    transition: opacity 0.15s ease, transform 0.1s ease;
+  }
+
+  :global(.nx-auth-up:hover) {
+    opacity: 0.9;
+  }
+
+  :global(.nx-auth-out) {
+    padding: 0.35rem 0.65rem;
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--nx-muted);
+    background: transparent;
+    border: 1px solid var(--nx-border);
+    border-radius: 6px;
+    text-decoration: none;
+    font-family: inherit;
+    transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+  }
+
+  :global(.nx-auth-out:hover) {
+    color: var(--nx-text);
+    background: rgba(15, 23, 42, 0.05);
+    border-color: var(--nx-muted);
+  }
+
+  :global(.nx-lang) {
+    display: inline-flex;
+    gap: 0.15rem;
+    padding: 0.2rem;
+    border-radius: 999px;
+    border: 1px solid var(--nx-border);
+    background: var(--nx-bg1);
+  }
+
+  :global(.nx-lang-btn) {
+    padding: 0.28rem 0.55rem;
+    border-radius: 999px;
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    color: var(--nx-muted);
+    text-decoration: none;
+    transition: background 0.15s ease, color 0.15s ease;
+  }
+
+  :global(.nx-lang-btn:hover) {
+    color: var(--nx-text);
+    background: rgba(15, 23, 42, 0.05);
+  }
+
+  :global(.nx-lang-btn--on) {
+    background: var(--nx-text);
+    color: #ffffff;
+  }
+
+  :global(.nx-main) {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 2rem 1.5rem 4rem;
+  }
+
+  :global(.nx-footer) {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 2rem 1.5rem 3rem;
+    border-top: 1px solid var(--nx-border);
+    text-align: center;
+    background: linear-gradient(180deg, transparent, rgba(248, 250, 252, 0.85));
+  }
+
+  :global(.nx-footer p) {
+    margin: 0;
+    font-size: 0.8125rem;
+    color: var(--nx-muted);
+    letter-spacing: 0.01em;
+  }
+
+  :global(.nx-footer a) {
+    color: var(--nx-accent-soft);
+    text-decoration: none;
+    font-weight: 500;
+  }
+
+  :global(.nx-footer a:hover) {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+</style>

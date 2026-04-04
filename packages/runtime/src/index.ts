@@ -11,3 +11,4 @@ export { navigate, prefetch, initNavigation, navigation } from './navigation.js'
 export type { NavigateOptions, NavigationState } from './navigation.js';
 export { useStore, readStore, writeStore, snapshotStore, importStore, exportStore, clearStore, storeDebugInfo } from './store.js';
 export type { StoreOptions, StoreEntry } from './store.js';
+export { initPretextFromDocument, getPretext, $pretext } from './pretext.js';

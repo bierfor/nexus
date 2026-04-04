@@ -1,0 +1,29 @@
+{
+  "name": "news",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "predev": "node ./scripts/check-node-modules.mjs",
+    "dev": "node --env-file-if-exists=.env ./node_modules/@nexus_js/cli/dist/bin.js dev --port 3011",
+    "prebuild": "node ./scripts/check-node-modules.mjs",
+    "build": "node --env-file-if-exists=.env ./node_modules/@nexus_js/cli/dist/bin.js build",
+    "prestart": "node ./scripts/check-node-modules.mjs",
+    "start": "node --env-file-if-exists=.env ./node_modules/@nexus_js/cli/dist/bin.js start --port 3011",
+    "precheck": "node ./scripts/check-node-modules.mjs",
+    "check": "node ./node_modules/@nexus_js/cli/dist/bin.js check",
+    "test:smoke": "node ./scripts/smoke.mjs"
+  },
+  "dependencies": {
+    "@nexus_js/connect": "workspace:^",
+    "@nexus_js/runtime": "workspace:^",
+    "@nexus_js/serialize": "workspace:^",
+    "@nexus_js/server": "workspace:^",
+    "jose": "^6.2.2"
+  },
+  "devDependencies": {
+    "@nexus_js/cli": "workspace:^",
+    "@nexus_js/compiler": "workspace:^",
+    "typescript": "^5.5.0"
+  }
+}

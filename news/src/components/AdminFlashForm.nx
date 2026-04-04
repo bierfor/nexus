@@ -1,0 +1,74 @@
+---
+---
+
+<script>
+  import { callAction } from '@nexus_js/serialize';
+  import { $effect } from '/_nexus/rt/island.js';
+
+  function langSuffix() {
+    const u = new URL(window.location.href);
+    const l = u.searchParams.get('lang');
+    return l ? '?lang=' + encodeURIComponent(l) : '';
+  }
+
+  $effect(() => {
+    const boot = document.getElementById('pf-admin-flash-bootstrap');
+    const form = document.getElementById('pf-admin-flash-form');
+    if (!boot || !form) return;
+    if (form.dataset.pfBound === '1') return;
+    form.dataset.pfBound = '1';
+
+    let parsed;
+    try {
+      parsed = JSON.parse(boot.textContent || '{}');
+    } catch {
+      return;
+    }
+
+    const mode = parsed.mode || 'new';
+
+    const delBtn = document.getElementById('pf-admin-flash-delete');
+    if (delBtn) {
+      delBtn.addEventListener('click', async () => {
+        if (!parsed.confirmDelete || !confirm(parsed.confirmDelete)) return;
+        const id = delBtn.dataset.id;
+        if (!id) return;
+        const r = await callAction('adminFlashDelete', { id });
+        if (r.error) {
+          alert(r.error);
+          return;
+        }
+        window.location.href = (parsed.listPath || '/admin/flashes') + langSuffix();
+      });
+    }
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const fd = new FormData(form);
+      const payload = {
+        id: fd.get('id') || undefined,
+        title: fd.get('title'),
+        slug: fd.get('slug'),
+        summary: fd.get('summary'),
+        sourceLabel: fd.get('sourceLabel'),
+        sourceUrl: fd.get('sourceUrl'),
+        hack: fd.get('hack'),
+        published: fd.get('published') === 'on',
+      };
+      const r = await callAction('adminFlashSave', payload);
+      if (r.error) {
+        alert(parsed.errSave ? parsed.errSave + ': ' + r.error : r.error);
+        return;
+      }
+      const id = r.data && r.data.id ? String(r.data.id) : '';
+      if (!id) return;
+      if (mode === 'new') {
+        window.location.href = '/admin/flashes/' + encodeURIComponent(id) + langSuffix();
+      } else {
+        window.location.href = (parsed.listPath || '/admin/flashes') + langSuffix();
+      }
+    });
+  });
+</script>
+
+<span class="pf-admin-flash-form-boot" client:load aria-hidden="true"></span>

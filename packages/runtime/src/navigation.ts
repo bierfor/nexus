@@ -30,6 +30,10 @@
  *      d. Removed island → destroy() cleanly
  *   6. Update URL, fire 'nexus:navigate' event, restore scroll
  *
+ * View Transitions (optional): when supported and not prefers-reduced-motion,
+ * the DOM swap runs inside document.startViewTransition — fetch stays outside,
+ * so network cost is unchanged. Pass navigate(url, { viewTransition: false }) to skip.
+ *
  * ─── STATE PRESERVATION RULES ─────────────────────────────────────────────
  *
  *   Island state is preserved when ALL of these match:
@@ -56,6 +60,10 @@
  *   - data-nx-prefetch="load"    → prefetch on page load
  *   - data-nx-prefetch="visible" → prefetch when link enters viewport
  *   - data-nx-prefetch="false"   → disable prefetch for this link
+ *
+ * Hover prefetch never triggers a full-page navigation: only explicit clicks (or
+ * `navigate()`) may fall back to `location.assign` when the SPA JSON endpoint
+ * returns 404/redirect (e.g. `/logout` handled outside the morph pipeline).
  */
 
 import { hydrateAll } from './island.js';
@@ -71,6 +79,11 @@ export interface NavigateOptions {
   scroll?: boolean;
   /** Override prefetch cache */
   noCache?: boolean;
+  /**
+   * Use the View Transitions API for the DOM swap (fetch still runs before — no extra latency there).
+   * Set to `false` to skip animation (e.g. heavy admin pages). Default: on when supported.
+   */
+  viewTransition?: boolean;
 }
 
 export interface NavigationState {
@@ -104,26 +117,42 @@ export async function navigate(
 export function prefetch(path: string): void {
   if (typeof document === 'undefined') return;
   if (prefetchCache.has(path)) return;
+  if (prefetchInFlight.has(path)) return;
 
-  // Use <link rel="prefetch"> for network-level prefetch
-  const link = document.createElement('link');
-  link.rel = 'prefetch';
-  link.href = navigateEndpoint(path);
-  link.as = 'fetch';
-  link.crossOrigin = 'same-origin';
-  document.head.appendChild(link);
+  prefetchInFlight.add(path);
 
-  // Also start the JSON fetch to warm up our cache
-  fetchRoute(path).then((data) => {
-    if (data) prefetchCache.set(path, data);
-  }).catch(() => {});
+  // One `<link rel="prefetch">` per path (mouseover can fire many times before the fetch completes).
+  if (!prefetchLinkInserted.has(path)) {
+    prefetchLinkInserted.add(path);
+    const link = document.createElement('link');
+    link.rel = 'prefetch';
+    link.href = navigateEndpoint(path);
+    link.as = 'fetch';
+    link.crossOrigin = 'same-origin';
+    document.head.appendChild(link);
+  }
+
+  fetchRoute(path, { allowFullPageFallback: false })
+    .then((data) => {
+      if (data.kind === 'ok') prefetchCache.set(path, data.payload);
+    })
+    .catch(() => {})
+    .finally(() => {
+      prefetchInFlight.delete(path);
+    });
 }
 
 // ── Initialization ────────────────────────────────────────────────────────────
 
+let navigationBootstrapped = false;
+
 /** Bootstrap: call once when the page loads */
 export function initNavigation(): void {
   if (typeof document === 'undefined') return;
+  if (navigationBootstrapped) return;
+  navigationBootstrapped = true;
+
+  injectViewTransitionStyles();
 
   // Intercept all link clicks
   document.addEventListener('click', handleLinkClick, { passive: false });
@@ -142,6 +171,12 @@ export function initNavigation(): void {
 
 const NAVIGATE_ENDPOINT = '/_nexus/navigate';
 const prefetchCache = new Map<string, NavigationPayload>();
+/** Avoid duplicate JSON fetches / `<link rel="prefetch">` when `mouseover` fires repeatedly on the same anchor. */
+const prefetchInFlight = new Set<string>();
+const prefetchLinkInserted = new Set<string>();
+/** Last time we started hover-prefetch for a path (mouseover fires very often on the same `<a>`). */
+const prefetchHoverAt = new Map<string, number>();
+const PREFETCH_HOVER_GAP_MS = 400;
 
 interface NavigationPayload {
   html: string;
@@ -149,6 +184,12 @@ interface NavigationPayload {
   islandManifest: Array<{ id: string; componentPath: string }>;
   timestamp: number;
 }
+
+type FetchRouteResult =
+  | { kind: 'ok'; payload: NavigationPayload }
+  | { kind: 'not_found' }
+  | { kind: 'redirect' }
+  | { kind: 'fail' };
 
 function navigateEndpoint(path: string): string {
   return `${NAVIGATE_ENDPOINT}?path=${encodeURIComponent(path)}`;
@@ -166,10 +207,17 @@ async function performNavigation(path: string, opts: NavigateOptions): Promise<v
 
     // Check prefetch cache first
     const cached = !opts.noCache ? prefetchCache.get(path) : null;
-    const payload = cached ?? (await fetchRoute(path));
+    let payload: NavigationPayload | null = cached ?? null;
 
     if (!payload) {
-      throw new Error(`Failed to fetch route: ${path}`);
+      const fetched = await fetchRoute(path);
+      if (fetched.kind === 'not_found' || fetched.kind === 'redirect') {
+        return;
+      }
+      if (fetched.kind === 'fail') {
+        throw new Error(`Failed to fetch route: ${path}`);
+      }
+      payload = fetched.payload;
     }
 
     // Update history
@@ -196,7 +244,13 @@ async function performNavigation(path: string, opts: NavigateOptions): Promise<v
   }
 }
 
-async function fetchRoute(path: string): Promise<NavigationPayload | null> {
+async function fetchRoute(
+  path: string,
+  opts: { allowFullPageFallback?: boolean } = {},
+): Promise<FetchRouteResult> {
+  /** Only true for real navigations (click / `navigate`). Prefetch must never assign. */
+  const allowFullPageFallback = opts.allowFullPageFallback !== false;
+
   try {
     const res = await fetch(navigateEndpoint(path), {
       headers: {
@@ -205,11 +259,69 @@ async function fetchRoute(path: string): Promise<NavigationPayload | null> {
       },
     });
 
-    if (!res.ok) return null;
-    return await res.json() as NavigationPayload;
+    if (res.status === 404) {
+      if (allowFullPageFallback) window.location.assign(path);
+      return { kind: 'not_found' };
+    }
+
+    if (!res.ok) return { kind: 'fail' };
+
+    const data = (await res.json()) as Record<string, unknown>;
+
+    if (typeof data.redirect === 'string' && data.redirect.length > 0) {
+      if (allowFullPageFallback) window.location.assign(data.redirect);
+      return { kind: 'redirect' };
+    }
+
+    return { kind: 'ok', payload: data as unknown as NavigationPayload };
   } catch {
-    return null;
+    return { kind: 'fail' };
   }
+}
+
+type ViewTransitionResult = { finished: Promise<void> };
+
+function documentWithViewTransition(): Document & {
+  startViewTransition?: (update: () => void) => ViewTransitionResult;
+} {
+  return document as Document & { startViewTransition?: (update: () => void) => ViewTransitionResult };
+}
+
+/** True when we should animate the swap (feature + user preference). */
+function shouldUseViewTransition(opts: NavigateOptions): boolean {
+  if (opts.viewTransition === false) return false;
+  const doc = documentWithViewTransition();
+  if (typeof doc.startViewTransition !== 'function') return false;
+  try {
+    if (globalThis.matchMedia('(prefers-reduced-motion: reduce)').matches) return false;
+  } catch {
+    /* ignore */
+  }
+  return true;
+}
+
+/**
+ * Minimal default styling: short cross-fade on `root` only — no layout thrash, no custom names.
+ * Injected once; disabled inside `@media (prefers-reduced-motion: reduce)` via zero-duration feel.
+ */
+function injectViewTransitionStyles(): void {
+  if (typeof document === 'undefined') return;
+  if (document.getElementById('nexus-vt-styles')) return;
+  const doc = documentWithViewTransition();
+  if (typeof doc.startViewTransition !== 'function') return;
+
+  const style = document.createElement('style');
+  style.id = 'nexus-vt-styles';
+  style.textContent = `@layer nexus-navigation {
+  @media (prefers-reduced-motion: no-preference) {
+    ::view-transition-old(root),
+    ::view-transition-new(root) {
+      animation-duration: 0.16s;
+      animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+    }
+  }
+}`;
+  document.head.appendChild(style);
 }
 
 async function applyNavigation(
@@ -224,16 +336,30 @@ async function applyNavigation(
   // 1. Take a snapshot of current islands to preserve state
   const preserved = snapshotIslands();
 
-  // 2. Update <head> (title, meta, etc.)
-  applyHeadUpdate(payload.headHTML);
+  const html = payload.html?.trim() ?? '';
+  if (!html) {
+    console.warn('[Nexus] Navigation skipped: empty body fragment would clear the page.');
+    return;
+  }
 
-  // 3. Morph <body> — surgical DOM update
-  morphBody(payload.html, preserved);
+  const runDomUpdate = (): void => {
+    // 2. Update <head> (title, meta, etc.)
+    applyHeadUpdate(payload.headHTML);
+    // 3. Morph <body> — surgical DOM update (synchronous; required inside VT callback)
+    morphBody(html, preserved);
+    // 4. Hydrate new islands (skip preserved ones)
+    hydrateAll();
+  };
 
-  // 4. Hydrate new islands (skip preserved ones)
-  hydrateAll();
+  const doc = documentWithViewTransition();
+  if (shouldUseViewTransition(opts) && typeof doc.startViewTransition === 'function') {
+    const vt = doc.startViewTransition(runDomUpdate);
+    await vt.finished.catch(() => {});
+  } else {
+    runDomUpdate();
+  }
 
-  // 5. Restore scroll position
+  // 5. Restore scroll after the transition frame (avoids fighting the animation)
   if (opts.scroll !== false) {
     const hash = location.hash;
     if (hash) {
@@ -287,6 +413,13 @@ function morphBody(newHTML: string, preserved: Map<string, IslandSnapshot>): voi
   const newDoc = parser.parseFromString(newHTML, 'text/html');
   const newBody = newDoc.body;
   const oldBody = document.body;
+
+  // If the new fragment has no children but the live doc does, morphNode would remove all
+  // children of <body>—blank page. Skip only this degenerate case.
+  if (newBody.childNodes.length === 0 && oldBody.childNodes.length > 0) {
+    console.warn('[Nexus] Navigation skipped: parsed body would replace content with a blank document.');
+    return;
+  }
 
   morphNode(oldBody, newBody, preserved);
 }
@@ -395,8 +528,28 @@ function patchAttributes(oldEl: Element, newEl: Element): void {
   }
 }
 
+/**
+ * Keeps `#__NEXUS_PRETEXT__` in sync after SPA navigation (it lives in `<head>`, not morphed with `<body>`).
+ * Must run before meta injection so we do not duplicate the script via `data-nx-nav` appends.
+ */
+function syncPretextScriptFromHead(headHTML: string): void {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(`<head>${headHTML}</head>`, 'text/html');
+  const incoming = doc.getElementById('__NEXUS_PRETEXT__');
+  const existing = document.getElementById('__NEXUS_PRETEXT__');
+  if (incoming) {
+    const clone = incoming.cloneNode(true);
+    if (existing) existing.replaceWith(clone);
+    else document.head.insertBefore(clone, document.head.firstChild);
+  } else if (existing) {
+    existing.remove();
+  }
+}
+
 function applyHeadUpdate(headHTML: string): void {
   if (!headHTML) return;
+
+  syncPretextScriptFromHead(headHTML);
 
   // Update title
   const titleMatch = /<title>([^<]*)<\/title>/.exec(headHTML);
@@ -405,11 +558,12 @@ function applyHeadUpdate(headHTML: string): void {
   // Remove previous navigation-injected metas (marked with data-nx-nav)
   document.querySelectorAll('[data-nx-nav]').forEach((el) => el.remove());
 
-  // Inject new metas
+  // Inject new metas (pretext script is handled above — skip duplicate)
   const parser = new DOMParser();
   const doc = parser.parseFromString(`<head>${headHTML}</head>`, 'text/html');
   for (const el of doc.head.children) {
     if (el.tagName === 'TITLE') continue;
+    if (el.tagName === 'SCRIPT' && el.id === '__NEXUS_PRETEXT__') continue;
     el.setAttribute('data-nx-nav', '');
     document.head.appendChild(el.cloneNode(true));
   }
@@ -444,22 +598,43 @@ function handleLinkClick(e: MouseEvent): void {
 
 function handlePopState(e: PopStateEvent): void {
   if (e.state?.nx) {
-    navigate(location.pathname, { replace: true, noCache: true }).catch(console.error);
+    const path = `${location.pathname}${location.search}${location.hash}`;
+    navigate(path, { replace: true, noCache: true }).catch(console.error);
   }
 }
 
 function setupPrefetchObservers(): void {
-  // Hover prefetch (default)
-  document.addEventListener('mouseover', (e) => {
-    const target = (e.target as Element).closest('a[href]');
-    if (!target) return;
-    const href = target.getAttribute('href');
-    if (!href || href.startsWith('http') || href.startsWith('#')) return;
-    const prefetchMode = target.getAttribute('data-nx-prefetch') ?? 'hover';
-    if (prefetchMode === 'hover' || prefetchMode === '') {
+  // Hover prefetch (default) — throttle: mouseover fires on every child boundary inside `<a>`.
+  document.addEventListener(
+    'mouseover',
+    (e) => {
+      const target = (e.target as Element).closest('a[href]');
+      if (!target) return;
+      const href = target.getAttribute('href');
+      if (!href) return;
+      // Keep in sync with `handleLinkClick` skips — avoid prefetching mailto/tel/external.
+      if (
+        href.startsWith('http') ||
+        href.startsWith('mailto:') ||
+        href.startsWith('tel:') ||
+        href === '#' ||
+        target.hasAttribute('download') ||
+        target.getAttribute('target') === '_blank' ||
+        target.getAttribute('data-nx-prefetch') === 'false' ||
+        target.getAttribute('data-nx-external') !== null
+      ) {
+        return;
+      }
+      const prefetchMode = target.getAttribute('data-nx-prefetch') ?? 'hover';
+      if (prefetchMode !== 'hover' && prefetchMode !== '') return;
+      const now = Date.now();
+      const last = prefetchHoverAt.get(href) ?? 0;
+      if (now - last < PREFETCH_HOVER_GAP_MS) return;
+      prefetchHoverAt.set(href, now);
       prefetch(href);
-    }
-  }, { passive: true });
+    },
+    { passive: true },
+  );
 
   // Viewport prefetch
   const visibleObserver = new IntersectionObserver((entries) => {
@@ -475,4 +650,19 @@ function setupPrefetchObservers(): void {
   document.querySelectorAll('a[data-nx-prefetch="visible"]').forEach((el) => {
     visibleObserver.observe(el);
   });
+}
+
+/**
+ * Bootstrap SPA navigation once when the runtime loads (same pattern as `hydrateAll` in island.ts).
+ * Without this, link interception and view-transition styles never run.
+ */
+if (typeof document !== 'undefined') {
+  const bootNav = (): void => {
+    initNavigation();
+  };
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', bootNav);
+  } else {
+    bootNav();
+  }
 }

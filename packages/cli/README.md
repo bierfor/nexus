@@ -34,11 +34,31 @@ npm install -g @nexus_js/cli
 
 ## New project
 
+**Recommended** (works as long as `@nexus_js/cli` is on npm):
+
 ```bash
 npm exec --package=@nexus_js/cli@latest -- create-nexus my-app
 ```
 
-Or install globally and run the `create-nexus` binary:
+```bash
+pnpm dlx --package=@nexus_js/cli@latest create-nexus my-app
+```
+
+Shorthand `pnpm create @nexus_js/nexus` needs **`@nexus_js/create-nexus`** published; if you get **404**, use the commands above.
+
+After `@nexus_js/create-nexus` exists on npm:
+
+```bash
+npm create @nexus_js/nexus@latest my-app
+```
+
+```bash
+pnpm create @nexus_js/nexus my-app
+```
+
+```bash
+npx @nexus_js/create-nexus@latest my-app
+```
 
 ```bash
 npm install -g @nexus_js/cli

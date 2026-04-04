@@ -8,6 +8,9 @@ importers:
 
   .:
     devDependencies:
+      '@nexus_js/cli':
+        specifier: workspace:^
+        version: link:packages/cli
       '@types/node':
         specifier: ^22.0.0
         version: 22.19.17
@@ -150,6 +153,50 @@ importers:
         specifier: ^5.5.0
         version: 5.9.3
 
+  my-nexus-app:
+    dependencies:
+      '@nexus_js/runtime':
+        specifier: ^0.7.2
+        version: link:../packages/runtime
+    devDependencies:
+      '@nexus_js/cli':
+        specifier: ^0.7.2
+        version: link:../packages/cli
+      '@nexus_js/compiler':
+        specifier: ^0.7.2
+        version: link:../packages/compiler
+      typescript:
+        specifier: ^5.5.0
+        version: 5.9.3
+
+  news:
+    dependencies:
+      '@nexus_js/connect':
+        specifier: workspace:^
+        version: link:../packages/connect
+      '@nexus_js/runtime':
+        specifier: workspace:^
+        version: link:../packages/runtime
+      '@nexus_js/serialize':
+        specifier: workspace:^
+        version: link:../packages/serialize
+      '@nexus_js/server':
+        specifier: workspace:^
+        version: link:../packages/server
+      jose:
+        specifier: ^6.2.2
+        version: 6.2.2
+    devDependencies:
+      '@nexus_js/cli':
+        specifier: workspace:^
+        version: link:../packages/cli
+      '@nexus_js/compiler':
+        specifier: workspace:^
+        version: link:../packages/compiler
+      typescript:
+        specifier: ^5.5.0
+        version: 5.9.3
+
   packages/assets:
     dependencies:
       sharp:
@@ -163,7 +210,14 @@ importers:
         specifier: ^5.5.0
         version: 5.9.3
 
-  packages/audit: {}
+  packages/audit:
+    devDependencies:
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.19.17
+      typescript:
+        specifier: ^5.5.0
+        version: 5.9.3
 
   packages/cli:
     dependencies:
@@ -214,6 +268,12 @@ importers:
       vitest:
         specifier: ^2.0.0
         version: 2.1.9(@types/node@22.19.17)
+
+  packages/create-nexus:
+    dependencies:
+      '@nexus_js/cli':
+        specifier: ^0.7.2
+        version: link:../cli
 
   packages/db:
     dependencies:
@@ -316,7 +376,14 @@ importers:
         specifier: ^2.0.0
         version: 2.1.9(@types/node@22.19.17)
 
-  packages/sync: {}
+  packages/sync:
+    devDependencies:
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.19.17
+      typescript:
+        specifier: ^5.5.0
+        version: 5.9.3
 
   packages/testing:
     dependencies:
@@ -353,7 +420,14 @@ importers:
         specifier: ^5.5.0
         version: 5.9.3
 
-  packages/ui: {}
+  packages/ui:
+    devDependencies:
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.19.17
+      typescript:
+        specifier: ^5.5.0
+        version: 5.9.3
 
   packages/vite-plugin-nexus:
     dependencies:
@@ -861,6 +935,9 @@ packages:
   is-arrayish@0.3.4:
     resolution: {integrity: sha512-m6UrgzFVUYawGBh1dUsWR5M2Clqic9RVXC/9f8ceNlv2IcO9j9J/z8UoCLPqtsPBFNzEpfR3xftohbfqDx8EQA==}
 
+  jose@6.2.2:
+    resolution: {integrity: sha512-d7kPDd34KO/YnzaDOlikGpOurfF0ByC2sEV4cANCtdqLlTfBlw2p14O/5d/zv40gJPbIQxfES3nSx1/oYNyuZQ==}
+
   loupe@3.2.1:
     resolution: {integrity: sha512-CdzqowRJCeLU72bHvWqwRBBlLcMEtIvGrlvef74kMnV2AolS9Y8xUv1I0U/MNAWMhBlKIoyuEgoJ0t/bbwHbLQ==}
 
@@ -1364,6 +1441,8 @@ snapshots:
     optional: true
 
   is-arrayish@0.3.4: {}
+
+  jose@6.2.2: {}
 
   loupe@3.2.1: {}
 

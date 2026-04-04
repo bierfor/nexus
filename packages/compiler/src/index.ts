@@ -1,6 +1,7 @@
 export { parse } from './parser.js';
 export { generate } from './codegen.js';
 export { extractServerActionsFromSource } from './server-actions-extract.js';
+export { splitPretext, transformPretextExport } from './pretext-extract.js';
 export type {
   ParsedComponent,
   CompileOptions,
@@ -33,6 +34,7 @@ export function compile(
     emitIslandManifest: opts.emitIslandManifest ?? true,
     target: opts.target ?? 'node',
     ...(opts.appRoot !== undefined ? { appRoot: opts.appRoot } : {}),
+    ...(opts.libDepsMtime !== undefined ? { libDepsMtime: opts.libDepsMtime } : {}),
   };
 
   const parsed = parse(source, filepath);

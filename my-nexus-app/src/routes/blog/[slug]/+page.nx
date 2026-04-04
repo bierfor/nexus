@@ -1,0 +1,40 @@
+---
+// Use ctx in the template only — frontmatter runs at module load before ctx exists.
+---
+
+<article class="blog-post">
+  <a class="blog-back" href="/blog">← Blog</a>
+  <h1 class="blog-post-title">Post: {ctx.params.slug}</h1>
+  <p class="blog-post-body">Placeholder article for <strong>{ctx.params.slug}</strong>. Wire this to your CMS or <code class="inline-code">load()</code> data.</p>
+</article>
+
+<style>
+  .blog-post { max-width: 40rem; }
+  .blog-back {
+    display: inline-block;
+    margin-bottom: 1.25rem;
+    font-size: 0.9rem;
+    color: var(--nx-muted);
+    text-decoration: none;
+  }
+  .blog-back:hover { color: var(--nx-accent); }
+  .blog-post-title {
+    margin: 0 0 1rem;
+    font-family: var(--nx-display);
+    font-size: 1.75rem;
+    font-weight: 700;
+  }
+  .blog-post-body {
+    margin: 0 0 1.5rem;
+    color: var(--nx-muted);
+    line-height: 1.65;
+  }
+  .inline-code {
+    font-size: 0.9em;
+    padding: 0.15em 0.4em;
+    border-radius: 6px;
+    background: var(--nx-surface);
+    border: 1px solid var(--nx-border);
+    color: var(--nx-accent);
+  }
+</style>

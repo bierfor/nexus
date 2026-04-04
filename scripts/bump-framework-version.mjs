@@ -25,6 +25,10 @@ for (const name of fs.readdirSync(packagesDir)) {
   const raw = fs.readFileSync(pkgPath, 'utf8');
   const j = JSON.parse(raw);
   j.version = ver;
+  // npm does not understand workspace:* — keep @nexus_js/cli as semver so npm/pnpm/yarn all resolve.
+  if (j.name === '@nexus_js/create-nexus' && j.dependencies?.['@nexus_js/cli']) {
+    j.dependencies['@nexus_js/cli'] = `^${ver}`;
+  }
   fs.writeFileSync(pkgPath, JSON.stringify(j, null, 2) + '\n');
   console.log(`${j.name} → ${ver}`);
 }

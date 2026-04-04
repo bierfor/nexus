@@ -1,0 +1,24 @@
+---
+import { getLocale, newsPageCopy } from '$lib/i18n';
+
+// nexus:pretext
+export async function load(ctx) {
+  const locale = getLocale(ctx);
+  return { newsCopy: newsPageCopy(locale) };
+}
+---
+
+<section
+  class="nx-zone"
+  data-nx-layout="/tag"
+  aria-label="{pretext.newsCopy.explorerTagsTitle}"
+>
+  <!--nexus:slot-->
+</section>
+
+<style>
+  :global(.nx-zone) {
+    display: block;
+    width: 100%;
+  }
+</style>

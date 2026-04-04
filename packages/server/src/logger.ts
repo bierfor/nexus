@@ -1,3 +1,5 @@
+import { STUDIO_DEFAULT_PORT } from './constants.js';
+
 /**
  * Nexus Server Logger — terminal observability for SSR, Actions, HMR.
  *
@@ -193,7 +195,7 @@ export const nexusLogger = {
       `  ${env}   ${ready}\n` +
       `\n  ${c.green}➜${c.reset}  ${c.bold}Local${c.reset}    ${c.cyan}http://localhost:${opts.port}/${c.reset}` +
       (opts.dev
-        ? `\n  ${c.green}➜${c.reset}  ${c.bold}Studio${c.reset}   ${c.cyan}http://localhost:7822/${c.reset}   ${c.dim}nexus studio${c.reset}`
+        ? `\n  ${c.green}➜${c.reset}  ${c.bold}Studio${c.reset}   ${c.cyan}http://localhost:${STUDIO_DEFAULT_PORT}/${c.reset}   ${c.dim}nexus studio${c.reset}`
         : '') +
       `\n\n  Symbol key:` +
       `  ${c.green}○${c.reset} static  ` +

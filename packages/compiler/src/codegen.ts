@@ -7,11 +7,17 @@ import type {
   IslandEntry,
   ServerAction,
 } from './types.js';
+import { existsSync } from 'node:fs';
 import { join, normalize } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { scopeCSS, scopeTemplate, unwrapOuterTemplateElement } from './css-scope.js';
 import { wrapSelfClientIslandMarkers, type IslandWrapResult } from './island-wrap.js';
-import { islandSsrStubLines } from './island-ssr-stubs.js';
+import {
+  islandSsrStubLines,
+  listRuneBindingNames,
+  extractDollarStateInitializers,
+} from './island-ssr-stubs.js';
+import { transformPretextExport } from './pretext-extract.js';
 
 /** Generates a unique stable island ID from filepath + component name */
 function islandId(filepath: string, componentName: string): string {
@@ -19,13 +25,38 @@ function islandId(filepath: string, componentName: string): string {
   return `island_${base}_${componentName}`.toLowerCase();
 }
 
+const LIB_IMPORT_EXT_ORDER = ['.ts', '.tsx', '.mts', '.js', '.mjs', '.cjs'] as const;
+
+/** Resolve `$lib/…` to an on-disk path so Node ESM can load it (extension required). */
+function resolveDollarLibFilePath(appRoot: string, rel: string): string {
+  const root = normalize(appRoot);
+  const abs = join(root, 'src/lib', rel);
+  if (existsSync(abs)) return abs;
+  const hasKnownExt = /\.(ts|tsx|mts|js|mjs|cjs)$/u.test(rel);
+  if (hasKnownExt) return abs;
+  for (const ext of LIB_IMPORT_EXT_ORDER) {
+    const candidate = abs + ext;
+    if (existsSync(candidate)) return candidate;
+  }
+  return abs + '.ts';
+}
+
 /** Resolve `$lib/…` in server frontmatter to absolute file URLs for Node ESM. */
-function rewriteDollarLibImports(code: string, appRoot: string | undefined): string {
+function rewriteDollarLibImports(code: string, opts: CompileOptions): string {
+  const appRoot = opts.appRoot;
   if (!appRoot) return code;
   const root = normalize(appRoot);
+  const libBust =
+    opts.dev &&
+    typeof opts.libDepsMtime === 'number' &&
+    Number.isFinite(opts.libDepsMtime) &&
+    opts.libDepsMtime > 0
+      ? `?t=${Math.floor(opts.libDepsMtime)}`
+      : '';
   return code.replace(/from\s*['"]\$lib\/([^'"]+)['"]/gu, (_, rel: string) => {
-    const abs = join(root, 'src/lib', rel);
-    return `from ${JSON.stringify(pathToFileURL(abs).href)}`;
+    const abs = resolveDollarLibFilePath(root, rel);
+    const href = pathToFileURL(abs).href + libBust;
+    return `from ${JSON.stringify(href)}`;
   });
 }
 
@@ -114,10 +145,16 @@ function generateServerModule(
   lines.push(`// DO NOT EDIT — this file is auto-generated`);
   lines.push('');
 
-  // Frontmatter imports + data fetching
+  if (parsed.pretext) {
+    lines.push('// ── Pretext — merged into ctx.pretext (parallel across layout + page before render) ──');
+    lines.push(rewriteDollarLibImports(transformPretextExport(parsed.pretext), opts));
+    lines.push('');
+  }
+
+  // Frontmatter imports + data fetching (after pretext split: leading + // nexus:server)
   if (parsed.frontmatter) {
     lines.push('// ── Server-only data fetching (runs per request) ──');
-    lines.push(rewriteDollarLibImports(parsed.frontmatter.content.trim(), opts.appRoot));
+    lines.push(rewriteDollarLibImports(parsed.frontmatter.content.trim(), opts));
     lines.push('');
   }
 
@@ -137,6 +174,9 @@ function generateServerModule(
 
   // Template renderer (simple expression interpolation → SSR)
   lines.push('async function renderTemplate(ctx) {');
+  lines.push('  // Primary context from nxPretext (layouts + page, parallel merge) — mirrors client $pretext()');
+  lines.push('  const pretext = ctx.pretext ?? {};');
+  lines.push('  const $pretext = () => (ctx.pretext ?? {});');
   lines.push('  // Server-side template rendering (CSS-scoped at compile time)');
   // Island-wrapped pages may reference only plain functions (e.g. onsubmit={preventSubmit}) with no $state.
   if (parsed.script?.content && (runes.length > 0 || islandWrap.didWrap)) {
@@ -162,29 +202,73 @@ function generateClientIsland(parsed: ParsedComponent, _opts: CompileOptions, is
   lines.push(`// [Nexus] Client Island — ${parsed.filepath}`);
   lines.push(`// Hydration strategy: ${parsed.islandDirectives.map((d) => d.directive).join(', ') || 'client:load'}`);
   lines.push('');
-  lines.push("import { createIsland, $state, $derived, $effect } from '/_nexus/rt/island.js';");
+  lines.push("import { createIsland, $state, $derived, $effect, $pretext } from '/_nexus/rt/island.js';");
   lines.push('');
 
   const fragments =
     islandWrap.clientFragments.length > 0
       ? islandWrap.clientFragments
       : [islandWrap.clientTemplate ?? parsed.template?.content ?? ''];
-  lines.push(`const __nxTemplates = [${fragments.map((f) => JSON.stringify(f)).join(', ')}];`);
+
+  const scriptSrc = parsed.script?.content ?? '';
+  const bindingNames = new Set(listRuneBindingNames(scriptSrc));
+  const stateOnlyNames = new Set(extractDollarStateInitializers(scriptSrc).keys());
+
+  const processedFragments: string[] = [];
+  const exprFnBlocks: string[][] = [];
+  for (const frag of fragments) {
+    const { processed, exprLines } = processTemplateForClientIsland(frag, bindingNames);
+    processedFragments.push(processed);
+    exprFnBlocks.push(exprLines);
+  }
+
+  lines.push('const __nxIslandProcessed = [');
+  for (const p of processedFragments) {
+    lines.push(`  ${JSON.stringify(p)},`);
+  }
+  lines.push('];');
   lines.push('');
 
-  // Script content with Runes (already Svelte-5-style, pass through)
+  lines.push('const __nxIslandFns = [');
+  for (const block of exprFnBlocks) {
+    lines.push('  [');
+    for (const line of block) {
+      lines.push(`    ${line},`);
+    }
+    lines.push('  ],');
+  }
+  lines.push('];');
+  lines.push('');
+
+  const delegated: Array<{ delegatedClickSelector: string; onDelegatedClick: string } | null> =
+    fragments.map((frag) => extractDelegatedClickFromFragment(frag, stateOnlyNames));
+
+  // Script content — Nexus runes use .value; $derived needs () => fn
   if (parsed.script) {
     lines.push('// ── Reactive State (Runes) ──');
-    lines.push(transformRunesToRuntime(parsed.script.content));
+    lines.push(transformRunesForClientRuntime(scriptSrc));
     lines.push('');
   }
 
-  // Mount function — each <nexus-island> passes data-nexus-island-index to pick the right template slice
+  lines.push('const __nxDelegated = [');
+  for (const d of delegated) {
+    lines.push(
+      d
+        ? `  { delegatedClickSelector: ${JSON.stringify(d.delegatedClickSelector)}, onDelegatedClick: ${d.onDelegatedClick} },`
+        : '  null,',
+    );
+  }
+  lines.push('];');
+  lines.push('');
+
   lines.push('export function mount(el, props = {}) {');
   lines.push(`  const idx = Number(el.getAttribute('data-nexus-island-index') ?? '0');`);
-  lines.push('  const tpl = __nxTemplates[idx] ?? __nxTemplates[0];');
+  lines.push('  const processedTemplate = __nxIslandProcessed[idx] ?? __nxIslandProcessed[0];');
+  lines.push('  const exprFns = __nxIslandFns[idx] ?? __nxIslandFns[0];');
   lines.push('  return createIsland(el, {');
-  lines.push('    template: tpl,');
+  lines.push('    processedTemplate,');
+  lines.push('    exprFns,');
+  lines.push('    ...(__nxDelegated[idx] ?? {}),');
   lines.push('    ...props,');
   lines.push('  });');
   lines.push('}');
@@ -256,12 +340,74 @@ function extractRuneDeclarations(code: string): RuneDeclaration[] {
   return runes;
 }
 
-function transformRunesToRuntime(code: string): string {
-  // The rune primitives ($state, $derived, $effect, $props) are imported at the top of
-  // the generated client module from '/_nexus/rt/island.js'. They work as plain function
-  // calls — no namespace prefix needed. Strip any legacy "use server" directives that
-  // must not appear in the browser bundle.
-  return code.replace(/^\s*"use server"\s*;?\s*$/gm, '// [server-only removed]');
+/** Map Svelte-style rune usage in .nx to Nexus runtime ($state/$derived use `.value`). */
+function transformRunesForClientRuntime(script: string): string {
+  let s = script.replace(/^\s*"use server"\s*;?\s*$/gm, '// [server-only removed]');
+  const bindingNames = new Set(listRuneBindingNames(script));
+  s = s.replace(/\blet\s+(\w+)\s*=\s*\$state\b/g, 'const $1 = $state');
+  s = s.replace(
+    /\b(?:let|const)\s+(\w+)\s*=\s*\$derived\s*\(\s*([^)]+)\s*\)/g,
+    (full, name: string, body: string) => {
+      const b = body.trim();
+      if (b.startsWith('()')) return full.replace(/^\blet\b/, 'const');
+      const expr = exprToValueExpr(b, bindingNames);
+      return `const ${name} = $derived(() => (${expr}))`;
+    },
+  );
+  return s;
+}
+
+function exprToValueExpr(expr: string, bindingNames: Set<string>): string {
+  let out = expr.trim();
+  for (const name of bindingNames) {
+    out = out.replace(
+      new RegExp(`\\b${name}\\b(?!\\s*\\.\\s*value)`, 'g'),
+      `${name}.value`,
+    );
+  }
+  return out;
+}
+
+/** Strip client event handlers and replace `{expr}` with `__NX_i__` + parallel expr functions. */
+function processTemplateForClientIsland(
+  html: string,
+  bindingNames: Set<string>,
+): { processed: string; exprLines: string[] } {
+  const cleaned = html.replace(/\s+on[a-zA-Z][a-zA-Z0-9-]*\s*=\s*\{[^}]+\}/g, '');
+  const exprLines: string[] = [];
+  const processed = cleaned.replace(/\{([^}]+)\}/g, (_, raw: string) => {
+    const code = exprToValueExpr(raw.trim(), bindingNames);
+    const i = exprLines.length;
+    exprLines.push(`() => (${code})`);
+    return `__NX_${i}__`;
+  });
+  return { processed, exprLines };
+}
+
+function extractDelegatedClickFromFragment(
+  html: string,
+  stateNames: Set<string>,
+): { delegatedClickSelector: string; onDelegatedClick: string } | null {
+  const m = /onclick=\{([^}]+)\}/.exec(html);
+  if (!m?.[1]) return null;
+  const idMatch = /id\s*=\s*"([^"]+)"/.exec(html);
+  const delegatedClickSelector = idMatch ? `#${idMatch[1]}` : 'button';
+  const onDelegatedClick = rewriteClickHandlerBody(m[1].trim(), stateNames);
+  return { delegatedClickSelector, onDelegatedClick };
+}
+
+function rewriteClickHandlerBody(body: string, stateNames: Set<string>): string {
+  const trimmed = body.trim();
+  const arrow = /^\(\s*\)\s*=>\s*(.+)$/.exec(trimmed);
+  if (!arrow?.[1]) return trimmed;
+  let inner = arrow[1].trim();
+  if (inner.endsWith(';')) inner = inner.slice(0, -1);
+  for (const name of stateNames) {
+    inner = inner.replace(new RegExp(`^${name}\\s*\\+\\+$`), `${name}.value++`);
+    inner = inner.replace(new RegExp(`^${name}\\s*--$`), `${name}.value--`);
+    inner = inner.replace(new RegExp(`^${name}\\s*=\\s*(.+)$`), `${name}.value = $1`);
+  }
+  return `() => { ${inner}; }`;
 }
 
 const EACH_OPEN = '{#each ';

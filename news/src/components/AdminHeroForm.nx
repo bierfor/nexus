@@ -1,0 +1,104 @@
+---
+---
+
+<script>
+  import { callAction } from '@nexus_js/serialize';
+  import { $effect } from '/_nexus/rt/island.js';
+  import {
+    readAdminSessionTokenFromDocument,
+    uploadImageToMediaApi,
+  } from '../lib/admin-upload-client.ts';
+
+  function langSuffix() {
+    const u = new URL(window.location.href);
+    const l = u.searchParams.get('lang');
+    return l ? '?lang=' + encodeURIComponent(l) : '';
+  }
+
+  $effect(() => {
+    const boot = document.getElementById('pf-admin-hero-bootstrap');
+    const form = document.getElementById('pf-admin-hero-form');
+    if (!boot || !form) return;
+    if (form.dataset.pfBound === '1') return;
+    form.dataset.pfBound = '1';
+
+    let parsed;
+    try {
+      parsed = JSON.parse(boot.textContent || '{}');
+    } catch {
+      return;
+    }
+
+    const mode = parsed.mode || 'new';
+
+    const heroImgFile = document.getElementById('pf-admin-hero-image-file');
+    const heroImgUrl = document.getElementById('pf-admin-hero-image-url');
+    if (heroImgFile instanceof HTMLInputElement && heroImgUrl instanceof HTMLInputElement && parsed.uploadUrl) {
+      heroImgFile.addEventListener('change', async () => {
+        const file = heroImgFile.files?.[0];
+        if (!file) return;
+        const token = readAdminSessionTokenFromDocument();
+        if (!token) {
+          alert(parsed.errUpload || 'Upload failed');
+          heroImgFile.value = '';
+          return;
+        }
+        try {
+          const { url } = await uploadImageToMediaApi(file, parsed.uploadUrl, token);
+          heroImgUrl.value = url;
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          alert((parsed.errUpload || 'Upload failed') + ': ' + msg);
+        } finally {
+          heroImgFile.value = '';
+        }
+      });
+    }
+
+    const delBtn = document.getElementById('pf-admin-hero-delete');
+    if (delBtn) {
+      delBtn.addEventListener('click', async () => {
+        if (!parsed.confirmDelete || !confirm(parsed.confirmDelete)) return;
+        const slug = delBtn.dataset.slug;
+        if (!slug) return;
+        const r = await callAction('adminHeroDelete', { slug });
+        if (r.error) {
+          alert(r.error);
+          return;
+        }
+        window.location.href = (parsed.listPath || '/admin/heroes') + langSuffix();
+      });
+    }
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const fd = new FormData(form);
+      const payload = {
+        slug: fd.get('slug'),
+        kicker: fd.get('kicker'),
+        headline: fd.get('headline'),
+        subheadline: fd.get('subheadline'),
+        body: fd.get('body'),
+        bodySecondary: fd.get('bodySecondary'),
+        imageUrl: fd.get('imageUrl'),
+        footerCtaLabel: fd.get('footerCtaLabel'),
+        footerCtaHref: fd.get('footerCtaHref'),
+        published: fd.get('published') === 'on',
+      };
+      const r = await callAction('adminHeroSave', payload);
+      if (r.error) {
+        alert(parsed.errSave ? parsed.errSave + ': ' + r.error : r.error);
+        return;
+      }
+      const slug = r.data && r.data.slug ? String(r.data.slug) : '';
+      if (!slug) return;
+      if (mode === 'new') {
+        window.location.href = '/admin/heroes/' + encodeURIComponent(slug) + langSuffix();
+      } else {
+        window.location.href = (parsed.listPath || '/admin/heroes') + langSuffix();
+      }
+    });
+  });
+</script>
+
+<span class="pf-admin-hero-form-boot" client:load aria-hidden="true"></span>

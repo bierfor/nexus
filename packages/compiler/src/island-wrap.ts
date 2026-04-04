@@ -8,9 +8,13 @@ import { relative } from 'node:path';
 
 const CLIENT_DIR_RE = /\sclient:(load|idle|visible|media)(?:=["']([^"']*)["'])?/;
 
-/** Opening tag that contains client:(load|idle|visible|media). */
+/**
+ * Opening tag that contains client:(load|idle|visible|media).
+ * `(?:[^>]*\\s)?` allows `client:load` as the first attribute (`<Foo client:load>`), not only
+ * after another attribute (`<Foo class="x" client:load>`).
+ */
 const OPEN_WITH_CLIENT_RE =
-  /<([a-zA-Z][\w-]*)(\s[^>]*\sclient:(?:load|idle|visible|media)(?:=["'][^"']*["'])?[^>]*)\s*>/;
+  /<([a-zA-Z][\w-]*)(\s(?:[^>]*\s)?client:(?:load|idle|visible|media)(?:=["'][^"']*["'])?[^>]*)\s*>/;
 
 function extractBalanced(
   html: string,

@@ -9,6 +9,11 @@ export interface NexusContext {
   url: URL;
   headers: Headers;
   locals: Record<string, unknown>;
+  /**
+   * Merged result of `nxPretext(ctx)` from each layout (outer→inner) and the page, in parallel.
+   * Later routes override keys. Serialized to `__NEXUS_PRETEXT__` for `$pretext()` on the client.
+   */
+  pretext?: Record<string, unknown>;
   /** Set a response header */
   setHeader: (key: string, value: string) => void;
   /** Set a cookie */
@@ -31,11 +36,12 @@ export interface CookieOptions {
   sameSite?: 'Strict' | 'Lax' | 'None';
 }
 
-/** Internal redirect signal */
+/** Internal redirect signal — carries response headers (e.g. Set-Cookie on logout). */
 export class RedirectSignal {
   constructor(
     public readonly location: string,
     public readonly status: number,
+    public readonly responseHeaders: Headers,
   ) {}
 }
 
@@ -78,7 +84,7 @@ export function createContext(
     },
 
     redirect(location, status = 302) {
-      throw new RedirectSignal(location, status);
+      throw new RedirectSignal(location, status, responseHeaders);
     },
 
     notFound() {

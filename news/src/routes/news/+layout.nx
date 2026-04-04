@@ -1,0 +1,42 @@
+---
+import { getLocale, newsPageCopy } from '$lib/i18n';
+
+// nexus:pretext
+export async function load(ctx) {
+  const locale = getLocale(ctx);
+  return { newsCopy: newsPageCopy(locale) };
+}
+---
+
+<section
+  class="nx-news-shell"
+  data-nx-layout="/news"
+  aria-label="{pretext.newsCopy.sectionAria}"
+>
+  <header class="nx-news-mast">
+    <p class="nx-news-kicker">{pretext.newsCopy.masthead}</p>
+  </header>
+  <!--nexus:slot-->
+</section>
+
+<style>
+  :global(.nx-news-shell) {
+    display: block;
+    width: 100%;
+  }
+  :global(.nx-news-mast) {
+    margin: 0 0 1.25rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--nx-border, #e8ecf0);
+    text-align: center;
+  }
+  :global(.nx-news-kicker) {
+    margin: 0;
+    font-family: var(--nx-display, 'Outfit', system-ui, sans-serif);
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--nx-muted, #64748b);
+  }
+</style>

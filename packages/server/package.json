@@ -1,6 +1,6 @@
 {
   "name": "@nexus_js/server",
-  "version": "0.7.0",
+  "version": "0.7.2",
   "description": "Nexus HTTP server — SSR, Server Actions, Edge-ready",
   "type": "module",
   "main": "./dist/index.js",
@@ -17,6 +17,10 @@
     "./context": {
       "import": "./dist/context.js",
       "types": "./dist/context.d.ts"
+    },
+    "./constants": {
+      "import": "./dist/constants.js",
+      "types": "./dist/constants.d.ts"
     }
   },
   "scripts": {

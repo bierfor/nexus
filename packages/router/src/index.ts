@@ -82,7 +82,14 @@ export function matchRoute(
   pathname: string,
   manifest: RouteManifest,
 ): MatchedRoute | null {
-  const pageRoutes = manifest.routes.filter((r) => !r.isLayout);
+  /** Prefer static segments over dynamic (`/blog/new` before `/blog/:slug`). */
+  const pageRoutes = manifest.routes
+    .filter((r) => !r.isLayout)
+    .sort((a, b) => {
+      const n = a.params.length - b.params.length;
+      if (n !== 0) return n;
+      return a.pattern.localeCompare(b.pattern);
+    });
 
   for (const route of pageRoutes) {
     const params = matchPattern(pathname, route.pattern);

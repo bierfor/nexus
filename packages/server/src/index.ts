@@ -17,15 +17,38 @@ import {
   isIslandClientRequest,
   tryServeRuntimeAsset,
 } from './dev-assets.js';
+import { devErrorHtmlPage } from './dev-error-html.js';
 import { renderRoute } from './renderer.js';
+import { handleNavigationRequest } from './navigate.js';
 import { preloadRegisteredServerActions } from './load-module.js';
 import { createContext, RedirectSignal, NotFoundSignal } from './context.js';
 import type { RenderOptions } from './renderer.js';
 
+export { STUDIO_DEFAULT_PORT } from './constants.js';
 export { createAction, registerAction, ActionError } from './actions.js';
 export { createContext } from './context.js';
 export type { NexusContext, CookieOptions } from './context.js';
 export type { RenderResult, RenderOptions } from './renderer.js';
+export { mergeRoutePretext } from './renderer.js';
+
+/** Merge ctx response headers (Set-Cookie, etc.) with redirect Location. */
+function redirectHeadersForWriteHead(err: RedirectSignal): Record<string, string | string[]> {
+  const setCookies: string[] = [];
+  const out: Record<string, string | string[]> = { location: err.location };
+  err.responseHeaders.forEach((value, key) => {
+    if (key.toLowerCase() === 'set-cookie') {
+      setCookies.push(value);
+    } else {
+      out[key] = value;
+    }
+  });
+  if (setCookies.length === 1) {
+    out['set-cookie'] = setCookies[0]!;
+  } else if (setCookies.length > 1) {
+    out['set-cookie'] = setCookies;
+  }
+  return out;
+}
 
 export interface RequestLogInfo {
   method: string;
@@ -181,7 +204,38 @@ export async function createNexusServer(opts: NexusServerOptions) {
       return;
     }
 
+    // ── SPA navigation JSON (/_nexus/navigate?path=…) — must run before SSR matchRoute
+    if (url.pathname === '/_nexus/navigate' && method === 'GET') {
+      const request = nodeToWebRequest(req);
+      const response = await handleNavigationRequest(request, manifest, renderOpts);
+      await webToNodeResponse(response, res);
+      return;
+    }
+
     // ── Static files ────────────────────────────────────────────────────────
+    // Browsers still request /favicon.ico and /apple-touch-icon.png even when the
+    // app only ships favicon.svg — avoid noisy 404s by falling back to SVG.
+    if (
+      method === 'GET' &&
+      (url.pathname === '/favicon.ico' || url.pathname === '/apple-touch-icon.png')
+    ) {
+      const direct = await serveStatic(url.pathname, publicDir);
+      if (direct) {
+        res.writeHead(200, { 'content-type': direct.mime });
+        res.end(direct.content);
+        return;
+      }
+      const svgFallback = await serveStatic('/favicon.svg', publicDir);
+      if (svgFallback) {
+        res.writeHead(200, {
+          'content-type': 'image/svg+xml',
+          'cache-control': dev ? 'no-store' : 'public, max-age=86400',
+        });
+        res.end(svgFallback.content);
+        return;
+      }
+    }
+
     const staticResult = await serveStatic(url.pathname, publicDir);
     if (staticResult) {
       res.writeHead(200, { 'content-type': staticResult.mime });
@@ -207,7 +261,7 @@ export async function createNexusServer(opts: NexusServerOptions) {
       res.end(result.html);
     } catch (err) {
       if (err instanceof RedirectSignal) {
-        res.writeHead(err.status, { location: err.location });
+        res.writeHead(err.status, redirectHeadersForWriteHead(err));
         res.end();
         return;
       }
@@ -217,10 +271,8 @@ export async function createNexusServer(opts: NexusServerOptions) {
         return;
       }
       if (dev) {
-        const message = err instanceof Error ? err.message : String(err);
-        const stack   = err instanceof Error ? (err.stack ?? '') : '';
-        console.error(`\x1b[31m[Nexus Error]\x1b[0m ${method} ${url.pathname}\n  ${message}`);
-        if (stack) stack.split('\n').slice(1, 6).forEach(l => console.error(`  \x1b[2m${l.trim()}\x1b[0m`));
+        console.error(`\x1b[31m[Nexus Error]\x1b[0m ${method} ${url.pathname}`);
+        console.error(err);
       } else {
         console.error('[Nexus] Unhandled error:', err);
       }
@@ -320,15 +372,7 @@ async function serveStatic(
 }
 
 function serverErrorPage(err: unknown, dev: boolean): string {
-  const message = err instanceof Error ? err.message : String(err);
-  const stack   = dev && err instanceof Error ? (err.stack ?? '') : '';
-  return `<!DOCTYPE html><html lang="en"><body style="font-family:monospace;padding:2rem;background:#0a0a0f;color:#e8e8f0">
-    <h1 style="color:#ff3e00">◆ Nexus — 500 Server Error</h1>
-    <pre style="color:#ff6b6b;background:#0d0d1a;padding:1rem;border-radius:6px;overflow:auto">${message}</pre>
-    ${dev && stack ? `<details open><summary style="cursor:pointer;color:#6b6b80">Stack trace</summary>
-      <pre style="font-size:0.75rem;color:#4b5563">${stack.replace(/</g, '&lt;')}</pre>
-    </details>` : ''}
-  </body></html>`;
+  return devErrorHtmlPage({ context: '500 — unhandled', err, dev });
 }
 
 function notFoundPage(pathname: string, dev: boolean): string {

@@ -1,0 +1,233 @@
+---
+import { graphqlOrigin } from '$lib/api-origin';
+import { authCopy, getLocale, pathWithLang } from '$lib/i18n';
+
+// nexus:pretext
+export async function load(ctx) {
+  const locale = getLocale(ctx);
+  return {
+    auth: authCopy(locale),
+    authPaths: { register: pathWithLang(ctx, '/register') },
+  };
+}
+
+// nexus:server
+const apiOrigin = graphqlOrigin();
+---
+
+<script>
+  const TOKEN_KEY = 'pf_admin_token';
+
+  $effect(() => {
+    const form = document.getElementById('pf-login-form');
+    const msgEl = document.getElementById('pf-login-msg');
+    const successEl = document.getElementById('pf-login-success');
+    const fallbackErr = document.getElementById('pf-login-err-fallback')?.textContent?.trim() ?? '';
+    if (!form || !msgEl) return;
+
+    async function onSubmit(e) {
+      e.preventDefault();
+      const root = form.closest('[data-api-origin]');
+      const origin = root?.dataset.apiOrigin;
+      msgEl.textContent = '';
+      msgEl.hidden = true;
+      msgEl.className = 'pf-msg';
+      if (successEl) successEl.hidden = true;
+      if (!origin) return;
+
+      const fd = new FormData(form);
+      const email = String(fd.get('email') ?? '').trim();
+      const password = String(fd.get('password') ?? '');
+      if (!email || !password) return;
+
+      const btn = form.querySelector('button[type="submit"]');
+      btn?.setAttribute('disabled', 'disabled');
+      try {
+        const res = await fetch(`${origin}/auth/admin/login`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ email, password }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.ok || !data.token) {
+          msgEl.textContent = (data.error && String(data.error)) || fallbackErr;
+          msgEl.className = 'pf-msg pf-msg--err';
+          msgEl.hidden = false;
+          return;
+        }
+        try {
+          sessionStorage.setItem(TOKEN_KEY, data.token);
+        } catch {
+          /* ignore */
+        }
+        const maxAge = 60 * 60 * 24 * 7;
+        document.cookie =
+          TOKEN_KEY +
+          '=' +
+          encodeURIComponent(data.token) +
+          '; Path=/; Max-Age=' +
+          maxAge +
+          '; SameSite=Lax';
+        if (successEl) successEl.hidden = false;
+        const nextParam = new URLSearchParams(window.location.search).get('next');
+        const target =
+          nextParam && nextParam.startsWith('/') && !nextParam.startsWith('//')
+            ? nextParam
+            : '/';
+        setTimeout(() => {
+          window.location.href = target;
+        }, 400);
+      } catch {
+        msgEl.textContent = fallbackErr;
+        msgEl.className = 'pf-msg pf-msg--err';
+        msgEl.hidden = false;
+      } finally {
+        btn?.removeAttribute('disabled');
+      }
+    }
+
+    form.addEventListener('submit', onSubmit);
+    return () => form.removeEventListener('submit', onSubmit);
+  });
+</script>
+
+<section class="pf-auth-page">
+  <span id="pf-login-err-fallback" hidden>{pretext.auth.loginError}</span>
+  <div class="pf-auth-card" data-api-origin="{apiOrigin}">
+    <h1 class="pf-auth-title">{pretext.auth.loginTitle}</h1>
+    <p class="pf-auth-lead">{pretext.auth.loginLead}</p>
+    <p id="pf-login-success" class="pf-msg pf-msg--ok" hidden>{pretext.auth.loginSuccess}</p>
+    <p id="pf-login-msg" class="pf-msg" hidden></p>
+    <form id="pf-login-form" class="pf-form" autocomplete="on">
+      <label class="pf-field">
+        <span class="pf-label">{pretext.auth.loginEmail}</span>
+        <input name="email" type="email" required autocomplete="email" class="pf-input" />
+      </label>
+      <label class="pf-field">
+        <span class="pf-label">{pretext.auth.loginPassword}</span>
+        <input name="password" type="password" required autocomplete="current-password" class="pf-input" />
+      </label>
+      <button type="submit" class="pf-btn pf-btn--primary">{pretext.auth.loginSubmit}</button>
+    </form>
+    <p class="pf-auth-footer">
+      <a href="{pretext.authPaths.register}" class="pf-link">{pretext.auth.loginLinkRegister}</a>
+    </p>
+  </div>
+  <span class="pf-auth-mount" client:load aria-hidden="true"></span>
+</section>
+
+<style>
+  .pf-auth-page {
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 0.5rem 0 2rem;
+  }
+  .pf-auth-card {
+    width: 100%;
+    max-width: 26rem;
+    padding: 2rem 2rem 1.75rem;
+    border: 1px solid var(--nx-border, #e8ecf0);
+    border-radius: 4px;
+    background: #ffffff;
+    box-shadow:
+      0 1px 2px rgba(15, 23, 42, 0.04),
+      0 16px 48px rgba(15, 23, 42, 0.06);
+  }
+  .pf-auth-title {
+    margin: 0 0 0.5rem;
+    font-family: var(--nx-display, 'Outfit', system-ui, sans-serif);
+    font-size: 1.35rem;
+    font-weight: 600;
+    letter-spacing: -0.03em;
+    color: var(--nx-text, #0f172a);
+  }
+  .pf-auth-lead {
+    margin: 0 0 1.35rem;
+    font-size: 0.88rem;
+    line-height: 1.55;
+    color: var(--nx-muted, #64748b);
+  }
+  .pf-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+  .pf-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+  .pf-label {
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--nx-muted, #64748b);
+  }
+  .pf-input {
+    padding: 0.6rem 0.75rem;
+    font-size: 0.95rem;
+    border: 1px solid var(--nx-border, #e8ecf0);
+    border-radius: 4px;
+    background: #fafbfc;
+    color: var(--nx-text, #0f172a);
+    transition: border-color 0.15s ease, background 0.15s ease;
+  }
+  .pf-input:focus {
+    outline: none;
+    border-color: #93c5fd;
+    background: #fff;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+  }
+  .pf-btn {
+    margin-top: 0.25rem;
+    padding: 0.65rem 1rem;
+    font-size: 0.82rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    border-radius: 4px;
+    border: none;
+    cursor: pointer;
+    transition: opacity 0.15s ease, transform 0.1s ease;
+  }
+  .pf-btn--primary {
+    background: var(--nx-text, #0f172a);
+    color: #fff;
+  }
+  .pf-btn--primary:hover:not(:disabled) {
+    opacity: 0.92;
+  }
+  .pf-btn--primary:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+  .pf-msg {
+    margin: 0 0 1rem;
+    font-size: 0.85rem;
+    line-height: 1.45;
+  }
+  .pf-msg--ok {
+    color: #15803d;
+  }
+  .pf-msg--err {
+    color: #b91c1c;
+  }
+  .pf-auth-footer {
+    margin: 1.35rem 0 0;
+    padding-top: 1.15rem;
+    border-top: 1px solid var(--nx-border, #e8ecf0);
+    text-align: center;
+  }
+  .pf-link {
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--nx-accent-soft, #2563eb);
+    text-decoration: none;
+  }
+  .pf-link:hover {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+</style>

@@ -22,7 +22,13 @@ export function bustAggregatedStylesCache(): void {
 export function resolveRuntimeDistDir(appRoot: string): string | null {
   const candidates = [
     join(appRoot, 'node_modules', '@nexus_js', 'runtime', 'dist'),
+    // pnpm workspace: deps often hoisted — parent may have node_modules
+    join(appRoot, '..', 'node_modules', '@nexus_js', 'runtime', 'dist'),
+    // App one level under monorepo root (e.g. nexus/mi-app → nexus/packages/runtime)
+    join(appRoot, '..', 'packages', 'runtime', 'dist'),
     join(appRoot, '..', '..', 'packages', 'runtime', 'dist'),
+    // Dev from monorepo root with --root .
+    join(appRoot, 'packages', 'runtime', 'dist'),
   ];
   for (const d of candidates) {
     if (existsSync(join(d, 'index.js'))) return d;
@@ -36,6 +42,8 @@ export function resolveRuntimeDistDir(appRoot: string): string | null {
 export function resolveSerializeDistFile(appRoot: string): string | null {
   const candidates = [
     join(appRoot, 'node_modules', '@nexus_js', 'serialize', 'dist', 'index.js'),
+    join(appRoot, '..', 'node_modules', '@nexus_js', 'serialize', 'dist', 'index.js'),
+    join(appRoot, '..', 'packages', 'serialize', 'dist', 'index.js'),
     join(appRoot, '..', '..', 'packages', 'serialize', 'dist', 'index.js'),
   ];
   for (const f of candidates) {
@@ -44,11 +52,11 @@ export function resolveSerializeDistFile(appRoot: string): string | null {
   return null;
 }
 
-/** Safe basename-only files under runtime dist (no ..). */
+/** Safe basename-only files under runtime dist (no ..). Allows .js and .map (source maps). */
 export function runtimeModulePath(runtimeDist: string, pathname: string): string | null {
   if (!pathname.startsWith(RT_PREFIX)) return null;
   const name = pathname.slice(RT_PREFIX.length);
-  if (!/^[\w.-]+\.js$/.test(name) || name.includes('..')) return null;
+  if (!/^[\w.-]+\.(js|map)$/.test(name) || name.includes('..')) return null;
   return join(runtimeDist, name);
 }
 
@@ -199,7 +207,11 @@ export async function tryServeRuntimeAsset(
     const s = await stat(file);
     if (!s.isFile()) return null;
     const body = await readFile(file);
-    return { body, contentType: 'application/javascript; charset=utf-8' };
+    const name = pathname.slice(RT_PREFIX.length);
+    const contentType = name.endsWith('.map')
+      ? 'application/json; charset=utf-8'
+      : 'application/javascript; charset=utf-8';
+    return { body, contentType };
   } catch {
     return null;
   }

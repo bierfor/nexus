@@ -1,0 +1,251 @@
+---
+const greeting = "Ship less JavaScript.";
+const sub = "Nexus combines islands architecture, Svelte 5 runes, and server actions — so your default page weight stays tiny.";
+const features = [
+  { icon: "◇", title: "Islands", desc: "HTML-first pages; JS only where you opt in with client:visible and friends." },
+  { icon: "⚡", title: "Runes", desc: "Fine-grained reactivity with Svelte 5 — no legacy stores required." },
+  { icon: "↯", title: "Server actions", desc: "Mutations colocated with routes; type-safe, SSR-friendly." },
+];
+---
+
+<script>
+  let count = $state(0);
+  let doubled = $derived(count * 2);
+</script>
+
+<section class="hero">
+  <p class="hero-kicker">You’re running Nexus</p>
+  <h1 class="hero-title">{greeting}</h1>
+  <p class="hero-lead">{sub}</p>
+  <div class="hero-actions">
+    <a class="btn btn-primary" href="https://nexusjs.dev" target="_blank" rel="noopener noreferrer">Documentation</a>
+    <a class="btn btn-ghost" href="/blog">Example blog</a>
+  </div>
+</section>
+
+<section class="features" aria-labelledby="feat-heading">
+  <h2 id="feat-heading" class="section-title">Why Nexus</h2>
+  <ul class="feature-grid">
+    {#each features as f}
+      <li class="card">
+        <span class="card-icon" aria-hidden="true">{f.icon}</span>
+        <h3 class="card-title">{f.title}</h3>
+        <p class="card-desc">{f.desc}</p>
+      </li>
+    {/each}
+  </ul>
+</section>
+
+<section class="demo" aria-labelledby="demo-heading">
+  <h2 id="demo-heading" class="section-title">Interactive island</h2>
+  <p class="demo-hint">The counter below is a small client island — the rest of this page can stay server-rendered.</p>
+  <div class="counter-wrap" client:visible>
+    <div class="counter">
+      <p class="counter-label">Hydrated in the browser</p>
+      <div class="counter-row">
+        <button id="counter-btn" type="button" class="btn-counter" onclick={() => count++} aria-label="Increment counter">
+          +1
+        </button>
+        <output class="counter-out" for="counter-btn">
+          <span class="counter-val">{count}</span>
+          <span class="counter-meta">×2 = {doubled}</span>
+        </output>
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+  .hero {
+    text-align: center;
+    padding: 2.5rem 0 3rem;
+    max-width: 40rem;
+    margin: 0 auto;
+  }
+  .hero-kicker {
+    margin: 0 0 0.75rem;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--nx-accent);
+  }
+  .hero-title {
+    margin: 0 0 1rem;
+    font-family: var(--nx-display);
+    font-size: clamp(2rem, 5vw, 2.75rem);
+    font-weight: 700;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+  }
+  .hero-lead {
+    margin: 0 0 2rem;
+    font-size: 1.0625rem;
+    color: var(--nx-muted);
+    line-height: 1.65;
+  }
+  .hero-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    justify-content: center;
+  }
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.65rem 1.25rem;
+    border-radius: 10px;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    text-decoration: none;
+    transition: transform 0.12s ease, background 0.15s ease, border-color 0.15s ease;
+  }
+  .btn:active {
+    transform: scale(0.98);
+  }
+  .btn-primary {
+    background: linear-gradient(135deg, var(--nx-accent), #6366f1);
+    color: #fff;
+    border: none;
+    box-shadow: 0 4px 24px var(--nx-accent-dim);
+  }
+  .btn-primary:hover {
+    filter: brightness(1.06);
+  }
+  .btn-ghost {
+    background: var(--nx-surface);
+    color: var(--nx-text);
+    border: 1px solid var(--nx-border);
+  }
+  .btn-ghost:hover {
+    border-color: rgba(255, 255, 255, 0.18);
+    background: rgba(255, 255, 255, 0.06);
+  }
+  .section-title {
+    margin: 0 0 1.25rem;
+    font-family: var(--nx-display);
+    font-size: 1.35rem;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+  .features {
+    padding: 2rem 0 1rem;
+  }
+  .feature-grid {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 1rem;
+  }
+  .card {
+    margin: 0;
+    padding: 1.35rem 1.25rem;
+    border-radius: var(--nx-radius);
+    background: var(--nx-surface);
+    border: 1px solid var(--nx-border);
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+  .card:hover {
+    border-color: rgba(139, 124, 248, 0.35);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+  }
+  .card-icon {
+    display: block;
+    font-size: 1.5rem;
+    line-height: 1;
+    margin-bottom: 0.75rem;
+    color: var(--nx-accent);
+  }
+  .card-title {
+    margin: 0 0 0.5rem;
+    font-family: var(--nx-display);
+    font-size: 1.05rem;
+    font-weight: 600;
+  }
+  .card-desc {
+    margin: 0;
+    font-size: 0.9rem;
+    color: var(--nx-muted);
+    line-height: 1.55;
+  }
+  .demo {
+    padding: 2.5rem 0 1rem;
+  }
+  .demo-hint {
+    margin: 0 0 1.25rem;
+    font-size: 0.9rem;
+    color: var(--nx-muted);
+    max-width: 36rem;
+  }
+  .counter-wrap {
+    display: flex;
+    justify-content: center;
+  }
+  .counter {
+    width: 100%;
+    max-width: 420px;
+    padding: 1.5rem;
+    border-radius: var(--nx-radius);
+    background: linear-gradient(145deg, rgba(139, 124, 248, 0.08), var(--nx-surface));
+    border: 1px solid var(--nx-border);
+    text-align: center;
+  }
+  .counter-label {
+    margin: 0 0 1rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--nx-muted);
+  }
+  .counter-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1.25rem;
+    flex-wrap: wrap;
+  }
+  .btn-counter {
+    min-width: 3.5rem;
+    min-height: 3rem;
+    padding: 0 1.25rem;
+    border-radius: 10px;
+    border: 1px solid var(--nx-border);
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--nx-text);
+    font-size: 1rem;
+    font-weight: 700;
+    font-family: inherit;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+  }
+  .btn-counter:hover {
+    background: rgba(139, 124, 248, 0.2);
+    border-color: rgba(139, 124, 248, 0.45);
+  }
+  .btn-counter:focus-visible {
+    outline: 2px solid var(--nx-accent);
+    outline-offset: 2px;
+  }
+  .btn-counter:active {
+    transform: scale(0.97);
+  }
+  .counter-out {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.15rem;
+    font-size: 1.5rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    font-family: var(--nx-display);
+  }
+  .counter-meta {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--nx-muted);
+  }
+</style>

@@ -16,8 +16,9 @@
 
 import { createServer as createHttpServer } from 'node:http';
 import { createServer as createNetServer } from 'node:net';
+import { STUDIO_DEFAULT_PORT } from '@nexus_js/server/constants';
 
-export const STUDIO_PORT = 4000;
+export const STUDIO_PORT = STUDIO_DEFAULT_PORT;
 export const STUDIO_WS_PATH = '/_nexus/studio';
 
 // ── Event types sent from the dev server to Studio clients ──────────────────

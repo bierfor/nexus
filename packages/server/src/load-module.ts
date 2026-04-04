@@ -80,6 +80,7 @@ function actionsImportPreamble(appRoot: string, actionsCode: string): string {
   const rules: Array<{ needle: string; rel: string; name: string }> = [
     { needle: 'appendMessage', rel: 'src/lib/chat-room.js', name: 'appendMessage' },
     { needle: 'validateFlowPayload', rel: 'src/lib/validate-flow.js', name: 'validateFlowPayload' },
+    { needle: 'appendVisit', rel: 'src/lib/visit-log.ts', name: 'appendVisit' },
   ];
   const byFile = new Map<string, Set<string>>();
   for (const { needle, rel, name } of rules) {
@@ -111,20 +112,27 @@ async function writeActionsSidecar(
   await writeFile(p, code, 'utf-8');
 }
 
-/** Max mtime under `src/lib/*.{js,mjs,cjs}` so edits to shared action deps bust ESM cache. */
+/** Max mtime under `src/lib/**` for source files (`.ts`, `.tsx`, `.mts`, `.js`, …) — busts ESM cache in dev. */
 async function maxSrcLibMtime(appRoot: string): Promise<number> {
   const libDir = join(appRoot, 'src', 'lib');
   let max = 0;
-  try {
-    const entries = await readdir(libDir, { withFileTypes: true });
-    for (const e of entries) {
-      if (!e.isFile()) continue;
-      if (!/\.(m?js|cjs)$/iu.test(e.name)) continue;
-      max = Math.max(max, (await stat(join(libDir, e.name))).mtimeMs);
+  async function walk(dir: string): Promise<void> {
+    let entries;
+    try {
+      entries = await readdir(dir, { withFileTypes: true });
+    } catch {
+      return;
     }
-  } catch {
-    return 0;
+    for (const e of entries) {
+      const p = join(dir, e.name);
+      if (e.isDirectory()) {
+        await walk(p);
+      } else if (e.isFile() && /\.(ts|tsx|mts|m?js|cjs)$/iu.test(e.name)) {
+        max = Math.max(max, (await stat(p)).mtimeMs);
+      }
+    }
   }
+  await walk(libDir);
   return max;
 }
 
@@ -239,6 +247,12 @@ export async function loadRouteModule(
   options: LoadRouteModuleOptions,
 ): Promise<Record<string, unknown>> {
   if (filepath.endsWith('.ts') || filepath.endsWith('.js') || filepath.endsWith('.mjs')) {
+    if (options.dev) {
+      const st = await stat(filepath);
+      const libM = await maxSrcLibMtime(options.appRoot);
+      const bust = `${st.mtimeMs}_${libM}`;
+      return import(`${pathToFileURL(filepath).href}?t=${bust}`);
+    }
     return import(pathToFileURL(filepath).href);
   }
 
@@ -263,6 +277,7 @@ export async function loadRouteModule(
   }
 
   const nxStat = await stat(filepath);
+  const libM = await maxSrcLibMtime(appRoot);
   const cc = compilerDistMeta();
   const fingerprint = cc?.fingerprint ?? 'unknown';
   const outPath = devServerCachePath(appRoot, filepath, fingerprint);
@@ -272,7 +287,8 @@ export async function loadRouteModule(
     const outStat = await stat(outPath);
     needsCompile =
       outStat.mtimeMs < nxStat.mtimeMs ||
-      (cc !== null && outStat.mtimeMs < cc.mtimeMs);
+      (cc !== null && outStat.mtimeMs < cc.mtimeMs) ||
+      outStat.mtimeMs < libM;
   } catch {
     needsCompile = true;
   }
@@ -286,6 +302,7 @@ export async function loadRouteModule(
       emitIslandManifest: true,
       target: 'node',
       appRoot,
+      libDepsMtime: libM,
     });
     await mkdir(dirname(outPath), { recursive: true });
     await writeFile(outPath, result.serverCode, 'utf-8');
@@ -308,6 +325,7 @@ export async function loadRouteModule(
     nxStat.mtimeMs,
     outStatForUrl.mtimeMs,
     cc !== null ? cc.mtimeMs : 0,
+    libM,
   );
   const url = `${pathToFileURL(outPath).href}?t=${cacheBust}`;
   return import(url);

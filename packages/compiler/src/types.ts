@@ -14,6 +14,11 @@ export interface ParsedComponent {
   filepath: string;
   /** Frontmatter block (server-only, runs at request time) */
   frontmatter: NexusBlock | null;
+  /**
+   * Optional `// nexus:pretext` … `// nexus:server` region — compiled to `export async function nxPretext(ctx)`.
+   * Executed in parallel with parent layouts before `render()`, merged onto `ctx.pretext`.
+   */
+  pretext: string | null;
   /** Reactive script block (client island code using Runes) */
   script: NexusBlock | null;
   /** HTML template block */
@@ -62,6 +67,11 @@ export interface CompileOptions {
   target: 'node' | 'edge' | 'browser';
   /** App root — used for stable /_nexus/islands/client.mjs?path=… query strings */
   appRoot?: string;
+  /**
+   * Dev only: max mtime of `src/lib/**` — appended as `?t=` on emitted `$lib` imports so Node ESM
+   * reloads when shared modules change without restarting the dev server.
+   */
+  libDepsMtime?: number;
 }
 
 export interface CompileResult {

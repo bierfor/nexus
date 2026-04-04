@@ -62,13 +62,24 @@ Nexus:              ▓                     18kb JS (only the like button)
 
 ### Create a new project
 
+**Always works** (uses the published `@nexus_js/cli` package, which ships the `create-nexus` binary):
+
 ```bash
 npm exec --package=@nexus_js/cli@latest -- create-nexus my-app
 cd my-app
-pnpm dev
+npm install
+npm run dev
 ```
 
-Or: `npm install -g @nexus_js/cli` then `create-nexus my-app`.
+With pnpm:
+
+```bash
+pnpm dlx --package=@nexus_js/cli@latest create-nexus my-app
+```
+
+Or install the CLI globally: `npm install -g @nexus_js/cli` and run `create-nexus my-app`.
+
+**Shorthand** `pnpm create @nexus_js/nexus` / `npm create @nexus_js/nexus@latest` requires the separate package **`@nexus_js/create-nexus`** to exist on npm (it is published from this repo with `pnpm release`). If you see **404**, that package is not published yet — use the commands above until then.
 
 Official guides and API docs: **[nexusjs.dev](https://nexusjs.dev)**.
 
@@ -171,6 +182,10 @@ src/routes/
 │   └── signup/+page.nx # → /signup
 └── error.nx            # Error boundary
 ```
+
+### Pretext (route data before render)
+
+Parallel **pretext** blocks merge into `ctx.pretext` and hydrate the client as **`$pretext()`** (no extra fetch). Author with `// nexus:pretext` in frontmatter; full details: **[docs/PRETEXT.md](./docs/PRETEXT.md)**.
 
 ---
 
@@ -330,7 +345,7 @@ nexus studio           # Open Nexus Studio dashboard
 nexus routes           # Print the route manifest
 nexus check            # TypeScript type-check
 nexus analyze          # Bundle budget report per route
-create-nexus my-app    # Scaffold a new project
+npm create @nexus_js/nexus my-app   # Scaffold (or npx @nexus_js/create-nexus)
 ```
 
 ---

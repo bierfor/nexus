@@ -6,6 +6,7 @@ import type {
   ServerAction,
 } from './types.js';
 import { extractServerActionsFromSource } from './server-actions-extract.js';
+import { splitPretext } from './pretext-extract.js';
 
 /** Regex patterns for parsing .nx files */
 const FRONTMATTER_RE = /^---\n([\s\S]*?)\n---/;
@@ -52,11 +53,16 @@ export function parse(source: string, filepath: string): ParsedComponent {
   const fmMatch = FRONTMATTER_RE.exec(source);
   let frontmatter: NexusBlock | null = null;
   let remaining = source;
+  let pretext: string | null = null;
 
   if (fmMatch && fmMatch.index === 0) {
+    const rawFm = fmMatch[1] ?? '';
+    const split = splitPretext(rawFm);
+    pretext = split.pretext;
+    const mergedServer = [split.leading, split.server].filter(Boolean).join('\n\n');
     frontmatter = {
       type: 'server',
-      content: fmMatch[1] ?? '',
+      content: mergedServer,
       start: 0,
       end: fmMatch[0].length,
     };
@@ -120,6 +126,7 @@ export function parse(source: string, filepath: string): ParsedComponent {
     source,
     filepath,
     frontmatter,
+    pretext: pretext ?? null,
     script,
     template,
     style,

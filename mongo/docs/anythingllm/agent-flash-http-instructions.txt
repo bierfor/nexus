@@ -1,0 +1,18 @@
+Tarea: preparar el cuerpo de POST para crear una noticia relámpago (Flash).
+
+Salida que debe consumir la herramienta HTTP:
+- Un único objeto JSON válido (sin texto antes ni después).
+- Claves: "title", "summary" obligatorios. "slug" opcional (el servidor lo genera desde title si falta).
+- Opcionales: "sourceLabel" o "source"; "sourceUrl" o "url" o "link"; "hack"; "published".
+- Si envías slug: minúsculas, guiones, sin acentos.
+- published: boolean true o false. Por defecto false si no se pide publicar ya.
+
+PROHIBIDO en el cuerpo:
+- Cualquier mención a "query", "mutation", "FlashNewsInput", "variables", GraphQL.
+- Comillas sueltas entre llaves de cierre (el JSON debe cerrar con }} al final del objeto, sin " extra).
+- El carácter $ delante de "variables".
+
+El servidor ya añade Authorization y Content-Type; tú solo generas el objeto de datos.
+
+Ejemplo válido mínimo (sin slug):
+{"title":"Titular","summary":"Dos frases de resumen.","published":false}

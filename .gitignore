@@ -22,6 +22,7 @@ tsconfig.tsbuildinfo
 *.log
 npm-debug.log*
 pnpm-debug.log*
+pnpm-publish-summary.json
 yarn-debug.log*
 
 # OS

@@ -4,8 +4,11 @@
  */
 
 import { $state, $derived, $effect, batch } from './runes.js';
+import { initPretextFromDocument } from './pretext.js';
 
 export { $state, $derived, $effect, batch };
+/** Same as `@nexus_js/runtime` — available in island bundles without a second import. */
+export { $pretext, getPretext } from './pretext.js';
 
 export type HydrationStrategy =
   | 'client:load'
@@ -15,10 +18,18 @@ export type HydrationStrategy =
   | 'server:only';
 
 export interface IslandOptions {
-  template: string;
+  /** Raw template (legacy) */
+  template?: string;
+  /** Template with `__NX_0__` placeholders; event attrs stripped at compile time */
+  processedTemplate?: string;
+  /** One thunk per placeholder, evaluated in an $effect (closes over rune signals) */
+  exprFns?: Array<() => unknown>;
   strategy?: HydrationStrategy;
   props?: Record<string, unknown>;
   mediaQuery?: string;
+  /** Event delegation target inside the island (survives DOM replacement each tick) */
+  delegatedClickSelector?: string;
+  onDelegatedClick?: (e: Event) => void;
 }
 
 export interface IslandInstance {
@@ -29,6 +40,14 @@ export interface IslandInstance {
 
 /** Registry of all mounted islands on the page */
 const islandRegistry = new Map<string, IslandInstance>();
+
+function escapeIslandText(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
 
 /**
  * Core island hydration function.
@@ -41,16 +60,42 @@ export function createIsland(
   const cleanups: Array<() => void> = [];
 
   function hydrate(): void {
-    // Inject props as reactive signals
     const propSignals: Record<string, { value: unknown }> = {};
     for (const [key, val] of Object.entries(opts.props ?? {})) {
       propSignals[key] = $state(val);
     }
 
-    // Mark element as hydrated
     el.setAttribute('data-nexus-hydrated', 'true');
 
-    // Attach event listeners from data attributes
+    const processed = opts.processedTemplate;
+    const exprFns = opts.exprFns;
+
+    if (processed && exprFns?.length) {
+      const stop = $effect(() => {
+        let html = processed;
+        for (let i = 0; i < exprFns.length; i++) {
+          const thunk = exprFns[i];
+          if (!thunk) continue;
+          const v = thunk();
+          html = html.replace(`__NX_${i}__`, escapeIslandText(String(v)));
+        }
+        const inner = el.firstElementChild;
+        if (inner) inner.outerHTML = html;
+      });
+      cleanups.push(stop);
+    }
+
+    if (opts.delegatedClickSelector && opts.onDelegatedClick) {
+      const sel = opts.delegatedClickSelector;
+      const cb = opts.onDelegatedClick;
+      const fn = (e: Event) => {
+        const t = e.target as HTMLElement | null;
+        if (t?.closest(sel)) cb(e);
+      };
+      el.addEventListener('click', fn);
+      cleanups.push(() => el.removeEventListener('click', fn));
+    }
+
     attachEventListeners(el, propSignals, cleanups);
   }
 
@@ -86,6 +131,8 @@ export function createIsland(
  * Called once on page load by the Nexus bootstrap script.
  */
 export function hydrateAll(): void {
+  initPretextFromDocument();
+
   const islands = document.querySelectorAll('[data-nexus-island]');
 
   for (const el of islands) {

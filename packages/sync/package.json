@@ -1,11 +1,20 @@
 {
   "name": "@nexus_js/sync",
-  "version": "0.7.0",
+  "version": "0.7.2",
   "description": "Nexus Local-First Sync Engine — IndexedDB-backed optimistic mutations with conflict resolution",
   "type": "module",
-  "main": "./src/index.ts",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
-    ".": "./src/index.ts"
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsc -p tsconfig.json --watch",
+    "clean": "rm -rf dist"
   },
   "keywords": [
     "nexus",
@@ -31,8 +40,12 @@
   "bugs": {
     "url": "https://github.com/bierfor/nexus/issues"
   },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.5.0"
+  },
   "files": [
-    "src",
+    "dist",
     "README.md"
   ],
   "publishConfig": {

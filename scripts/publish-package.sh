@@ -3,7 +3,9 @@
 # Usage from repo root:
 #   pnpm publish:package -- @nexus_js/assets
 #   pnpm publish:package -- vite-plugin-nexus
+# pnpm forwards a literal "--" before the package name; strip it so $1 is the name.
 set -euo pipefail
+while [ "${1:-}" = "--" ]; do shift; done
 if [ "${1:-}" = "" ]; then
   echo "Usage: pnpm publish:package -- <package-name>" >&2
   echo "Example: pnpm publish:package -- @nexus_js/assets" >&2

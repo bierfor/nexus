@@ -1,0 +1,5 @@
+node_modules/
+.nexus/
+dist/
+*.js.map
+.env

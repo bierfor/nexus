@@ -1,8 +1,20 @@
 # Publishing Nexus to npm
 
-This document is for **maintainers** who publish the `@nexus_js/*` packages and `vite-plugin-nexus` to the public npm registry.
+This document is for **maintainers** who publish the `@nexus_js/*` packages (including **`@nexus_js/create-nexus`**, which powers **`npm create @nexus_js/nexus`**) and **`vite-plugin-nexus`**, to the public npm registry.
 
 **Where the framework lives:** the installable framework is **only** under [`packages/`](../packages/). Folders like `examples/` and `docs/` are sample apps and marketing content — they are **not** published to npm. Release commands only touch **`packages/*`**.
+
+**npm organization:** scoped packages use the **`@nexus_js`** scope, which belongs to the **`nexus_js`** org on npm. Maintainers can see and manage published packages here: **[npmjs.com/settings/nexus_js/packages](https://www.npmjs.com/settings/nexus_js/packages)**. (The unscoped **`vite-plugin-nexus`** package appears under your account or team that owns it, not inside that org’s scoped list.)
+
+## Pre-release: verify locally
+
+Before you bump versions or run `pnpm release`:
+
+1. **Build** — from the monorepo root: `pnpm build`.
+2. **Tests** — `pnpm test` (includes compiler island codegen checks where present).
+3. **Smoke** (recommended) — install deps in a sample app, then `nexus build` and/or `nexus dev` (e.g. an app under `examples/*` or a project created with `create-nexus`).
+
+When that looks good, align versions with `pnpm version:framework -- <semver>`, commit, then publish with `pnpm release`. If **`vite-plugin-nexus`** is still in npm’s post-unpublish cooldown, use `pnpm release:skip-vite-plugin` first, then `pnpm publish:package -- vite-plugin-nexus` when allowed.
 
 ## Full framework release (what most teams do)
 
@@ -10,7 +22,7 @@ This is the same idea as **Next.js**, **Svelte**, **Remix**, etc.: one repo, man
 
 ### 1. Log in to npm (or set `NPM_TOKEN`)
 
-See [Authenticate](#authenticate-local-or-ci) below. Publishing needs a token with rights on **`@nexus_js`** and **`vite-plugin-nexus`**.
+See [Authenticate](#authenticate-local-or-ci) below. Publishing needs a token with rights on **`@nexus_js/*`**, **`vite-plugin-nexus`**, and (for CI) **bypass 2FA** if your org requires it.
 
 ### 2. Align the version on every package
 
@@ -28,15 +40,39 @@ Replace `0.7.0` with your next semver. Commit the version bump when you are read
 pnpm release
 ```
 
-This runs **`pnpm build`** for everything under `packages/*`, then **`pnpm publish -r`** for each of those packages with **`--access public`** and **`--no-git-checks`**. pnpm resolves the graph and publishes in the right order; `workspace:*` dependencies in `package.json` are rewritten to real versions on the tarballs that go to npm.
+This runs **`pnpm build`** for everything under `packages/*`, then **`pnpm publish -r --filter './packages/*'`** with **`--access public`**, **`--no-git-checks`**, and **`--report-summary`** (writes **`pnpm-publish-summary.json`** at the repo root listing what was published — useful for CI logs). pnpm resolves the graph and publishes in the right order; `workspace:*` dependencies in `package.json` are rewritten to real versions on the tarballs that go to npm.
 
 **Aliases:** `pnpm publish:npm` is the same as `pnpm release`.
 
+If **`vite-plugin-nexus`** fails with *“cannot be republished until 24 hours have passed”*, npm is enforcing the cooldown after an **unpublish** of that package (see [npm unpublish policy](https://docs.npmjs.com/policies/unpublish)). Publish everything else now, then publish the plugin after the window:
+
+```bash
+pnpm release:skip-vite-plugin
+# …wait until npm allows it (often ~24h from unpublish, server time)…
+pnpm publish:package -- vite-plugin-nexus
+```
+
+**Requirements:**
+
+- Run **`pnpm release` only from the monorepo root** (where `pnpm-workspace.yaml` lives). Do not `cd` into a single package and expect the whole framework to publish unless you intend a single-package release (`pnpm publish:package`).
+- **Authenticate** first (`npm login` or `NPM_TOKEN` / `NODE_AUTH_TOKEN` for CI).
+- **Bump versions** before a new release (`pnpm version:framework -- <semver>`). If every `packages/*/package.json` version **already exists on the registry**, pnpm may report *“There are no new packages that should be published”* — that is expected until you bump.
+- To **re-publish the same version** to npm (rare; usually avoid), you would need **`pnpm publish --force`** on the relevant package; the default is to skip duplicates.
+
 ### 4. Dry run (optional)
+
+From the repo root, a **recursive** dry run only simulates packages that pnpm would still publish (often none if the current version is already on npm). To **inspect the tarball** any time:
 
 ```bash
 pnpm build
-pnpm -r --filter './packages/*' publish --dry-run --no-git-checks
+cd packages/cli && pnpm publish --dry-run --no-git-checks
+```
+
+Recursive dry run (when you have bumped versions not yet on the registry):
+
+```bash
+pnpm build
+pnpm publish -r --filter './packages/*' --dry-run --no-git-checks
 ```
 
 ### Optional: publish a single package only
@@ -104,6 +140,28 @@ pnpm build
 ```
 
 All publishable packages emit compiled output under each package’s `dist/` directory.
+
+### What gets published (like Next.js, Astro, etc.)
+
+Frameworks on npm ship **compiled JavaScript** and **`.d.ts` types**, not raw `src/*.ts`:
+
+- **Development** in this repo uses TypeScript, tests, and source maps.
+- **Publication** runs `pnpm build` (each package uses `tsc` or the package’s `build` script) so consumers receive **`dist/**/*.js`**, **`dist/**/*.d.ts`**, and source maps — Node can run them without a user-side transpiler.
+
+Each `packages/*/package.json` uses:
+
+- **`"main"` / `"types"` / `exports`** pointing at **`./dist/...`**
+- **`"files": ["dist", "README.md"]`** as a **whitelist** — npm packs only those paths (not `src/`, tests, or config). We do **not** rely on `.npmignore` for the default case.
+
+**Verify the tarball before publishing:**
+
+```bash
+cd packages/assets
+pnpm pack --pack-destination /tmp
+tar -tzf /tmp/nexus_js-assets-*.tgz | head -40
+```
+
+You should see `package/dist/*.js` and `package/dist/*.d.ts`, not `package/src/*.ts`. From the repo root, `pnpm -r --filter './packages/*' pack` is not built-in; use **`pnpm pack`** inside a package directory or inspect with **`pnpm -r publish --dry-run`** (shows “Tarball Contents”).
 
 ## Pre-flight: version consistency
 
@@ -180,9 +238,13 @@ jobs:
         run: pnpm release
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          # Optional: npm provenance (supply-chain attestation on npm; requires a public repo + compatible token)
+          # NPM_CONFIG_PROVENANCE: 'true'
 ```
 
 `actions/setup-node` with `registry-url` wires **`NODE_AUTH_TOKEN`** into npm’s auth for the publish step. If you prefer `~/.npmrc` with `NPM_TOKEN`, export that variable in the step that runs `pnpm release` instead.
+
+After publish, check **`pnpm-publish-summary.json`** in the repo root (generated by **`--report-summary`**) or the workflow log.
 
 ## Troubleshooting
 
@@ -230,10 +292,29 @@ Until your account may publish **`@nexus_js/*`**, `pnpm release` will fail at th
 | Issue | What to check |
 |--------|----------------|
 | `403 Forbidden` on `@nexus_js/*` (other causes) | Scope ownership and token permissions (publish to that scope). |
-| `403` on `vite-plugin-nexus` | Package name may be taken; consider renaming or requesting access. |
+| `403` on `vite-plugin-nexus` — *cannot be republished until 24 hours* | npm blocks **new publishes** to a name for **~24 hours** after **all versions were unpublished**. Use **`pnpm release:skip-vite-plugin`**, then **`pnpm publish:package -- vite-plugin-nexus`** when the cooldown ends. Clock is **npm’s servers (UTC)**; “not 24h locally” can still be inside the window. |
+| `403` on `vite-plugin-nexus` (other) | Name taken by another account, or no publish permission. |
 | `workspace:*` still inside the tarball on npm | You published from outside the workspace root or without pnpm’s workspace publish flow. Run **`pnpm release`** from the monorepo root so pnpm rewrites `workspace:*` to concrete versions. |
 | Missing `dist/` | Run `pnpm build` before publish; `files` in `package.json` only includes `dist` and `README.md`. |
 | `Cannot implicitly apply the "latest" tag … 1.3.0 is higher than … 0.6.0` | You tried to publish a package named **`nexus`** whose version is **below** the version already on npm for that name. Use **`pnpm release`** (only `packages/*`), not `npm publish` from the repo root. If you really must publish an older line, use an explicit dist-tag: `npm publish --tag 0.x`. |
+| `There are no new packages that should be published` | Current versions are **already on the registry**. Bump with **`pnpm version:framework -- <new-semver>`**, commit, rebuild, then **`pnpm release`** again. |
+
+## Unpublish (maintainers only)
+
+Removing packages from npm breaks installs for anyone who pinned them; use rarely. If you must remove **all** framework packages, use the ordered script (dependents first) after `npm login`:
+
+```bash
+DRY_RUN=1 ./scripts/unpublish-all-packages.sh   # preview
+./scripts/unpublish-all-packages.sh             # real
+```
+
+If npm returns **403** and asks for an **OTP** (TFA is required for publish *and* unpublish on many orgs), use a **granular access token** with **bypass 2FA**, or paste a fresh code for each package:
+
+```bash
+PROMPT_OTP_EACH=1 ./scripts/unpublish-all-packages.sh
+```
+
+See [npm 2FA guide](https://docs.npmjs.com/about-two-factor-authentication) and [npm unpublish policy](https://docs.npmjs.com/policies/unpublish). Expect **~24 h** before you can publish the same names again if all versions were removed.
 
 ## Security reminder
 

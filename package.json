@@ -1,12 +1,13 @@
 {
   "name": "nexus-workspace",
-  "version": "0.7.0",
+  "version": "0.7.2",
   "private": true,
   "description": "Nexus — The Definitive Full-Stack Framework: Islands Architecture + Svelte 5 Runes + Server Actions",
   "workspaces": [
     "packages/*",
     "examples/*",
-    "docs"
+    "my-nexus-app",
+    "news"
   ],
   "scripts": {
     "build": "pnpm -r --filter './packages/*' build",
@@ -14,6 +15,8 @@
     "dev:pokedex": "pnpm --filter pokedex dev",
     "dev:nexusflow": "pnpm --filter nexusflow dev",
     "dev:anonymous-chat": "pnpm --filter anonymous-chat dev",
+    "dev:my-nexus-app": "pnpm --filter my-nexus-app dev",
+    "dev:news": "pnpm --filter news dev",
     "dev:all": "pnpm --filter './packages/*' --parallel dev & pnpm --filter pokedex dev",
     "test": "pnpm -r test",
     "lint": "pnpm -r lint",
@@ -21,12 +24,14 @@
     "example": "pnpm --filter basic dev",
     "studio": "nexus studio",
     "clean": "pnpm -r clean && rm -rf node_modules",
-    "release": "pnpm build && pnpm -r --filter './packages/*' publish --access public --no-git-checks",
+    "release": "pnpm build && pnpm publish -r --filter './packages/*' --access public --no-git-checks --report-summary",
+    "release:skip-vite-plugin": "pnpm build && pnpm publish -r --filter './packages/*' --filter '!vite-plugin-nexus' --access public --no-git-checks --report-summary",
     "publish:npm": "pnpm release",
     "publish:package": "bash scripts/publish-package.sh",
     "version:framework": "node scripts/bump-framework-version.mjs"
   },
   "devDependencies": {
+    "@nexus_js/cli": "workspace:^",
     "@types/node": "^22.0.0",
     "typescript": "^5.5.0",
     "vitest": "^2.0.0"

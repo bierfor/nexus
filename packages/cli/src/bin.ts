@@ -4,6 +4,7 @@
  */
 
 import { parseArgs } from 'node:util';
+import { STUDIO_DEFAULT_PORT } from '@nexus_js/server/constants';
 
 // ── ANSI palette (shared across all CLI commands) ─────────────────────────────
 const c = {
@@ -110,7 +111,9 @@ async function main(): Promise<void> {
       break;
     }
     case 'studio':
-      await runStudio({ port });
+      await runStudio({
+        port: typeof portVal === 'string' ? parseInt(portVal, 10) : STUDIO_DEFAULT_PORT,
+      });
       break;
     case 'routes':
       await printRoutes({ root });
@@ -200,8 +203,10 @@ async function runDev(opts: { root: string; port: number }): Promise<void> {
     `\n  ${c.mag}${c.bold}◆ NEXUS${c.reset} ${c.dim}v${pkg.version}${c.reset}` +
     `   ${c.green}ready in ${elapsed}ms${c.reset}\n` +
     `\n  ${c.green}➜${c.reset}  ${c.bold}Local${c.reset}    ${c.cyan}http://localhost:${opts.port}/${c.reset}` +
-    `\n  ${c.green}➜${c.reset}  ${c.bold}Studio${c.reset}   ${c.cyan}http://localhost:7822/${c.reset}` +
+    `\n  ${c.green}➜${c.reset}  ${c.bold}Studio${c.reset}   ${c.cyan}http://localhost:${STUDIO_DEFAULT_PORT}/${c.reset}` +
     `   ${c.dim}nexus studio${c.reset}` +
+    `\n\n  ${c.dim}Auto-reload:${c.reset}  ${c.dim}src/** · nexus.config.* · .env · .env.local${c.reset}` +
+    `\n  ${c.dim}Tip:${c.reset}        ${c.dim}restart \`nexus dev\` after changing .env — Node only loads env at startup.${c.reset}` +
     `\n\n  ${c.dim}press Ctrl+C to stop${c.reset}\n`,
   );
 
@@ -259,25 +264,47 @@ async function runDev(opts: { root: string; port: number }): Promise<void> {
     }
   })();
 
-  // File watcher — triggers route reload on .nx / .ts changes
-  const { watch } = await import('node:fs');
-  const { join } = await import('node:path');
+  // File watcher — reload routes + clear caches (src tree, config, env)
+  const { watch, existsSync } = await import('node:fs');
+  const { join, basename } = await import('node:path');
   const srcDir = join(opts.root, 'src');
 
   let debounce: ReturnType<typeof setTimeout> | null = null;
-  watch(srcDir, { recursive: true }, (event, filename) => {
-    if (!filename) return;
+  const scheduleReload = (label: string, event: string) => {
     if (debounce) clearTimeout(debounce);
     debounce = setTimeout(async () => {
       console.log(
         `  ${c.gray}${getTime()}${c.reset}` +
-        `  ${c.mag}[HMR]${c.reset}` +
-        `  ${c.cyan}${filename}${c.reset}` +
-        `  ${c.dim}${event} — reloading routes${c.reset}`,
+          `  ${c.mag}[reload]${c.reset}` +
+          `  ${c.cyan}${label}${c.reset}` +
+          `  ${c.dim}${event} — routes + cache${c.reset}`,
       );
       await server.reload();
-    }, 100);
+    }, 120);
+  };
+
+  watch(srcDir, { recursive: true }, (event, filename) => {
+    if (!filename) return;
+    scheduleReload(filename, event);
   });
+
+  const rootWatchFiles = [
+    'nexus.config.ts',
+    'nexus.config.js',
+    'nexus.config.mjs',
+    'nexus.config.cjs',
+    '.env',
+    '.env.local',
+  ];
+  for (const rel of rootWatchFiles) {
+    const abs = join(opts.root, rel);
+    if (!existsSync(abs)) continue;
+    try {
+      watch(abs, (event) => scheduleReload(basename(abs), event));
+    } catch {
+      /* e.g. EMFILE — ignore */
+    }
+  }
 
   // Graceful shutdown
   process.on('SIGINT', () => {
@@ -415,9 +442,36 @@ async function runStudio(opts: { port: number }): Promise<void> {
 
 async function runCheck(opts: { root: string }): Promise<void> {
   console.log(`\n  ${c.mag}${c.bold}◆ NEXUS check${c.reset}  ${c.dim}type-checking your app...${c.reset}\n`);
-  const { execSync } = await import('node:child_process');
+  const { execFileSync } = await import('node:child_process');
+  const { createRequire } = await import('node:module');
+  const { dirname, join } = await import('node:path');
+  const { existsSync } = await import('node:fs');
+
+  const appPkg = join(opts.root, 'package.json');
+  if (!existsSync(appPkg)) {
+    console.error(`\n  ${c.red}✖${c.reset}  No package.json at ${opts.root}.\n`);
+    process.exit(1);
+  }
+
+  /** Run the compiler via Node + lib/tsc.js (no shell, no global `tsc`; works with pnpm hoisting). */
+  let tscJs: string;
   try {
-    execSync('tsc --noEmit', { cwd: opts.root, stdio: 'inherit' });
+    const req = createRequire(appPkg);
+    const tsRoot = dirname(req.resolve('typescript/package.json'));
+    tscJs = join(tsRoot, 'lib', 'tsc.js');
+    if (!existsSync(tscJs)) {
+      throw new Error('typescript/lib/tsc.js missing');
+    }
+  } catch {
+    console.error(
+      `\n  ${c.red}✖${c.reset}  TypeScript not found for this app. ` +
+        `Add it as a devDependency (e.g. ${c.cyan}pnpm add -D typescript${c.reset}).\n`,
+    );
+    process.exit(1);
+  }
+
+  try {
+    execFileSync(process.execPath, [tscJs, '--noEmit'], { cwd: opts.root, stdio: 'inherit' });
     console.log(`\n  ${c.green}✔${c.reset}  No type errors found.\n`);
   } catch {
     console.error(`\n  ${c.red}✖${c.reset}  Type errors found.\n`);

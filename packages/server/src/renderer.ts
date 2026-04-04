@@ -17,7 +17,9 @@
 
 import type { MatchedRoute } from '@nexus_js/router';
 import type { IslandManifest } from '@nexus_js/compiler';
-import type { NexusContext } from './context.js';
+import { serialize } from '@nexus_js/serialize';
+import { NotFoundSignal, RedirectSignal, type NexusContext } from './context.js';
+import { devErrorHtmlPage } from './dev-error-html.js';
 import { loadRouteModule } from './load-module.js';
 
 export interface RenderOptions {
@@ -158,12 +160,63 @@ const DOCTYPE = '<!DOCTYPE html>';
  * Renders a matched route to a full HTML response.
  * Wraps the page with its layout chain and injects island hydration scripts.
  */
+/**
+ * Runs `nxPretext` from every layout (outer → inner) and the page in parallel,
+ * then shallow-merges results onto `ctx.pretext` (page wins on key collisions).
+ */
+export async function mergeRoutePretext(
+  matched: MatchedRoute,
+  ctx: NexusContext,
+  opts: RenderOptions,
+): Promise<Record<string, unknown>> {
+  const chain = [
+    ...matched.layouts.map((l) => ({ filepath: l.filepath, pattern: l.pattern })),
+    { filepath: matched.route.filepath, pattern: matched.route.pattern },
+  ];
+  const mods = await Promise.all(
+    chain.map((c) =>
+      loadRouteModule(c.filepath, {
+        dev: opts.dev,
+        appRoot: opts.appRoot,
+        pattern: c.pattern,
+      }),
+    ),
+  );
+  const results = await Promise.all(
+    mods.map((mod) => {
+      const fn = (mod as Record<string, unknown>).nxPretext;
+      return typeof fn === 'function' ? (fn as (c: NexusContext) => Promise<unknown>)(ctx) : Promise.resolve({});
+    }),
+  );
+  const objects = results.map((r) =>
+    r && typeof r === 'object' && !Array.isArray(r) ? (r as Record<string, unknown>) : { value: r },
+  );
+  return Object.assign({}, ...objects);
+}
+
 export async function renderRoute(
   matched: MatchedRoute,
   ctx: NexusContext,
   opts: RenderOptions,
 ): Promise<RenderResult> {
   let pageHtml = '';
+
+  try {
+    ctx.pretext = await mergeRoutePretext(matched, ctx, opts);
+  } catch (err) {
+    if (err instanceof RedirectSignal || err instanceof NotFoundSignal) throw err;
+    console.error('[Nexus] Pretext error:', err);
+    return {
+      html: errorPage(err, opts.dev),
+      headers: {
+        'content-type': 'text/html; charset=utf-8',
+        'cache-control': 'no-store',
+      },
+      status: 500,
+      cacheTtl: 0,
+      islandCount: 0,
+    };
+  }
 
   // Execute layouts from outermost to innermost
   const layoutSlots: string[] = [];
@@ -179,6 +232,7 @@ export async function renderRoute(
         layoutSlots.push(result.html ?? '');
       }
     } catch (err) {
+      if (err instanceof RedirectSignal || err instanceof NotFoundSignal) throw err;
       console.error(`[Nexus] Layout render error (${layout.filepath}):`, err);
     }
   }
@@ -195,6 +249,7 @@ export async function renderRoute(
       pageHtml = result.html ?? '';
     }
   } catch (err) {
+    if (err instanceof RedirectSignal || err instanceof NotFoundSignal) throw err;
     console.error(`[Nexus] Page render error (${matched.route.filepath}):`, err);
     return {
       html: errorPage(err, opts.dev),
@@ -238,10 +293,15 @@ export async function renderRoute(
     }
   }
 
-  const fullHtml = wrapWithDocument(content, opts, bridgeLogs, islandCount);
+  const pretextWire = ctx.pretext !== undefined ? serialize(ctx.pretext) : null;
+
+  let fullHtml = wrapWithDocument(content, opts, bridgeLogs, islandCount, pretextWire);
+  if (!/^<!DOCTYPE/i.test(fullHtml.trimStart())) {
+    fullHtml = DOCTYPE + '\n' + fullHtml;
+  }
 
   return {
-    html: DOCTYPE + fullHtml,
+    html: fullHtml,
     headers: {
       'content-type': 'text/html; charset=utf-8',
       'cache-control': cacheControl.header,
@@ -255,14 +315,55 @@ export async function renderRoute(
   };
 }
 
-const DEV_WS_PORT = 7822;
+/**
+ * When the layout already emits a full `<html>...</html>` document (typical `.nx` root layout),
+ * inject Nexus runtime (styles, importmap, HMR, island loader) into that document's `<head>`.
+ * Nesting `<html>` inside the shell's `<body>` produces invalid markup and blank pages in browsers.
+ */
+function injectBeforeClosingHead(html: string, injection: string): string {
+  const closeIdx = html.search(/<\/head\s*>/i);
+  if (closeIdx !== -1) {
+    return html.slice(0, closeIdx) + '\n' + injection + '\n' + html.slice(closeIdx);
+  }
+  const m = html.match(/<head[^>]*>/i);
+  if (m?.index !== undefined) {
+    const insertAt = m.index + m[0].length;
+    return html.slice(0, insertAt) + '\n' + injection + '\n' + html.slice(insertAt);
+  }
+  return injection + '\n' + html;
+}
+
+/** Strip leading doctype so we can detect `<html` after optional `<!DOCTYPE html>`. */
+function stripLeadingDoctype(html: string): string {
+  return html.replace(/^\s*<!DOCTYPE[^>]*>/i, '').trimStart();
+}
+
+/** Avoid `</script>` breaking out of inline JSON when embedding serialized pretext. */
+function escapeJsonForScriptPayload(json: string): string {
+  return json.replace(/</g, '\\u003c');
+}
+
+function isFullHtmlDocument(content: string): boolean {
+  const t = content.trimStart();
+  if (/^<\s*html[\s>]/i.test(t)) return true;
+  if (/^<!DOCTYPE/i.test(t)) {
+    return /^<\s*html[\s>]/i.test(stripLeadingDoctype(content));
+  }
+  return false;
+}
 
 function wrapWithDocument(
   content: string,
   opts: RenderOptions,
   bridgeLogs: ServerBridgeLog[] = [],
   islandCount = 0,
+  pretextWire: string | null = null,
 ): string {
+  const pretextScript =
+    pretextWire !== null
+      ? `<script type="application/json" id="__NEXUS_PRETEXT__">${escapeJsonForScriptPayload(pretextWire)}</script>`
+      : '';
+
   const styleLinks = opts.assets.styles
     .map((href) => `<link rel="stylesheet" href="${href}">`)
     .join('\n    ');
@@ -270,6 +371,17 @@ function wrapWithDocument(
   const runtimeScript = opts.assets.runtime
     ? `<script type="module" src="${opts.assets.runtime}"></script>`
     : '';
+
+  /** Default host box for custom element — avoids full-width flex rows that steal hits on tiny/empty islands. */
+  const nexusIslandHostCSS = `<style id="nexus-island-host">
+nexus-island {
+  display: inline-block;
+  vertical-align: top;
+  width: auto;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+</style>`;
 
   // Import map — resolves @nexus_js/* bare specifiers inside dynamically-imported island bundles.
   // Must appear before any <script type="module"> that uses these specifiers.
@@ -283,18 +395,9 @@ function wrapWithDocument(
 }
 </script>`;
 
-  // HMR WebSocket reconnector (dev only)
-  const hmrScript = opts.dev ? `<script>
-(function(){
-  const ws = new WebSocket('ws://localhost:${DEV_WS_PORT}');
-  ws.onmessage = (e) => {
-    const { type } = JSON.parse(e.data);
-    if (type === 'reload') location.reload();
-    if (type === 'hmr') window.__NEXUS_DEV__?.logHmr();
-  };
-  ws.onerror = () => {};
-})();
-</script>` : '';
+  // HMR WebSocket: disabled until dev server exposes a matching WS endpoint (avoids console noise
+  // when nothing is listening on the old hard-coded port).
+  const hmrScript = '';
 
   // Server→browser log bridge (dev only)
   const bridgeScript = opts.dev ? `<script>
@@ -307,15 +410,26 @@ window.__NEXUS_BUILD_INFO__ = {
 };
 </script>${nexusClientDevScript}` : '';
 
-  return `<html lang="en">
-  <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  const headInjection = `
+    ${pretextScript}
+    ${nexusIslandHostCSS}
     ${styleLinks}
     ${importMap}
     ${hmrScript}
     ${bridgeScript}
     ${runtimeScript}
+`;
+
+  if (isFullHtmlDocument(content)) {
+    const doc = /^<!DOCTYPE/i.test(content.trimStart()) ? stripLeadingDoctype(content) : content;
+    return injectBeforeClosingHead(doc, headInjection);
+  }
+
+  return `<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    ${headInjection}
   </head>
   <body>
     ${content}
@@ -477,12 +591,9 @@ export function wrapIsland(
 }
 
 function errorPage(err: unknown, dev: boolean): string {
-  const message = err instanceof Error ? err.message : String(err);
-  const stack = dev && err instanceof Error ? err.stack ?? '' : '';
-
-  return `${DOCTYPE}<html><body style="font-family:monospace;padding:2rem;background:#0a0a0f;color:#ff6b6b">
-    <h1 style="color:#ff3e00">Nexus — Server Error</h1>
-    <pre>${message}</pre>
-    ${dev ? `<pre style="color:#6b6b80;font-size:0.8rem">${stack}</pre>` : ''}
-  </body></html>`;
+  return devErrorHtmlPage({
+    context: dev ? 'SSR / route error' : 'Error',
+    err,
+    dev,
+  });
 }

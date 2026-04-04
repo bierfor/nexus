@@ -1,0 +1,20 @@
+{
+  "name": "puro-flusso",
+  "private": true,
+  "description": "Monorepo: frontend Next.js + API Express/GraphQL",
+  "dependencies": {
+    "next": "16.2.1",
+    "react": "19.2.4",
+    "react-dom": "19.2.4"
+  },
+  "scripts": {
+    "build": "npm ci --prefix backend --include=dev && npm run build --prefix backend",
+    "start": "npm start --prefix backend",
+    "build:backend": "npm run build --prefix backend",
+    "build:frontend": "npm run build --prefix frontend",
+    "vercel:build": "npm run build --prefix frontend && rm -rf .next && cp -r frontend/.next .next"
+  },
+  "engines": {
+    "node": "22.x"
+  }
+}

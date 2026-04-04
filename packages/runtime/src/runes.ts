@@ -53,8 +53,12 @@ export function $state<T>(initial: T): { value: T } {
       node.value = next;
       // Notify all subscribers synchronously (microtask queue in practice)
       for (const effect of [...node.subscribers]) {
-        effect.cleanup?.();
-        effect.execute();
+        try {
+          effect.cleanup?.();
+          effect.execute();
+        } catch (e) {
+          console.error('[Nexus] $effect error (subscriber):', e);
+        }
       }
     },
   };
@@ -116,6 +120,8 @@ export function $effect(fn: () => Cleanup | void): Cleanup {
       currentEffect = node;
       try {
         node.cleanup = fn();
+      } catch (e) {
+        console.error('[Nexus] $effect error:', e);
       } finally {
         currentEffect = prev;
       }
@@ -178,8 +184,12 @@ export function batch(fn: () => void): void {
     batchDepth--;
     if (batchDepth === 0) {
       for (const effect of pendingEffects) {
-        effect.cleanup?.();
-        effect.execute();
+        try {
+          effect.cleanup?.();
+          effect.execute();
+        } catch (e) {
+          console.error('[Nexus] $effect error (batch):', e);
+        }
       }
       pendingEffects.clear();
     }
