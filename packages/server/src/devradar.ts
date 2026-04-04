@@ -15,8 +15,7 @@ export type DevRadarEvent =
   | { type: 'devtools:pretext'; payload: PretextProfilePayload }
   | { type: 'security:audit'; payload: SecurityAuditPayload }
   | { type: 'security:report'; payload: SecurityReportPayload }
-  | { type: 'rune:telemetry'; payload: RuneTelemetryPayload }
-  | { type: 'brain:completion'; payload: BrainCompletionPayload };
+  | { type: 'rune:telemetry'; payload: RuneTelemetryPayload };
 
 export interface ActionCallPayload {
   id: string;
@@ -74,26 +73,6 @@ export interface RuneTelemetryPayload {
   runeId: string;
   updatesPerSecond: number;
   label?: string;
-}
-
-/** @nexus_js/brain — LLM completion telemetry (Studio / DevRadar). No raw prompts in payload. */
-export interface BrainCompletionPayload {
-  id: string;
-  provider: 'openai' | 'groq';
-  model: string;
-  durationMs: number;
-  cached: boolean;
-  ok: boolean;
-  /** Truncated prompt preview (sanitized). */
-  promptPreview?: string;
-  promptChars: number;
-  contextChars: number;
-  usage?: {
-    promptTokens?: number;
-    completionTokens?: number;
-    totalTokens?: number;
-  };
-  error?: string;
 }
 
 let sink: ((event: DevRadarEvent) => void) | null = null;

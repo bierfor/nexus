@@ -43,7 +43,6 @@ export type {
   SecurityReportPayload,
   SecurityReportCheck,
   RuneTelemetryPayload,
-  BrainCompletionPayload,
 } from './devradar.js';
 
 /** Merge ctx response headers (Set-Cookie, etc.) with redirect Location. */
