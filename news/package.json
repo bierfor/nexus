@@ -9,7 +9,7 @@
     "prebuild": "node ./scripts/check-node-modules.mjs",
     "build": "node --env-file-if-exists=.env ./node_modules/@nexus_js/cli/dist/bin.js build",
     "prestart": "node ./scripts/check-node-modules.mjs",
-    "start": "node --env-file-if-exists=.env ./node_modules/@nexus_js/cli/dist/bin.js start --port 3011",
+    "start": "node --env-file-if-exists=.env ./node_modules/@nexus_js/cli/dist/bin.js start",
     "precheck": "node ./scripts/check-node-modules.mjs",
     "check": "node ./node_modules/@nexus_js/cli/dist/bin.js check",
     "test:smoke": "node ./scripts/smoke.mjs"

@@ -19,7 +19,8 @@ import {
 } from './dev-assets.js';
 import { devErrorHtmlPage } from './dev-error-html.js';
 import { broadcastDevHotReload, subscribeDevHotClient } from './dev-hot.js';
-import { renderRoute } from './renderer.js';
+import { renderRoute, renderRouteStreaming } from './renderer.js';
+import { pipeToNodeResponse } from './streaming.js';
 import { handleNavigationRequest } from './navigate.js';
 import { bumpDevReloadGeneration, preloadRegisteredServerActions } from './load-module.js';
 import { createContext, RedirectSignal, NotFoundSignal } from './context.js';
@@ -94,6 +95,11 @@ export interface NexusServerOptions {
    * From `nexus.config.ts` `security` — when `hardened: true`, HTML and API responses get baseline security headers.
    */
   security?: { hardened?: boolean };
+  /**
+   * Flush the HTML shell (head + skeleton) before `nxPretext` resolves — improves TTFB when Pretext is slow.
+   * Fragment layouts only (route output must not be a full `&lt;html&gt;` document).
+   */
+  streamingPretext?: boolean;
 }
 
 /** Merge Hardened Mode headers (changelog v0.5) — CSP nonces are a future enhancement. */
@@ -303,6 +309,13 @@ export async function createNexusServer(opts: NexusServerOptions) {
     const ctx = createContext(request, matched.params);
 
     try {
+      if (opts.streamingPretext === true && method === 'GET') {
+        _cacheStrategy = 'streaming-no-store';
+        const streamRes = renderRouteStreaming(matched, ctx, renderOpts);
+        await pipeToNodeResponse(streamRes, res, sec);
+        return;
+      }
+
       const result = await renderRoute(matched, ctx, renderOpts);
       _cacheStrategy = result.headers['x-nexus-cache-strategy'];
       res.writeHead(result.status, sec(result.headers as Record<string, string | string[] | number | undefined>));

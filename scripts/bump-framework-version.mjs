@@ -29,6 +29,9 @@ for (const name of fs.readdirSync(packagesDir)) {
   if (j.name === '@nexus_js/create-nexus' && j.dependencies?.['@nexus_js/cli']) {
     j.dependencies['@nexus_js/cli'] = `^${ver}`;
   }
+  if (j.name === 'nexus_js' && j.dependencies?.['@nexus_js/cli']) {
+    j.dependencies['@nexus_js/cli'] = `^${ver}`;
+  }
   fs.writeFileSync(pkgPath, JSON.stringify(j, null, 2) + '\n');
   console.log(`${j.name} → ${ver}`);
 }

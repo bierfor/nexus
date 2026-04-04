@@ -48,3 +48,5 @@ coverage/
 
 # Nexus Studio profiles
 ~/.cursor/browser-logs/
+.vercel
+.env*.local

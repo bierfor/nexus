@@ -3,9 +3,33 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Nexus Framework — Documentation</title>
-  <meta name="description" content="The Definitive Full-Stack Framework. Islands Architecture + Svelte 5 Runes + Server Actions + Edge-First.">
+  <title id="page-title">Nexus.js — Full-stack framework | Islands, Runes, Server Actions &amp; Hardened Mode</title>
+  <meta id="meta-desc" name="description" content="Nexus.js: opinionated full-stack framework for 2026 — Svelte 5 Runes, islands architecture, server actions, pretext security, and Hardened Mode. Technical purity without the bureaucracy of mega-frameworks.">
+  <meta name="keywords" content="Nexus.js, Nexus framework, full-stack JavaScript, Svelte 5, Runes, islands architecture, server actions, SSR, pretext, Hardened Mode, supply chain security, TypeScript">
+  <meta name="author" content="Nexus Contributors">
+  <meta name="robots" content="index, follow, max-image-preview:large">
   <meta name="theme-color" content="#fafafa">
+  <link rel="canonical" href="https://nexusjs.dev/">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://nexusjs.dev/">
+  <meta id="og-title" property="og:title" content="Nexus.js — Full-stack framework | Islands, Runes &amp; Hardened Mode">
+  <meta id="og-desc" property="og:description" content="Opinionated framework with technical purity: surgical JS via islands, pretext for secure server data, and Hardened Mode as your build-time auditor.">
+  <meta property="og:site_name" content="Nexus.js">
+  <meta property="og:locale" id="og-locale" content="en_US">
+  <meta name="twitter:card" content="summary">
+  <meta id="tw-title" name="twitter:title" content="Nexus.js — Full-stack framework">
+  <meta id="tw-desc" name="twitter:description" content="Islands + Runes + Server Actions + Hardened Mode. Built for real problems in 2026.">
+  <link rel="alternate" hreflang="en" href="https://nexusjs.dev/">
+  <link rel="alternate" hreflang="es" href="https://nexusjs.dev/">
+  <link rel="alternate" hreflang="pt" href="https://nexusjs.dev/">
+  <link rel="alternate" hreflang="x-default" href="https://nexusjs.dev/">
+  <script type="application/ld+json">
+  {"@context":"https://schema.org","@graph":[
+    {"@type":"WebSite","@id":"https://nexusjs.dev/#website","name":"Nexus.js","url":"https://nexusjs.dev/","description":"Full-stack JavaScript framework: islands, Svelte 5 Runes, server actions, pretext, Hardened Mode.","inLanguage":["en","es","pt"],"publisher":{"@id":"https://nexusjs.dev/#org"}},
+    {"@type":"Organization","@id":"https://nexusjs.dev/#org","name":"Nexus.js","url":"https://nexusjs.dev/"},
+    {"@type":"SoftwareApplication","name":"Nexus.js","applicationCategory":"DeveloperApplication","operatingSystem":"Cross-platform","license":"https://opensource.org/licenses/MIT","url":"https://github.com/bierfor/nexus","description":"Opinionated full-stack framework with islands architecture, Runes reactivity, and security-first compiler & audit tooling."}
+  ]}
+  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400..700;1,400..700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -822,6 +846,47 @@
       color: var(--text);
     }
 
+    .philosophy-section {
+      padding-bottom: 8px;
+    }
+    .philosophy-section .lead {
+      max-width: 720px;
+    }
+    .philosophy-flow {
+      margin: 28px 0 8px;
+      padding: 22px 24px;
+      background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 50%, #f0f9ff 100%);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-sm);
+    }
+    .philosophy-flow h3 {
+      margin: 0 0 10px;
+      font-size: 17px;
+      color: var(--text);
+    }
+    .philosophy-flow p {
+      margin: 0;
+      font-size: 14px;
+      line-height: 1.65;
+      color: var(--text-secondary);
+    }
+    .philosophy-closing h3 {
+      margin: 32px 0 10px;
+      font-size: 20px;
+      letter-spacing: -0.02em;
+    }
+    .philosophy-closing p {
+      max-width: 680px;
+      margin: 0 0 12px;
+    }
+    .philosophy-question {
+      font-style: italic;
+      color: var(--accent2);
+      font-weight: 500;
+      margin-top: 20px !important;
+    }
+
     .enterprise-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
@@ -962,7 +1027,7 @@
   <a href="#top" class="sidebar-logo">
     <div class="logo-mark">N</div>
     <span class="logo-text">Nexus</span>
-    <span class="logo-version">v0.7</span>
+    <span class="logo-version">v0.7.4</span>
   </a>
   <nav id="sidebar-nav">
     <div class="nav-filter-wrap">
@@ -975,6 +1040,7 @@
     <a href="#project-structure">📁 Project Structure</a>
 
     <div class="nav-section" data-i18n="nav.core">Core Concepts</div>
+    <a href="#why-nexus" data-i18n="nav.why">✨ Why Nexus</a>
     <a href="#nx-format">📄 .nx Format</a>
     <a href="#routing">🗺️ File Routing</a>
     <a href="#islands">🏝️ Islands</a>
@@ -1035,11 +1101,55 @@
       <div class="stat"><div class="stat-num">18</div><div class="stat-label" data-i18n="hero.stat1">Packages</div></div>
       <div class="stat"><div class="stat-num">0kb</div><div class="stat-label" data-i18n="hero.stat2">JS by Default</div></div>
       <div class="stat"><div class="stat-num">100%</div><div class="stat-label" data-i18n="hero.stat3">TypeScript</div></div>
-      <div class="stat"><div class="stat-num">v0.7</div><div class="stat-label" data-i18n="hero.stat4">Latest</div></div>
+      <div class="stat"><div class="stat-num">v0.7.4</div><div class="stat-label" data-i18n="hero.stat4">Latest</div></div>
     </div>
   </div>
 
   <div class="content">
+
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- WHY NEXUS — positioning & engineering perspective                  -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+
+    <section id="why-nexus" class="philosophy-section">
+      <div class="section-label" data-i18n="why.label">Position</div>
+      <h2 data-i18n="why.title">Technical courage, not bureaucracy</h2>
+      <p class="lead" data-i18n="why.lead">
+        What makes Nexus.js special is not only that it is fast or modern, but that it is an opinionated framework with courage.
+        While other stacks have become giant bureaucracies (infinite cache layers and config), Nexus is born from technical purity that solves real problems in 2026.
+      </p>
+
+      <div class="enterprise-grid">
+        <div class="enterprise-card">
+          <div class="ec-icon">⚡</div>
+          <h4 data-i18n="why.card1t">Reactivity without the tax</h4>
+          <p data-i18n="why.card1d">Other frameworks punish you for interactivity: one animated button can mean tens of kilobytes of React or Vue runtime. With Runes (<code>$state</code>, <code>$derived</code>) and islands, JavaScript is surgical — only the code for that control ships. The rest is real HTML. SPA power with the weight of a 90s static site.</p>
+        </div>
+        <div class="enterprise-card">
+          <div class="ec-icon">◇</div>
+          <h4 data-i18n="why.card2t">Pretext: security and speed together</h4>
+          <p data-i18n="why.card2d">Integrating pretext as a first-class entry means no “loading spinner hell”: data is ready when HTML arrives. Security is native — Nexus validates sessions and filters DB-shaped data before the browser even knows it exists, closing whole classes of accidental exposure bugs.</p>
+        </div>
+        <div class="enterprise-card">
+          <div class="ec-icon">🛡️</div>
+          <h4 data-i18n="why.card3t">Hardened Mode: the framework as auditor</h4>
+          <p data-i18n="why.card3d">The compiler stops you from leaking API keys to the client or shipping known-vulnerable dependencies (CVEs). That is what separates toys from professional tools — Nexus helps you not ruin your week with a basic security mistake.</p>
+        </div>
+      </div>
+
+      <div class="philosophy-flow">
+        <h3 data-i18n="why.flowTitle">Why NexusFlow is the perfect showcase</h3>
+        <p data-i18n="why.flowBody">NexusFlow proves all three at once: the editor stays fluid with islands, auth leans on Hardened Mode, and the dashboard loads in milliseconds thanks to pretext.</p>
+      </div>
+
+      <div class="philosophy-closing">
+        <h3 data-i18n="why.closingTitle">The invisible effect</h3>
+        <p data-i18n="why.closingBody">The best part of Nexus is that you do not feel you are fighting the framework — no endless <code>useEffect</code>, memo wars, or webpack archaeology. You write HTML, CSS, and standard JavaScript; the compiler does the dirty work. Nexus is what developers would build for themselves if they had the time to do it right from scratch.</p>
+        <p class="philosophy-question" data-i18n="why.question">What excites you more: island speed or the peace of mind from Hardened Mode?</p>
+      </div>
+    </section>
+
+    <hr>
 
     <!-- ═══════════════════════════════════════════════════════════════════ -->
     <!-- ENTERPRISE — overview (deep dive: #multitenant)                    -->
@@ -2751,6 +2861,27 @@ const translations = {
     'cmp.title': 'Framework Comparison', 'cmp.lead': 'How Nexus compares to mainstream full-stack frameworks — including B2B-style multi-tenancy.',
     'pkg.title': 'Package Reference',
     'nav.enterprise': 'Enterprise & subdomains',
+    'nav.why': 'Why Nexus',
+    'why.label': 'Position',
+    'why.title': 'Technical courage, not bureaucracy',
+    'why.lead': 'What makes Nexus.js special is not only that it is fast or modern, but that it is an opinionated framework with courage. While other stacks have become giant bureaucracies (infinite cache layers and config), Nexus is born from technical purity that solves real problems in 2026.',
+    'why.card1t': 'Reactivity without the tax',
+    'why.card1d': 'Other frameworks punish you for interactivity: one animated button can mean tens of kilobytes of React or Vue runtime. With Runes (<code>$state</code>, <code>$derived</code>) and islands, JavaScript is surgical — only the code for that control ships. The rest is real HTML. SPA power with the weight of a 90s static site.',
+    'why.card2t': 'Pretext: security and speed together',
+    'why.card2d': 'Integrating pretext as a first-class entry means no “loading spinner hell”: data is ready when HTML arrives. Security is native — Nexus validates sessions and filters DB-shaped data before the browser even knows it exists, closing whole classes of accidental exposure bugs.',
+    'why.card3t': 'Hardened Mode: the framework as auditor',
+    'why.card3d': 'The compiler stops you from leaking API keys to the client or shipping known-vulnerable dependencies (CVEs). That is what separates toys from professional tools — Nexus helps you not ruin your week with a basic security mistake.',
+    'why.flowTitle': 'Why NexusFlow is the perfect showcase',
+    'why.flowBody': 'NexusFlow proves all three at once: the editor stays fluid with islands, auth leans on Hardened Mode, and the dashboard loads in milliseconds thanks to pretext.',
+    'why.closingTitle': 'The invisible effect',
+    'why.closingBody': 'The best part of Nexus is that you do not feel you are fighting the framework — no endless <code>useEffect</code>, memo wars, or webpack archaeology. You write HTML, CSS, and standard JavaScript; the compiler does the dirty work. Nexus is what developers would build for themselves if they had the time to do it right from scratch.',
+    'why.question': 'What excites you more: island speed or the peace of mind from Hardened Mode?',
+    'meta.title': 'Nexus.js — Full-stack framework | Islands, Runes, Server Actions & Hardened Mode',
+    'meta.description': 'Nexus.js: opinionated full-stack framework — Svelte 5 Runes, islands, server actions, pretext security, Hardened Mode. Technical purity without mega-framework bureaucracy.',
+    'meta.ogTitle': 'Nexus.js — Full-stack framework | Islands, Runes & Hardened Mode',
+    'meta.ogDesc': 'Opinionated framework with technical purity: surgical JS via islands, pretext for secure server data, and Hardened Mode as your build-time auditor.',
+    'meta.twTitle': 'Nexus.js — Full-stack framework',
+    'meta.twDesc': 'Islands + Runes + Server Actions + Hardened Mode. Built for real problems in 2026.',
     'ent.label': 'Enterprise',
     'ent.title': 'Built for multi-tenant products',
     'ent.lead': 'Nexus treats <strong>tenant subdomains</strong> and <strong>custom domains</strong> as first-class routing concerns — not middleware glue. Ideal for B2B SaaS, agencies with white-label portals, and internal tools per company.',
@@ -2799,6 +2930,27 @@ const translations = {
     'cmp.title': 'Comparación de Frameworks', 'cmp.lead': 'Cómo Nexus se compara con frameworks full-stack — incluido el multi-tenant estilo B2B.',
     'pkg.title': 'Referencia de Paquetes',
     'nav.enterprise': 'Empresa y subdominios',
+    'nav.why': 'Por qué Nexus',
+    'why.label': 'Postura',
+    'why.title': 'Coraje técnico, no burocracia',
+    'why.lead': 'Lo que hace especial a Nexus.js no es solo que sea rápido o moderno, sino que es un framework con opinión y coraje. Mientras otros se han vuelto burocracias gigantes (capas infinitas de caché y configuración), Nexus nace con una pureza técnica que resuelve los problemas reales de 2026.',
+    'why.card1t': 'Reactividad sin impuestos',
+    'why.card1d': 'En otros frameworks la interactividad te castiga: un botón animado puede significar decenas de KB de runtime de React o Vue. Con Runes (<code>$state</code>, <code>$derived</code>) y las islas, el JavaScript es quirúrgico: solo baja el código de ese control. El resto es HTML de verdad. Potencia de SPA con la ligereza de un estático de los 90.',
+    'why.card2t': 'Pretext: seguridad y velocidad en un solo lugar',
+    'why.card2d': 'Integrar el pretext como entrada obligatoria evita el “infierno del spinner”: los datos ya están listos cuando llega el HTML. La seguridad es nativa: Nexus valida sesiones y filtra datos antes de que el navegador se entere, cerrando exposiciones accidentales.',
+    'why.card3t': 'Hardened Mode: el framework como auditor',
+    'why.card3d': 'El compilador te frena si filtras claves al cliente o si usas dependencias vulnerables (CVE). Eso separa juguetes de herramientas profesionales: Nexus te ayuda a no arruinar la semana con un fallo de seguridad básico.',
+    'why.flowTitle': 'Por qué NexusFlow es el showcase perfecto',
+    'why.flowBody': 'NexusFlow demuestra las tres cosas a la vez: el editor fluido con islas, la auth con Hardened Mode, y el dashboard en milisegundos gracias al pretext.',
+    'why.closingTitle': 'El efecto invisible',
+    'why.closingBody': 'Lo mejor de Nexus es que no sientes que peleas contra el framework: sin <code>useEffect</code> eterno, sin memos ni arqueología de webpack. Escribes HTML, CSS y JS estándar; el compilador hace el trabajo sucio. Nexus es lo que los desarrolladores escribirían para sí mismos si tuvieran tiempo y criterio para hacerlo bien desde cero.',
+    'why.question': '¿Qué te emociona más: la velocidad de las islas o la paz mental del Hardened Mode?',
+    'meta.title': 'Nexus.js — Framework full-stack | Islas, Runes, Server Actions y Hardened Mode',
+    'meta.description': 'Nexus.js: framework full-stack con criterio — Runes de Svelte 5, arquitectura de islas, server actions, pretext y Hardened Mode. Pureza técnica sin la burocracia de los mega-frameworks.',
+    'meta.ogTitle': 'Nexus.js — Framework full-stack | Islas, Runes y Hardened Mode',
+    'meta.ogDesc': 'Framework con pureza técnica: JS quirúrgico con islas, pretext para datos seguros en servidor y Hardened Mode como auditor en el build.',
+    'meta.twTitle': 'Nexus.js — Framework full-stack',
+    'meta.twDesc': 'Islas + Runes + Server Actions + Hardened Mode. Pensado para problemas reales en 2026.',
     'ent.label': 'Empresa',
     'ent.title': 'Pensado para productos multi-tenant',
     'ent.lead': 'Nexus trata los <strong>subdominios por tenant</strong> y los <strong>dominios personalizados</strong> como parte del routing — no como capa de middleware. Ideal para SaaS B2B, agencias con portales white-label y herramientas internas por empresa.',
@@ -2847,6 +2999,27 @@ const translations = {
     'cmp.title': 'Comparação de Frameworks', 'cmp.lead': 'Como o Nexus se compara a frameworks full-stack — incluindo multi-tenant estilo B2B.',
     'pkg.title': 'Referência de Pacotes',
     'nav.enterprise': 'Empresa e subdomínios',
+    'nav.why': 'Por que Nexus',
+    'why.label': 'Posição',
+    'why.title': 'Coragem técnica, não burocracia',
+    'why.lead': 'O que torna o Nexus.js especial não é só ser rápido ou moderno: é um framework com opinião e coragem. Enquanto outras stacks viram burocracias gigantes (camadas infinitas de cache e config), o Nexus nasce de pureza técnica para problemas reais de 2026.',
+    'why.card1t': 'Reatividade sem imposto',
+    'why.card1d': 'Outros frameworks cobram caro pela interatividade: um botão pode puxar dezenas de KB de runtime React ou Vue. Com Runes (<code>$state</code>, <code>$derived</code>) e ilhas, o JavaScript é cirúrgico — só o código daquele controle. O resto é HTML de verdade.',
+    'why.card2t': 'Pretext: segurança e velocidade juntos',
+    'why.card2d': 'Pretext como entrada de primeira classe acaba com o “inferno do spinner”: os dados chegam prontos com o HTML. Segurança nativa — sessões e dados filtrados antes do browser saber que existem.',
+    'why.card3t': 'Hardened Mode: o framework como auditor',
+    'why.card3d': 'O compilador impede vazar chaves ao cliente ou dependências vulneráveis (CVE). Isso separa brinquedos de ferramentas profissionais.',
+    'why.flowTitle': 'Por que o NexusFlow é o showcase perfeito',
+    'why.flowBody': 'O NexusFlow mostra as três de uma vez: editor fluido com ilhas, auth com Hardened Mode, dashboard em milissegundos com pretext.',
+    'why.closingTitle': 'O efeito invisível',
+    'why.closingBody': 'O melhor do Nexus é não sentir que você luta contra o framework — sem <code>useEffect</code> infinito, sem guerra de memos. Você escreve HTML, CSS e JS padrão; o compilador faz o trabalho sujo.',
+    'why.question': 'O que te anima mais: a velocidade das ilhas ou a tranquilidade do Hardened Mode?',
+    'meta.title': 'Nexus.js — Framework full-stack | Ilhas, Runes, Server Actions e Hardened Mode',
+    'meta.description': 'Nexus.js: framework full-stack opinativo — Runes Svelte 5, ilhas, server actions, pretext e Hardened Mode.',
+    'meta.ogTitle': 'Nexus.js — Framework full-stack | Ilhas, Runes e Hardened Mode',
+    'meta.ogDesc': 'Pureza técnica: JS cirúrgico com ilhas, pretext seguro no servidor e Hardened Mode como auditor.',
+    'meta.twTitle': 'Nexus.js — Framework full-stack',
+    'meta.twDesc': 'Ilhas + Runes + Server Actions + Hardened Mode. Feito para 2026.',
     'ent.label': 'Empresa',
     'ent.title': 'Feito para produtos multi-tenant',
     'ent.lead': 'O Nexus trata <strong>subdomínios por tenant</strong> e <strong>domínios customizados</strong> como roteamento de primeira classe — não como middleware. Ideal para SaaS B2B, agências white-label e ferramentas internas por empresa.',
@@ -2873,11 +3046,22 @@ function setLang(lang) {
     const key = el.getAttribute('data-i18n');
     if (t[key]) el.innerHTML = t[key];
   });
+  if (t['meta.title']) {
+    const titleEl = document.getElementById('page-title');
+    if (titleEl) titleEl.textContent = t['meta.title'];
+    document.getElementById('meta-desc')?.setAttribute('content', t['meta.description'] ?? '');
+    document.getElementById('og-title')?.setAttribute('content', t['meta.ogTitle'] ?? '');
+    document.getElementById('og-desc')?.setAttribute('content', t['meta.ogDesc'] ?? '');
+    document.getElementById('tw-title')?.setAttribute('content', t['meta.twTitle'] ?? '');
+    document.getElementById('tw-desc')?.setAttribute('content', t['meta.twDesc'] ?? '');
+  }
+  const ogLocale = lang === 'es' ? 'es_ES' : lang === 'pt' ? 'pt_BR' : 'en_US';
+  document.getElementById('og-locale')?.setAttribute('content', ogLocale);
   document.querySelectorAll('.lang-btn').forEach(btn => {
     const code = btn.textContent.trim().toLowerCase();
     btn.classList.toggle('active', code === lang);
   });
-  document.documentElement.lang = lang;
+  document.documentElement.lang = lang === 'en' ? 'en' : lang === 'es' ? 'es' : 'pt';
 }
 
 // ── Mobile drawer ───────────────────────────────────────────────────────────

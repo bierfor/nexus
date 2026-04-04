@@ -91,18 +91,22 @@ async function main(): Promise<void> {
   const command = positionals[0] as string | undefined;
   const portVal = values['port'];
   const rootVal = values['root'];
-  const port = typeof portVal === 'string' ? parseInt(portVal, 10) : 3000;
+  const portFromCli = typeof portVal === 'string' ? parseInt(portVal, 10) : undefined;
+  /** Default for `nexus dev` only — `start` resolves port in runStart (PORT env, nexus.config). */
+  const devPort = portFromCli ?? 3000;
   const root = typeof rootVal === 'string' ? rootVal : process.cwd();
 
   switch (command) {
     case 'dev':
-      await runDev({ root, port });
+      await runDev({ root, port: devPort });
       break;
     case 'build':
       await runBuild({ root });
       break;
     case 'start':
-      await runStart({ root, port });
+      await runStart(
+        portFromCli !== undefined ? { root, port: portFromCli } : { root },
+      );
       break;
     case 'add': {
       const { runAdd } = await import('./add.js');
@@ -171,6 +175,7 @@ async function runDev(opts: { root: string; port: number }): Promise<void> {
     ...(cfg.security !== undefined
       ? { security: { hardened: cfg.security.hardened === true } }
       : {}),
+    ...(cfg.server?.streamingPretext === true ? { streamingPretext: true } : {}),
 
     onRequest(info: RequestLogInfo) {
       const mCol = info.method === 'GET' ? c.cyan : c.mag;
@@ -513,21 +518,35 @@ async function runBuild(opts: { root: string }): Promise<void> {
   console.log(`  Run ${c.bold}nexus start${c.reset} to serve the production build.\n`);
 }
 
-async function runStart(opts: { root: string; port: number }): Promise<void> {
+function parseEnvPort(): number | undefined {
+  const p = process.env['PORT'];
+  if (p === undefined || p === '') return undefined;
+  const n = parseInt(p, 10);
+  return Number.isFinite(n) ? n : undefined;
+}
+
+async function runStart(opts: { root: string; port?: number }): Promise<void> {
   const _start = Date.now();
 
   const { loadAppConfig } = await import('./load-app-config.js');
   const cfg = loadAppConfig(opts.root);
 
+  const port =
+    opts.port ??
+    parseEnvPort() ??
+    (typeof cfg.server?.port === 'number' ? cfg.server.port : undefined) ??
+    3000;
+
   const { createNexusServer } = await import('@nexus_js/server');
 
   const server = await createNexusServer({
     root: opts.root,
-    port: opts.port,
+    port,
     dev: false,
     ...(cfg.security !== undefined
       ? { security: { hardened: cfg.security.hardened === true } }
       : {}),
+    ...(cfg.server?.streamingPretext === true ? { streamingPretext: true } : {}),
   });
 
   await server.listen();
@@ -536,7 +555,7 @@ async function runStart(opts: { root: string; port: number }): Promise<void> {
   console.log(
     `\n  ${c.mag}${c.bold}◆ NEXUS${c.reset} ${c.dim}production${c.reset}` +
     `   ${c.green}ready in ${elapsed}ms${c.reset}\n` +
-    `\n  ${c.green}➜${c.reset}  ${c.bold}Local${c.reset}    ${c.cyan}http://localhost:${opts.port}/${c.reset}\n`,
+    `\n  ${c.green}➜${c.reset}  ${c.bold}Local${c.reset}    ${c.cyan}http://localhost:${port}/${c.reset}\n`,
   );
 
   process.on('SIGINT', () => {

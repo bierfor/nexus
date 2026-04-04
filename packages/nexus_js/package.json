@@ -1,0 +1,49 @@
+{
+  "name": "nexus_js",
+  "version": "0.7.4",
+  "description": "Nexus framework — install once, get the nexus & create-nexus CLIs (wraps @nexus_js/cli). Works with npm, pnpm, bun, and yarn.",
+  "type": "module",
+  "bin": {
+    "nexus": "./bin/nexus.mjs",
+    "create-nexus": "./bin/create-nexus.mjs"
+  },
+  "scripts": {
+    "build": "node -e \"process.exit(0)\"",
+    "clean": "node -e \"process.exit(0)\""
+  },
+  "dependencies": {
+    "@nexus_js/cli": "^0.7.4"
+  },
+  "license": "MIT",
+  "homepage": "https://nexusjs.dev",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bierfor/nexus.git",
+    "directory": "packages/nexus_js"
+  },
+  "bugs": {
+    "url": "https://github.com/bierfor/nexus/issues"
+  },
+  "keywords": [
+    "nexus",
+    "nexus_js",
+    "framework",
+    "full-stack",
+    "cli",
+    "svelte",
+    "islands",
+    "ssr",
+    "vite"
+  ],
+  "files": [
+    "bin",
+    "README.md"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "engines": {
+    "node": ">=20.6.0"
+  }
+}

@@ -50,6 +50,11 @@ export interface NexusConfig {
     host?: string;
     /** Run on edge runtime (Cloudflare Workers / Deno Deploy compatible) */
     edge?: boolean;
+    /**
+     * Flush HTML shell before `nxPretext` finishes (chunked SSR). Best when Pretext hits DB/API.
+     * Use fragment layouts only (no root `&lt;html&gt;` from routes).
+     */
+    streamingPretext?: boolean;
   };
 
   /** Build configuration */

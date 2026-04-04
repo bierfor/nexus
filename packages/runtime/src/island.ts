@@ -246,6 +246,17 @@ function attachEventListeners(
   }
 }
 
+function refreshPretextAndHydrate(): void {
+  initPretextFromDocument();
+  hydrateAll();
+}
+
+/** After streaming SSR fills a hole, re-read Pretext and hydrate any new islands. */
+if (typeof document !== 'undefined') {
+  document.addEventListener('nexus:stream-chunk', refreshPretextAndHydrate);
+  document.addEventListener('nexus:stream-complete', refreshPretextAndHydrate);
+}
+
 /** Bootstrap: auto-runs when the runtime script loads in the browser */
 if (typeof document !== 'undefined') {
   if (document.readyState === 'loading') {

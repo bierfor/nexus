@@ -39,12 +39,22 @@
  *     <script>__nx_stream_complete()</script>
  */
 
-import { encodeChunk } from '@nexus_js/serialize';
+/**
+ * Resolved deferred chunk: plain HTML, or body + optional Pretext wire + dev bridge script.
+ * Pretext wire must be the same string produced by `serialize(ctx.pretext)` for `#__NEXUS_PRETEXT__`.
+ */
+export type StreamingPromiseValue =
+  | string
+  | {
+      html: string;
+      pretextWire?: string;
+      devBridgeScript?: string;
+    };
 
 export interface StreamingBoundary {
   id: string;
-  /** The promise that will resolve to HTML */
-  promise: Promise<string>;
+  /** The promise that will resolve to HTML (or a structured payload for Pretext streaming). */
+  promise: Promise<StreamingPromiseValue>;
   /** Fallback HTML shown while loading */
   fallback?: string;
   /** Error boundary HTML (overrides error.nx at component level) */
@@ -134,8 +144,8 @@ export function createStreamingResponse(
       // Resolve all pending boundaries in parallel
       const tasks = pending.map(async (boundary) => {
         try {
-          const html = await boundary.promise;
-          write(buildFillChunk(boundary.id, html));
+          const resolved = await boundary.promise;
+          write(buildFillChunk(boundary.id, resolved));
         } catch (err) {
           const errorHtml =
             boundary.errorFallback ??
@@ -221,9 +231,16 @@ export function createSuspenseBoundary<T>(
 export async function pipeToNodeResponse(
   webResponse: Response,
   nodeRes: import('node:http').ServerResponse,
+  mergeHeaders?: (
+    h: Record<string, string>,
+  ) => Record<string, string | string[] | number>,
 ): Promise<void> {
-  nodeRes.statusCode = webResponse.status;
-  webResponse.headers.forEach((value, key) => nodeRes.setHeader(key, value));
+  const headers: Record<string, string> = {};
+  webResponse.headers.forEach((value, key) => {
+    headers[key] = value;
+  });
+  const merged = mergeHeaders ? mergeHeaders(headers) : headers;
+  nodeRes.writeHead(webResponse.status, merged);
 
   if (!webResponse.body) {
     nodeRes.end();
@@ -246,17 +263,29 @@ export async function pipeToNodeResponse(
 // Helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
-function buildFillChunk(id: string, html: string): string {
+function buildFillChunk(id: string, resolved: StreamingPromiseValue): string {
+  const html = typeof resolved === 'string' ? resolved : resolved.html;
+  const pretextWire = typeof resolved === 'object' && resolved !== null ? resolved.pretextWire : undefined;
+  const devBridge = typeof resolved === 'object' && resolved !== null ? resolved.devBridgeScript : undefined;
+
+  const pretextScript =
+    pretextWire !== undefined
+      ? `<script>(function(){var el=document.getElementById('__NEXUS_PRETEXT__');if(el)el.textContent=${JSON.stringify(pretextWire)};})();</script>`
+      : '';
+  const bridge = devBridge ?? '';
+
   return (
+    pretextScript +
+    bridge +
     `<template id="nx-fill-${id}">${html}</template>` +
-    `<script>__nx_fill("${id}")</script>`
+    `<script>__nx_fill("${id}");document.dispatchEvent(new Event("nexus:stream-chunk"));</script>`
   );
 }
 
 function buildErrorChunk(id: string, html: string): string {
   return (
     `<template id="nx-fill-${id}">${html}</template>` +
-    `<script>__nx_fill("${id}")</script>`
+    `<script>__nx_fill("${id}");document.dispatchEvent(new Event("nexus:stream-chunk"));</script>`
   );
 }
 
@@ -276,6 +305,11 @@ let _counter = 0;
 function generateBoundaryId(): string {
   _counter = (_counter + 1) % 0xffff;
   return (_counter + Date.now()).toString(16).slice(-6);
+}
+
+/** Stable hole id for streaming Pretext (shell + one deferred body chunk). */
+export function nextStreamBoundaryId(): string {
+  return generateBoundaryId();
 }
 
 function htmlEscape(s: string): string {

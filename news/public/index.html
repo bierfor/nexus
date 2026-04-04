@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Puro Flusso</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #0a0a0f;
+        --fg: #e8e8f0;
+        --muted: #8b8b9e;
+        --accent: #00d4aa;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: ui-sans-serif, system-ui, sans-serif;
+        background: var(--bg);
+        color: var(--fg);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 2rem;
+        text-align: center;
+      }
+      h1 {
+        font-weight: 600;
+        font-size: 1.5rem;
+        margin: 0 0 0.75rem;
+      }
+      p {
+        max-width: 28rem;
+        margin: 0;
+        line-height: 1.6;
+        color: var(--muted);
+        font-size: 0.95rem;
+      }
+      .mark {
+        color: var(--accent);
+        font-size: 1.75rem;
+        margin-bottom: 1rem;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="mark" aria-hidden="true">◆</div>
+    <h1>Puro Flusso</h1>
+    <p>
+      Esta URL en Vercel sirve solo archivos estáticos desde <code>public/</code>. La aplicación Nexus
+      completa (SSR, rutas, admin) necesita un servidor Node en producción (p. ej. Railway, Render o Fly)
+      con el Dockerfile del monorepo.
+    </p>
+  </body>
+</html>

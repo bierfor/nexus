@@ -316,6 +316,12 @@ importers:
         specifier: ^5.5.0
         version: 5.9.3
 
+  packages/nexus_js:
+    dependencies:
+      '@nexus_js/cli':
+        specifier: ^0.7.4
+        version: link:../cli
+
   packages/router:
     dependencies:
       '@nexus_js/compiler':

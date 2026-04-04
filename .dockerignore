@@ -1,0 +1,10 @@
+# Used by `docker build -f Dockerfile.news .` from repo root
+.git
+.github
+**/node_modules
+**/.nexus
+**/dist
+mongo
+.env
+.env.*
+!.env.example

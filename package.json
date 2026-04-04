@@ -2,7 +2,7 @@
   "name": "nexus-workspace",
   "version": "0.7.4",
   "private": true,
-  "description": "Nexus — The Definitive Full-Stack Framework: Islands Architecture + Svelte 5 Runes + Server Actions",
+  "description": "Nexus — Full-stack framework: islands, Svelte 5 Runes, server actions, pretext, Hardened Mode & supply-chain audit",
   "workspaces": [
     "packages/*",
     "examples/*",

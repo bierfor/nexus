@@ -22,6 +22,8 @@ import { NotFoundSignal, RedirectSignal, type NexusContext } from './context.js'
 import { devErrorHtmlPage } from './dev-error-html.js';
 import { loadRouteModule } from './load-module.js';
 import { emitDevRadar } from './devradar.js';
+import { createStreamingResponse, nextStreamBoundaryId } from './streaming.js';
+import type { StreamingPromiseValue } from './streaming.js';
 
 export interface RenderOptions {
   dev: boolean;
@@ -207,32 +209,20 @@ export async function mergeRoutePretext(
   }
 }
 
-export async function renderRoute(
+type LayoutsAndPageOk = { ok: true; content: string; islandCount: number };
+type LayoutsAndPageErr = { ok: false; result: RenderResult };
+
+/**
+ * Runs layouts + page render after `ctx.pretext` is set (used by buffered and streaming SSR).
+ */
+export async function runLayoutsAndPage(
   matched: MatchedRoute,
   ctx: NexusContext,
   opts: RenderOptions,
-): Promise<RenderResult> {
+): Promise<LayoutsAndPageOk | LayoutsAndPageErr> {
   let pageHtml = '';
-
-  try {
-    ctx.pretext = await mergeRoutePretext(matched, ctx, opts);
-  } catch (err) {
-    if (err instanceof RedirectSignal || err instanceof NotFoundSignal) throw err;
-    console.error('[Nexus] Pretext error:', err);
-    return {
-      html: errorPage(err, opts.dev),
-      headers: {
-        'content-type': 'text/html; charset=utf-8',
-        'cache-control': 'no-store',
-      },
-      status: 500,
-      cacheTtl: 0,
-      islandCount: 0,
-    };
-  }
-
-  // Execute layouts from outermost to innermost
   const layoutSlots: string[] = [];
+
   for (const layout of matched.layouts) {
     try {
       const mod = await loadRouteModule(layout.filepath, {
@@ -250,7 +240,6 @@ export async function renderRoute(
     }
   }
 
-  // Render the page itself
   try {
     const pageMod = await loadRouteModule(matched.route.filepath, {
       dev: opts.dev,
@@ -265,6 +254,155 @@ export async function renderRoute(
     if (err instanceof RedirectSignal || err instanceof NotFoundSignal) throw err;
     console.error(`[Nexus] Page render error (${matched.route.filepath}):`, err);
     return {
+      ok: false,
+      result: {
+        html: errorPage(err, opts.dev),
+        headers: {
+          'content-type': 'text/html; charset=utf-8',
+          'cache-control': 'no-store',
+        },
+        status: 500,
+        cacheTtl: 0,
+        islandCount: 0,
+      },
+    };
+  }
+
+  let content = pageHtml;
+  for (const slot of layoutSlots.reverse()) {
+    content = slot.replace('<!--nexus:slot-->', content);
+  }
+
+  const islandCount = (content.match(/<nexus-island/g) ?? []).length;
+  return { ok: true, content, islandCount };
+}
+
+/**
+ * Progressive SSR: flush the HTML shell (head + skeleton) before `nxPretext` finishes,
+ * then stream the real layout/page fragment and update `#__NEXUS_PRETEXT__`.
+ *
+ * Requires fragment layouts: the composed route must not emit a root `&lt;html&gt;` document.
+ */
+export function renderRouteStreaming(
+  matched: MatchedRoute,
+  ctx: NexusContext,
+  opts: RenderOptions,
+): Response {
+  markStreamingResponse();
+  const boundaryId = nextStreamBoundaryId();
+  const emptyPretext = serialize({});
+
+  return createStreamingResponse(
+    async (ctrl) => {
+      const shellInner =
+        `<style id="nx-stream-skel">` +
+        `.nx-pretext-skeleton{min-height:32vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0.75rem;color:#64748b;font-family:system-ui,sans-serif}` +
+        `.nx-pretext-skeleton::before{content:"";width:2.5rem;height:2.5rem;border:3px solid #e2e8f0;border-top-color:#6366f1;border-radius:50%;animation:nx-sk-rot .7s linear infinite}` +
+        `@keyframes nx-sk-rot{to{transform:rotate(360deg)}}` +
+        `</style>` +
+        `<div id="nx-hole-${boundaryId}" class="nx-stream-root" role="status" aria-live="polite" aria-busy="true">` +
+        `<div class="nx-pretext-skeleton"><span>Loading…</span></div></div>`;
+
+      let shellHtml = wrapWithDocument(shellInner, opts, [], 0, emptyPretext);
+      if (!/^<!DOCTYPE/i.test(shellHtml.trimStart())) {
+        shellHtml = DOCTYPE + '\n' + shellHtml;
+      }
+      ctrl.writeShell(shellHtml);
+
+      ctrl.defer({
+        id: boundaryId,
+        promise: (async (): Promise<StreamingPromiseValue> => {
+          try {
+            ctx.pretext = await mergeRoutePretext(matched, ctx, opts);
+          } catch (err) {
+            if (err instanceof RedirectSignal) {
+              return `<script>location.replace(${JSON.stringify(err.location)})</script>`;
+            }
+            if (err instanceof NotFoundSignal) throw err;
+            console.error('[Nexus] Pretext error:', err);
+            return errorPage(err, opts.dev);
+          }
+
+          resetTtlContext();
+          const body = await runLayoutsAndPage(matched, ctx, opts);
+          if (!body.ok) {
+            resetTtlContext();
+            return body.result.html;
+          }
+
+          const { content, islandCount } = body;
+
+          if (isFullHtmlDocument(content)) {
+            if (opts.dev) {
+              console.warn(
+                '[Nexus] streamingPretext: route output includes a full <html> document. Use fragment layouts or disable server.streamingPretext.',
+              );
+            }
+            resetTtlContext();
+            return (
+              `<div data-nx-stream-warning style="padding:1rem;color:#b45309;background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;font-family:system-ui">` +
+              'Streaming Pretext requires fragment layouts (no root &lt;html&gt; in route output). Disable <code>server.streamingPretext</code> or change the layout.' +
+              '</div>'
+            );
+          }
+
+          const cacheControl = computeCacheControl(ctx);
+
+          const bridgeLogs: ServerBridgeLog[] = [];
+          if (opts.dev) {
+            bridgeLogs.push({
+              type: 'render',
+              path: new URL(ctx.request.url).pathname,
+              duration: 0,
+              cacheStrategy: cacheControl.strategy,
+              cacheHit:
+                cacheControl.strategy === 'swr' || cacheControl.strategy === 'static-immutable',
+            });
+            if (islandCount > 0) {
+              bridgeLogs.push({ type: 'island-count', islandCount });
+            }
+          }
+
+          const pretextWire = ctx.pretext !== undefined ? serialize(ctx.pretext) : serialize({});
+          resetTtlContext();
+
+          const devBridgeScript =
+            opts.dev && bridgeLogs.length > 0
+              ? `<script>window.__NEXUS_SERVER_LOGS__=${JSON.stringify(bridgeLogs)};window.__NEXUS_BUILD_INFO__=${JSON.stringify({
+                  totalJs: 8_400 + islandCount * 1_200,
+                  reactEquivalent: 148_000,
+                  islandCount,
+                })};</script>`
+              : undefined;
+
+          const payload: StreamingPromiseValue = devBridgeScript
+            ? { html: content, pretextWire, devBridgeScript }
+            : { html: content, pretextWire };
+          return payload;
+        })(),
+      });
+    },
+    {
+      headers: {
+        'x-nexus-cache-strategy': 'streaming-no-store',
+        'x-nexus-island-count': '0',
+        ...(opts.dev ? { 'x-nexus-ttl': String(0) } : {}),
+      },
+    },
+  );
+}
+
+export async function renderRoute(
+  matched: MatchedRoute,
+  ctx: NexusContext,
+  opts: RenderOptions,
+): Promise<RenderResult> {
+  try {
+    ctx.pretext = await mergeRoutePretext(matched, ctx, opts);
+  } catch (err) {
+    if (err instanceof RedirectSignal || err instanceof NotFoundSignal) throw err;
+    console.error('[Nexus] Pretext error:', err);
+    return {
       html: errorPage(err, opts.dev),
       headers: {
         'content-type': 'text/html; charset=utf-8',
@@ -276,14 +414,12 @@ export async function renderRoute(
     };
   }
 
-  // Compose layouts (outermost wraps innermost wraps page)
-  let content = pageHtml;
-  for (const slot of layoutSlots.reverse()) {
-    content = slot.replace('<!--nexus:slot-->', content);
+  const body = await runLayoutsAndPage(matched, ctx, opts);
+  if (!body.ok) {
+    return body.result;
   }
 
-  // Count island markers in the rendered content (for logging + bridge)
-  const islandCount = (content.match(/<nexus-island/g) ?? []).length;
+  const { content, islandCount } = body;
 
   // Compute smart cache headers BEFORE resetting the context
   const cacheControl = computeCacheControl(ctx);

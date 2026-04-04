@@ -7,6 +7,8 @@ export default {
   defaultHydration: 'client:visible',
   server: {
     port: 3010,
+    /** Progressive SSR: head + skeleton first, then Pretext + body (NexusFlow fragment layout). */
+    streamingPretext: true,
   },
   build: {
     outDir: '.nexus/output',
