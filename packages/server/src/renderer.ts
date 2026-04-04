@@ -15,8 +15,8 @@
  *     5. Has user session → Cache-Control: private, no-store (never CDN-cache)
  */
 
-import type { MatchedRoute } from '@nexus/router';
-import type { IslandManifest } from '@nexus/compiler';
+import type { MatchedRoute } from '@nexus_js/router';
+import type { IslandManifest } from '@nexus_js/compiler';
 import type { NexusContext } from './context.js';
 import { loadRouteModule } from './load-module.js';
 
@@ -73,7 +73,7 @@ const renderTtlContext: { ttls: number[]; hasSession: boolean; hasStream: boolea
   hasStream: false,
 };
 
-/** Called by @nexus/runtime cache() to register a TTL for this render. */
+/** Called by @nexus_js/runtime cache() to register a TTL for this render. */
 export function registerCacheTTL(ttl: number): void {
   renderTtlContext.ttls.push(ttl);
 }
@@ -271,14 +271,14 @@ function wrapWithDocument(
     ? `<script type="module" src="${opts.assets.runtime}"></script>`
     : '';
 
-  // Import map — resolves @nexus/* bare specifiers inside dynamically-imported island bundles.
+  // Import map — resolves @nexus_js/* bare specifiers inside dynamically-imported island bundles.
   // Must appear before any <script type="module"> that uses these specifiers.
   const importMap = `<script type="importmap">
 {
   "imports": {
-    "@nexus/runtime/island": "/_nexus/rt/island.js",
-    "@nexus/runtime": "/_nexus/rt/index.js",
-    "@nexus/serialize": "/_nexus/rt/serialize.js"
+    "@nexus_js/runtime/island": "/_nexus/rt/island.js",
+    "@nexus_js/runtime": "/_nexus/rt/index.js",
+    "@nexus_js/serialize": "/_nexus/rt/serialize.js"
   }
 }
 </script>`;
@@ -373,7 +373,7 @@ const nexusClientDevScript = `<script>
 
   console.groupEnd();
 
-  // ── Island hydration hook (called by @nexus/runtime island loader) ──────────
+  // ── Island hydration hook (called by @nexus_js/runtime island loader) ──────────
   window.__NEXUS_LOG_ISLAND__ = function(name, strategy, ms) {
     console.log(
       '%c[Nexus] 🏝️ Island%c <' + name + ' />%c hydrated ' +

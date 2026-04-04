@@ -10,15 +10,15 @@
     "start": "nexus start --port 3020"
   },
   "dependencies": {
-    "@nexus/connect": "workspace:*",
-    "@nexus/head": "workspace:*",
-    "@nexus/runtime": "workspace:*",
-    "@nexus/serialize": "workspace:*",
-    "@nexus/server": "workspace:*"
+    "@nexus_js/connect": "workspace:*",
+    "@nexus_js/head": "workspace:*",
+    "@nexus_js/runtime": "workspace:*",
+    "@nexus_js/serialize": "workspace:*",
+    "@nexus_js/server": "workspace:*"
   },
   "devDependencies": {
-    "@nexus/cli": "workspace:*",
-    "@nexus/compiler": "workspace:*",
+    "@nexus_js/cli": "workspace:*",
+    "@nexus_js/compiler": "workspace:*",
     "typescript": "^5.5.0"
   }
 }

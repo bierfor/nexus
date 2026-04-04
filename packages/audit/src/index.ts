@@ -1,5 +1,5 @@
 /**
- * @nexus/audit — Dependency Auditing & Supply Chain Security
+ * @nexus_js/audit — Dependency Auditing & Supply Chain Security
  *
  * Provides:
  *  - CVE scanning via Google OSV (open, no API key)

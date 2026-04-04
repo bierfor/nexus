@@ -6,7 +6,7 @@
  *   request for the same Pokémon is served in ~0ms from this in-memory cache.
  *
  *   In production, swap the Map with a Redis adapter:
- *     import { setCacheAdapter } from '@nexus/runtime';
+ *     import { setCacheAdapter } from '@nexus_js/runtime';
  *     setCacheAdapter(redisAdapter(process.env.REDIS_URL));
  *
  * GRAPHQL ENDPOINT:

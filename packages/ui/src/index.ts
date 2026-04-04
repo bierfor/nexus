@@ -1,5 +1,5 @@
 /**
- * @nexus/ui — Zero-Bundle Component Library
+ * @nexus_js/ui — Zero-Bundle Component Library
  *
  * Every component in this library generates pure HTML+CSS output.
  * No JavaScript is shipped to the browser. The Nexus compiler detects
@@ -19,7 +19,7 @@
  *
  * ```nx
  * ---
- * import { Accordion } from '@nexus/ui';
+ * import { Accordion } from '@nexus_js/ui';
  * ---
  *
  * <Accordion title="How does Nexus work?">
@@ -42,11 +42,11 @@ export const ZERO_BUNDLE_MARKER = '__nexus_zero_bundle__';
 
 /**
  * Injects the Zero-Bundle stylesheet into a page's <head>.
- * Called automatically by the renderer when @nexus/ui components are detected.
+ * Called automatically by the renderer when @nexus_js/ui components are detected.
  */
 export function getZeroBundleCSS(): string {
   return `
-/* @nexus/ui — Zero-Bundle Component Styles */
+/* @nexus_js/ui — Zero-Bundle Component Styles */
 @layer nexus.ui {
 
 /* ── Accordion ── */

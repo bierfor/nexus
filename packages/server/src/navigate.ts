@@ -6,8 +6,8 @@
  * optimized for the DOM morphing algorithm.
  */
 
-import { matchRoute } from '@nexus/router';
-import type { RouteManifest } from '@nexus/router';
+import { matchRoute } from '@nexus_js/router';
+import type { RouteManifest } from '@nexus_js/router';
 import { createContext } from './context.js';
 import { renderRoute } from './renderer.js';
 import type { RenderOptions } from './renderer.js';

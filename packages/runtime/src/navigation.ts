@@ -21,7 +21,7 @@
  *   2. Intercept: preventDefault(), push to history
  *   3. Fetch: GET /_nexus/navigate?path=/new-route
  *      Server returns: { html, head, islands, props }
- *   4. Diff <head>: update title, meta, canonical (via @nexus/head)
+ *   4. Diff <head>: update title, meta, canonical (via @nexus_js/head)
  *   5. Morph <body>: walk the DOM tree
  *      a. Same node type + same [data-nx-key] → update attributes + children
  *      b. Island node ([data-nexus-island]) with same component path:

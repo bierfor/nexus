@@ -1,6 +1,6 @@
 {
-  "name": "@nexus/connect",
-  "version": "0.6.0",
+  "name": "@nexus_js/connect",
+  "version": "0.7.0",
   "description": "Nexus Connect — Edge-State Sync via SSE. $socket() rune for real-time state across all connected clients.",
   "type": "module",
   "main": "./dist/index.js",
@@ -25,5 +25,33 @@
     "@types/node": "^22.0.0",
     "typescript": "^5.5.0",
     "vitest": "^2.0.0"
+  },
+  "license": "MIT",
+  "homepage": "https://nexusjs.dev",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bierfor/nexus.git",
+    "directory": "packages/connect"
+  },
+  "bugs": {
+    "url": "https://github.com/bierfor/nexus/issues"
+  },
+  "keywords": [
+    "nexus",
+    "framework",
+    "full-stack",
+    "svelte",
+    "islands",
+    "ssr",
+    "vite",
+    "server-actions"
+  ],
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
   }
 }

@@ -109,7 +109,7 @@ const RULES: Rule[] = [
     id: 'unsafe-innerhtml', category: 'XSS', severity: 'high',
     title: 'Unsafe innerHTML assignment',
     description: '`innerHTML` allows arbitrary HTML injection. If the value comes from user input or an API, this is an XSS vulnerability.',
-    fix: 'Use `textContent` for plain text. For trusted HTML, use `@nexus/ui` components. For user HTML, use DOMPurify.sanitize().',
+    fix: 'Use `textContent` for plain text. For trusted HTML, use `@nexus_js/ui` components. For user HTML, use DOMPurify.sanitize().',
     pattern: /\.innerHTML\s*=/,
     extensions: ['.nx', '.ts', '.js'],
   },

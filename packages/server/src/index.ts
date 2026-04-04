@@ -6,10 +6,10 @@
 import { createServer, IncomingMessage, ServerResponse } from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
 import { join, extname } from 'node:path';
-import { buildRouteManifest, matchRoute } from '@nexus/router';
-import type { RouteManifest } from '@nexus/router';
+import { buildRouteManifest, matchRoute } from '@nexus_js/router';
+import type { RouteManifest } from '@nexus_js/router';
 import { handleActionRequest } from './actions.js';
-import { handleSSERequestNode, isConnectRequest, topicFromUrl } from '@nexus/connect';
+import { handleSSERequestNode, isConnectRequest, topicFromUrl } from '@nexus_js/connect';
 import {
   buildAggregatedNxStylesheet,
   bustAggregatedStylesCache,
@@ -18,7 +18,7 @@ import {
   tryServeRuntimeAsset,
 } from './dev-assets.js';
 import { renderRoute } from './renderer.js';
-import { reimportDevActionSidecars } from './load-module.js';
+import { preloadRegisteredServerActions } from './load-module.js';
 import { createContext, RedirectSignal, NotFoundSignal } from './context.js';
 import type { RenderOptions } from './renderer.js';
 
@@ -85,7 +85,7 @@ export async function createNexusServer(opts: NexusServerOptions) {
     dev,
     appRoot: opts.root,
     assets: {
-      /** ESM entry + chunks served from @nexus/runtime/dist via /_nexus/rt/* */
+      /** ESM entry + chunks served from @nexus_js/runtime/dist via /_nexus/rt/* */
       runtime: '/_nexus/rt/index.js',
       styles: ['/_nexus/styles.css'],
       islands: new Map(),
@@ -129,7 +129,7 @@ export async function createNexusServer(opts: NexusServerOptions) {
       return;
     }
 
-    // ── @nexus/runtime ESM (browser import graph: /_nexus/rt/index.js → ./island.js …)
+    // ── @nexus_js/runtime ESM (browser import graph: /_nexus/rt/index.js → ./island.js …)
     const rt = await tryServeRuntimeAsset(url.pathname, opts.root);
     if (rt) {
       res.writeHead(200, { 'content-type': rt.contentType });
@@ -145,6 +145,22 @@ export async function createNexusServer(opts: NexusServerOptions) {
         'cache-control': dev ? 'no-store' : 'public, max-age=120',
       });
       res.end(out.body);
+      return;
+    }
+
+    // ── Image optimizer (AVIF/WebP/resize) — same contract as Vite dev middleware
+    if (url.pathname === '/_nexus/image' && (method === 'GET' || method === 'HEAD')) {
+      const request = nodeToWebRequest(req);
+      const { handleImageRequest } = await import('@nexus_js/assets');
+      const response = await handleImageRequest(request, { publicDir });
+      if (method === 'HEAD') {
+        const headers: Record<string, string> = {};
+        response.headers.forEach((value, key) => { headers[key] = value; });
+        res.writeHead(response.status, headers);
+        res.end();
+        return;
+      }
+      await webToNodeResponse(response, res);
       return;
     }
 
@@ -216,8 +232,15 @@ export async function createNexusServer(opts: NexusServerOptions) {
   return {
     /** Starts listening. Resolves when the server is bound to the port. */
     listen(): Promise<void> {
-      return new Promise((resolve) => {
-        server.listen(port, () => resolve());
+      return new Promise((resolve, reject) => {
+        void (async () => {
+          try {
+            await preloadRegisteredServerActions(opts.root, dev);
+          } catch (err) {
+            console.error('[Nexus] Server action preload failed:', err);
+          }
+          server.listen(port, () => resolve());
+        })().catch(reject);
       });
     },
 
@@ -226,7 +249,7 @@ export async function createNexusServer(opts: NexusServerOptions) {
       bustAggregatedStylesCache();
       manifest = await buildRouteManifest(routesDir);
       if (dev) {
-        await reimportDevActionSidecars(opts.root);
+        await preloadRegisteredServerActions(opts.root, true);
       }
     },
 
@@ -276,7 +299,7 @@ async function webToNodeResponse(
   const headers: Record<string, string> = {};
   response.headers.forEach((value, key) => { headers[key] = value; });
   res.writeHead(response.status, headers);
-  const body = await response.text();
+  const body = Buffer.from(await response.arrayBuffer());
   res.end(body);
 }
 

@@ -24,7 +24,7 @@
  *
  *   Layer 3 — Serialized Snapshot:
  *     On navigation, the store serializes its state to sessionStorage
- *     using @nexus/serialize (handles Date, Map, Set, BigInt).
+ *     using @nexus_js/serialize (handles Date, Map, Set, BigInt).
  *     This survives hard refreshes within the same session.
  *
  * USAGE:
@@ -46,7 +46,7 @@
  */
 
 import { $state, $effect } from './runes.js';
-import { serialize, deserialize } from '@nexus/serialize';
+import { serialize, deserialize } from '@nexus_js/serialize';
 
 export interface StoreOptions<T> {
   default: T;

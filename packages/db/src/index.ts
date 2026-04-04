@@ -1,5 +1,5 @@
 /**
- * @nexus/db — BYOD (Bring Your Own DB) thin provider adapter.
+ * @nexus_js/db — BYOD (Bring Your Own DB) thin provider adapter.
  *
  * PHILOSOPHY:
  *   Nexus does NOT ship an ORM. Prisma and Drizzle are production-grade tools
@@ -11,14 +11,14 @@
  *     4. Integrates invalidation with revalidate() on mutation
  *
  * SUPPORTED CLIENTS (via official adapters):
- *   - Prisma       →  @nexus/db/adapters/prisma
- *   - Drizzle ORM  →  @nexus/db/adapters/drizzle
- *   - libSQL/Turso →  @nexus/db/adapters/libsql
+ *   - Prisma       →  @nexus_js/db/adapters/prisma
+ *   - Drizzle ORM  →  @nexus_js/db/adapters/drizzle
+ *   - libSQL/Turso →  @nexus_js/db/adapters/libsql
  *   - Any custom   →  defineDB<TClient>() directly
  *
  * USAGE:
  *   // nexus.config.ts
- *   import { defineDB } from '@nexus/db';
+ *   import { defineDB } from '@nexus_js/db';
  *   import { PrismaClient } from '@prisma/client';
  *
  *   export default defineNexus({
@@ -36,8 +36,8 @@
  *   }
  */
 
-import { cache, revalidate } from '@nexus/runtime';
-import { serialize } from '@nexus/serialize';
+import { cache, revalidate } from '@nexus_js/runtime';
+import { serialize } from '@nexus_js/serialize';
 
 // ── Core types ─────────────────────────────────────────────────────────────────
 

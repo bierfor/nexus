@@ -1,5 +1,5 @@
 /**
- * @nexus/sync — Local-First Sync Engine
+ * @nexus_js/sync — Local-First Sync Engine
  *
  * Provides offline-first data persistence and background synchronization
  * using IndexedDB as the local store and Server Actions as the sync target.

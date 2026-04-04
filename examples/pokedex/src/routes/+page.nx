@@ -9,9 +9,9 @@
  *   4. SSR Grid: The 20 cards render as pure HTML — zero JS cost.
  *   5. Islands: Only the SearchBar and pagination buttons hydrate.
  */
-import { cache } from '@nexus/runtime';
+import { cache } from '@nexus_js/runtime';
 import { fetchPokemonList, TYPE_COLORS } from '../lib/pokeapi.js';
-import { defineHead } from '@nexus/head';
+import { defineHead } from '@nexus_js/head';
 
 const page  = Number(ctx.url.searchParams.get('page')  ?? '1');
 const limit = Number(ctx.url.searchParams.get('limit') ?? '20');

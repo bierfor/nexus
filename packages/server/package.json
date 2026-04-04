@@ -1,7 +1,7 @@
 {
-  "name": "@nexus/server",
-  "version": "0.6.0",
-  "description": "Nexus HTTP server \u2014 SSR, Server Actions, Edge-ready",
+  "name": "@nexus_js/server",
+  "version": "0.7.0",
+  "description": "Nexus HTTP server — SSR, Server Actions, Edge-ready",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -26,14 +26,43 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@nexus/compiler": "workspace:*",
-    "@nexus/connect": "workspace:*",
-    "@nexus/router": "workspace:*",
-    "@nexus/serialize": "workspace:*"
+    "@nexus_js/assets": "workspace:*",
+    "@nexus_js/compiler": "workspace:*",
+    "@nexus_js/connect": "workspace:*",
+    "@nexus_js/router": "workspace:*",
+    "@nexus_js/serialize": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
     "typescript": "^5.5.0",
     "vitest": "^2.0.0"
+  },
+  "license": "MIT",
+  "homepage": "https://nexusjs.dev",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bierfor/nexus.git",
+    "directory": "packages/server"
+  },
+  "bugs": {
+    "url": "https://github.com/bierfor/nexus/issues"
+  },
+  "keywords": [
+    "nexus",
+    "framework",
+    "full-stack",
+    "svelte",
+    "islands",
+    "ssr",
+    "vite",
+    "server-actions"
+  ],
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
   }
 }

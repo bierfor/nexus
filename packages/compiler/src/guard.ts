@@ -90,7 +90,7 @@ const PATTERNS: Pattern[] = [
     regex:    /process\.env\.([A-Z_][A-Z0-9_]+)/g,
     type:     'env-var',
     severity: 'warning',
-    hint:     'process.env is not available in the browser. Move this to the server frontmatter or use $env() from @nexus/runtime.',
+    hint:     'process.env is not available in the browser. Move this to the server frontmatter or use $env() from @nexus_js/runtime.',
   },
 ];
 
@@ -158,7 +158,7 @@ function scanBlock(
  * @returns GuardResult with all detected leaks
  *
  * @example
- * import { guard } from '@nexus/compiler/guard';
+ * import { guard } from '@nexus_js/compiler/guard';
  * const result = guard(source, 'src/routes/+page.nx');
  * if (!result.passed) {
  *   for (const leak of result.leaks.filter(l => l.severity === 'error')) {

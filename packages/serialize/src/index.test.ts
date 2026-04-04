@@ -40,7 +40,7 @@ describe('Nexus Serialize — round-trip fidelity', () => {
   });
 
   it('preserves URL', () => {
-    const url = new URL('https://nexus.dev/blog?q=test#anchor');
+    const url = new URL('https://nexusjs.dev/blog?q=test#anchor');
     const result = deserialize<URL>(serialize(url));
     expect(result).toBeInstanceOf(URL);
     expect(result.href).toBe(url.href);

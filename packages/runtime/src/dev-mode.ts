@@ -53,7 +53,7 @@ const isDev = (): boolean =>
  * Called by the island loader after `component.mount()` completes.
  *
  * @example
- * // Inside @nexus/runtime island.ts
+ * // Inside @nexus_js/runtime island.ts
  * logIslandHydration('SearchBar', 'client:load', performance.now() - t0);
  */
 export function logIslandHydration(

@@ -7,14 +7,14 @@
  * Put the browser in Airplane Mode — battles still run.
  *
  * Nexus concept: $sync with 'local' persistence = IndexedDB under the hood,
- * serialized via @nexus/serialize (handles Date, Map, Set, BigInt).
+ * serialized via @nexus_js/serialize (handles Date, Map, Set, BigInt).
  */
 import type { PokemonDetail } from '../lib/types.js';
 interface Props { pokemon: PokemonDetail; }
 ---
 
 <script>
-import { useStore } from '@nexus/runtime';
+import { useStore } from '@nexus_js/runtime';
 
 let { pokemon } = $props<{ pokemon: PokemonDetail }>();
 

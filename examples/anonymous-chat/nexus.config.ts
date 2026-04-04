@@ -1,4 +1,4 @@
-import type { NexusConfig } from '@nexus/cli';
+import type { NexusConfig } from '@nexus_js/cli';
 
 export default {
   defaultHydration: 'client:load',

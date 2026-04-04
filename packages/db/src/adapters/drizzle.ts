@@ -1,5 +1,5 @@
 /**
- * @nexus/db/adapters/drizzle — Drizzle ORM adapter.
+ * @nexus_js/db/adapters/drizzle — Drizzle ORM adapter.
  *
  * Drizzle is schema-first, SQL-native, and Edge-native by default.
  * This adapter wires it to Nexus's cache() and revalidate() system.
@@ -7,7 +7,7 @@
  * @example
  * import { drizzle } from 'drizzle-orm/postgres-js';
  * import postgres from 'postgres';
- * import { drizzleAdapter } from '@nexus/db/adapters/drizzle';
+ * import { drizzleAdapter } from '@nexus_js/db/adapters/drizzle';
  * import * as schema from './schema';
  *
  * const sql = postgres(process.env.DATABASE_URL!);

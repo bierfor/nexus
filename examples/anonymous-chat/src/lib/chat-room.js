@@ -2,7 +2,7 @@
  * In-memory chat for a single Node process (dev / one replica).
  * For production at scale, swap the broker publish for Redis, etc.
  */
-import { getChannel } from '@nexus/connect';
+import { getChannel } from '@nexus_js/connect';
 
 const MAX_MESSAGES = 300;
 /** @type {{ id: string; nick: string; text: string; ts: number }[]} */

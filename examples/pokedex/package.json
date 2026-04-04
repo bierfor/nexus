@@ -9,12 +9,12 @@
     "build": "nexus build"
   },
   "dependencies": {
-    "@nexus/runtime": "workspace:*",
-    "@nexus/serialize": "workspace:*"
+    "@nexus_js/runtime": "workspace:*",
+    "@nexus_js/serialize": "workspace:*"
   },
   "devDependencies": {
-    "@nexus/cli": "workspace:*",
-    "@nexus/compiler": "workspace:*",
+    "@nexus_js/cli": "workspace:*",
+    "@nexus_js/compiler": "workspace:*",
     "typescript": "^5.5.0"
   }
 }

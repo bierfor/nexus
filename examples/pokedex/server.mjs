@@ -366,7 +366,7 @@ const NEXUS_CLIENT_DEV_SCRIPT = `
     console.groupCollapsed('%c◆ Nexus%c  Security Panel', S.nexus, S.dim);
     console.log('%c[Nexus] 🔒 CSRF%c            tokens enabled — HMAC-SHA256, single-use, 15m TTL', S.ok, S.dim);
     console.log('%c[Nexus] 🚦 Rate Limit%c      capture: 3 req/min per IP (x-ratelimit-* headers on 429)', S.ok, S.dim);
-    console.log('%c[Nexus] 🧹 XSS Protection%c  auto entity-encoding on all @nexus/serialize string props', S.ok, S.dim);
+    console.log('%c[Nexus] 🧹 XSS Protection%c  auto entity-encoding on all @nexus_js/serialize string props', S.ok, S.dim);
     if (sec.headers && sec.headers.length > 0) {
       console.log('%c[Nexus] 🔐 Sec Headers%c    ' + sec.headers.join(' · '), S.ok, S.dim);
     }
@@ -695,7 +695,7 @@ window.__NEXUS_GUARD__ = ${JSON.stringify(_guardResult)};
 window.__NEXUS_SECURITY__ = {
   csrf:      true,
   rateLimit: { capture: '3 req/min per IP' },
-  xss:       'auto entity-encoding via @nexus/serialize',
+  xss:       'auto entity-encoding via @nexus_js/serialize',
   headers:   ${JSON.stringify(Object.keys(SECURITY_HEADERS))},
   hardened:  false,
   audit:     'nexus audit --ci',
@@ -961,7 +961,7 @@ function renderDetailPage(p, cached) {
         document.getElementById('battle-app').innerHTML = \`
           <div>
             <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;flex-wrap:wrap">
-              <span style="font-size:11px;background:rgba(129,140,248,.15);color:#818cf8;padding:3px 10px;border-radius:999px;font-weight:700">@nexus/sync • IndexedDB</span>
+              <span style="font-size:11px;background:rgba(129,140,248,.15);color:#818cf8;padding:3px 10px;border-radius:999px;font-weight:700">@nexus_js/sync • IndexedDB</span>
               <span id="online-badge" style="font-size:11px;background:rgba(16,185,129,.15);color:#10b981;padding:3px 10px;border-radius:999px;font-weight:700">${navigator.onLine ? '🟢 Online' : '🔴 Offline'}</span>
               <span id="sync-status" style="font-size:11px;color:#94a3b8"></span>
             </div>
@@ -1042,7 +1042,7 @@ function renderDetailPage(p, cached) {
         }
 
         // ── Nexus Local-First: capture via IndexedDB sync ─────────────────
-        // Uses the same pattern as @nexus/sync: write locally first (0ms),
+        // Uses the same pattern as @nexus_js/sync: write locally first (0ms),
         // then queue a sync op for the server. Works offline!
         var _captureDB = null;
         function openCaptureDB() {
@@ -1124,7 +1124,7 @@ function renderDetailPage(p, cached) {
             document.getElementById('atk-btn').disabled = true;
             document.getElementById('atk-btn').style.opacity = '.5';
             if (oppHp <= 0) {
-              // ── @nexus/sync pattern: write locally first (instant!) ──────
+              // ── @nexus_js/sync pattern: write locally first (instant!) ──────
               const captureData = {
                 id: data.id, name: data.name, sprite: data.sprite,
                 types: data.types, capturedAt: new Date().toISOString(),

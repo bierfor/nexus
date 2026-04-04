@@ -1,5 +1,5 @@
 /**
- * @nexus/connect — Edge-State Sync
+ * @nexus_js/connect — Edge-State Sync
  *
  * Server exports:
  *   getChannel(topic)     — pub/sub channel for server→client push
@@ -8,7 +8,7 @@
  *   isConnectRequest()    — Route guard for /_nexus/connect/* URLs
  *   CONNECT_PATH          — '/_nexus/connect/'
  *
- * Client exports (import from '@nexus/connect/client'):
+ * Client exports (import from '@nexus_js/connect/client'):
  *   $socket(topic, opts)  — reactive SSE subscription rune
  */
 
@@ -33,7 +33,7 @@ export interface NexusChannel<T = unknown> {
  *
  * @example
  * // In .nx frontmatter:
- * import { getChannel } from '@nexus/connect';
+ * import { getChannel } from '@nexus_js/connect';
  * const stats = getChannel<{ captures: number }>('global-stats');
  * stats.publish({ captures: await db.count('captures') });
  */

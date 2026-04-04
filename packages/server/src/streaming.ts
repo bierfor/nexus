@@ -39,7 +39,7 @@
  *     <script>__nx_stream_complete()</script>
  */
 
-import { encodeChunk } from '@nexus/serialize';
+import { encodeChunk } from '@nexus_js/serialize';
 
 export interface StreamingBoundary {
   id: string;

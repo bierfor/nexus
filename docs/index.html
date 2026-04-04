@@ -699,8 +699,8 @@ cd my-app</code></pre>
       <pre><code class="language-html">---
 // ① SERVER BLOCK — runs ONLY on the server, never sent to browser
 // Fetch data, access env vars, call the DB
-import { cache } from '@nexus/runtime';
-import { defineHead } from '@nexus/head';
+import { cache } from '@nexus_js/runtime';
+import { defineHead } from '@nexus_js/head';
 
 const posts = await cache(() => fetch('/api/posts').then(r => r.json()), {
   ttl: 60,        // Cache for 60 seconds
@@ -1019,7 +1019,7 @@ async function handleSubmit(e: SubmitEvent) {
       <h3>Race Condition Strategies</h3>
       <p>Configure how concurrent calls to the same action are handled:</p>
       <div class="code-title"><span>src/server/actions.ts</span><span class="code-lang">typescript</span></div>
-      <pre><code class="language-typescript">import { registerAction } from '@nexus/server/actions';
+      <pre><code class="language-typescript">import { registerAction } from '@nexus_js/server/actions';
 
 // 'cancel' — abort previous, run latest (search, autosave)
 registerAction('search',     searchFn,  { race: 'cancel' });
@@ -1044,7 +1044,7 @@ registerAction('importData', importFn,  { idempotent: true, timeout: 120_000 });
 
       <div class="code-title"><span>src/routes/+page.nx</span><span class="code-lang">.nx</span></div>
       <pre><code class="language-html">---
-import { cache, revalidate } from '@nexus/runtime';
+import { cache, revalidate } from '@nexus_js/runtime';
 
 // Cache for 60 seconds, tag as 'posts'
 const posts = await cache(() => db.post.findMany(), {
@@ -1084,8 +1084,8 @@ const cart = await cache(() => getCart(userId), { ttl: 0 });
 
       <h3>Setup (nexus.config.ts)</h3>
       <div class="code-title"><span>nexus.config.ts</span><span class="code-lang">typescript</span></div>
-      <pre><code class="language-typescript">import { defineNexus } from '@nexus/cli';
-import { defineDB } from '@nexus/db';
+      <pre><code class="language-typescript">import { defineNexus } from '@nexus_js/cli';
+import { defineDB } from '@nexus_js/db';
 import { PrismaClient } from '@prisma/client';
 
 export default defineNexus({
@@ -1096,7 +1096,7 @@ export default defineNexus({
 });</code></pre>
 
       <h3>Prisma Adapter</h3>
-      <pre><code class="language-typescript">import { prismaAdapter } from '@nexus/db/adapters/prisma';
+      <pre><code class="language-typescript">import { prismaAdapter } from '@nexus_js/db/adapters/prisma';
 import { PrismaClient } from '@prisma/client';
 
 const db = prismaAdapter(new PrismaClient(), {
@@ -1104,7 +1104,7 @@ const db = prismaAdapter(new PrismaClient(), {
 });</code></pre>
 
       <h3>Drizzle Adapter (Edge-native)</h3>
-      <pre><code class="language-typescript">import { drizzleAdapter } from '@nexus/db/adapters/drizzle';
+      <pre><code class="language-typescript">import { drizzleAdapter } from '@nexus_js/db/adapters/drizzle';
 import { drizzle } from 'drizzle-orm/neon-http';
 import { neon } from '@neondatabase/serverless';
 
@@ -1112,7 +1112,7 @@ const sql = neon(process.env.DATABASE_URL!);
 const db = drizzleAdapter(drizzle(sql), { edge: true });</code></pre>
 
       <h3>Turso / libSQL Adapter</h3>
-      <pre><code class="language-typescript">import { libsqlAdapter } from '@nexus/db/adapters/libsql';
+      <pre><code class="language-typescript">import { libsqlAdapter } from '@nexus_js/db/adapters/libsql';
 import { createClient } from '@libsql/client';
 
 const db = libsqlAdapter(createClient({
@@ -1142,7 +1142,7 @@ const post = await ctx.db.mutate('post', 'create', () =>
 
       <div class="code-title"><span>src/routes/+page.nx</span><span class="code-lang">.nx</span></div>
       <pre><code class="language-html">---
-import { Suspense } from '@nexus/server/streaming';
+import { Suspense } from '@nexus_js/server/streaming';
 
 // Fast data: available immediately
 const user = await getUser(ctx);
@@ -1182,7 +1182,7 @@ const slowData = Suspense(
 
       <div class="code-title"><span>src/components/Cart.nx</span><span class="code-lang">.nx</span></div>
       <pre><code class="language-html">&lt;script&gt;
-import { useStore } from '@nexus/runtime';
+import { useStore } from '@nexus_js/runtime';
 
 // State persists in sessionStorage across /shop → /checkout → /confirm
 const cart = useStore('cart', {
@@ -1232,7 +1232,7 @@ console.log(cart.value); // [{ id: 'sku-1', name: 'Widget', qty: 2 }]</code></pr
       <p>It works automatically — just use regular <code>&lt;a&gt;</code> tags. Nexus intercepts clicks, fetches the new page as HTML, and surgically updates the DOM while preserving live islands.</p>
 
       <h3>Programmatic Navigation</h3>
-      <pre><code class="language-typescript">import { navigate, prefetch } from '@nexus/runtime';
+      <pre><code class="language-typescript">import { navigate, prefetch } from '@nexus_js/runtime';
 
 // Navigate to a new route
 await navigate('/dashboard');
@@ -1264,7 +1264,7 @@ prefetch('/dashboard');
       <p class="lead" data-i18n="mw.lead">Web-standard middleware pipeline. Runs on Node.js, Cloudflare Workers, and Vercel Edge.</p>
 
       <div class="code-title"><span>src/middleware.ts</span><span class="code-lang">typescript</span></div>
-      <pre><code class="language-typescript">import { sequence, cors, rateLimit, auth, securityHeaders } from '@nexus/middleware';
+      <pre><code class="language-typescript">import { sequence, cors, rateLimit, auth, securityHeaders } from '@nexus_js/middleware';
 
 export const middleware = sequence(
   securityHeaders(),           // CSP, HSTS, X-Frame-Options
@@ -1282,7 +1282,7 @@ export const middleware = sequence(
 );</code></pre>
 
       <h3>Custom Middleware</h3>
-      <pre><code class="language-typescript">import type { MiddlewareFn } from '@nexus/middleware';
+      <pre><code class="language-typescript">import type { MiddlewareFn } from '@nexus_js/middleware';
 
 export const requestLogger: MiddlewareFn = async (request, next) => {
   const start = Date.now();
@@ -1293,11 +1293,11 @@ export const requestLogger: MiddlewareFn = async (request, next) => {
 
       <h3>Edge Adapters</h3>
       <pre><code class="language-typescript">// Cloudflare Workers
-import { toCloudflareHandler } from '@nexus/middleware';
+import { toCloudflareHandler } from '@nexus_js/middleware';
 export default toCloudflareHandler(middleware);
 
 // Vercel Edge Functions
-import { toVercelEdge } from '@nexus/middleware';
+import { toVercelEdge } from '@nexus_js/middleware';
 export default toVercelEdge(middleware);</code></pre>
     </section>
 
@@ -1308,7 +1308,7 @@ export default toVercelEdge(middleware);</code></pre>
 
       <div class="code-title"><span>src/routes/blog/[slug]/+page.nx</span><span class="code-lang">.nx</span></div>
       <pre><code class="language-html">---
-import { defineHead } from '@nexus/head';
+import { defineHead } from '@nexus_js/head';
 
 const post = await ctx.db.query('post', 'findOne', () =>
   ctx.db.client.post.findUnique({ where: { slug: ctx.params.slug } })
@@ -1340,7 +1340,7 @@ defineHead({
 ---</code></pre>
 
       <h3>Reactive Head Updates (Client-side)</h3>
-      <pre><code class="language-typescript">import { useHead } from '@nexus/head';
+      <pre><code class="language-typescript">import { useHead } from '@nexus_js/head';
 
 // In an island — updates &lt;title&gt; reactively
 let count = $state(0);
@@ -1358,7 +1358,7 @@ useHead(() => ({
       <h3>Images</h3>
       <div class="code-title"><span>src/routes/+page.nx</span><span class="code-lang">.nx</span></div>
       <pre><code class="language-html">---
-import { renderImage } from '@nexus/assets';
+import { renderImage } from '@nexus_js/assets';
 
 // Generates AVIF/WebP srcset, blur placeholder, lazy loading
 const heroImg = renderImage('/hero.jpg', {
@@ -1381,7 +1381,7 @@ const heroImg = renderImage('/hero.jpg', {
 
       <h3>Font Optimization</h3>
       <pre><code class="language-typescript">// nexus.config.ts
-import { defineNexus } from '@nexus/cli';
+import { defineNexus } from '@nexus_js/cli';
 
 export default defineNexus({
   assets: {
@@ -1431,7 +1431,7 @@ export default defineNexus({
 
       <h3>nexus.config.ts</h3>
       <div class="code-title"><span>nexus.config.ts</span><span class="code-lang">typescript</span></div>
-      <pre><code class="language-typescript">import { defineNexus } from '@nexus/cli';
+      <pre><code class="language-typescript">import { defineNexus } from '@nexus_js/cli';
 
 export default defineNexus({
   // Dev server
@@ -1551,7 +1551,7 @@ export default defineNexus({
       <p class="lead" data-i18n="testing.lead">First-class Vitest integration with helpers for SSR, islands, and Server Actions.</p>
 
       <h3>SSR Testing</h3>
-      <pre><code class="language-typescript">import { renderSSR } from '@nexus/testing';
+      <pre><code class="language-typescript">import { renderSSR } from '@nexus_js/testing';
 
 test('renders blog post', async () => {
   const { html, status } = await renderSSR('/blog/hello-world');
@@ -1561,7 +1561,7 @@ test('renders blog post', async () => {
 });</code></pre>
 
       <h3>Island Testing</h3>
-      <pre><code class="language-typescript">import { mountIsland, fireEvent } from '@nexus/testing';
+      <pre><code class="language-typescript">import { mountIsland, fireEvent } from '@nexus_js/testing';
 
 test('counter increments', async () => {
   const { getByText, getByRole } = await mountIsland('./Counter.nx', {
@@ -1576,7 +1576,7 @@ test('counter increments', async () => {
 });</code></pre>
 
       <h3>Server Action Testing</h3>
-      <pre><code class="language-typescript">import { createActionTestHarness } from '@nexus/testing';
+      <pre><code class="language-typescript">import { createActionTestHarness } from '@nexus_js/testing';
 
 test('createPost saves to DB', async () => {
   const harness = createActionTestHarness('./src/routes/+page.nx');
@@ -1608,8 +1608,8 @@ docker run -p 3000:3000 my-app</code></pre>
 
       <h3>Cloudflare Workers</h3>
       <pre><code class="language-typescript">// src/entry.cloudflare.ts
-import { toCloudflareHandler } from '@nexus/middleware';
-import { createNexusServer } from '@nexus/server';
+import { toCloudflareHandler } from '@nexus_js/middleware';
+import { createNexusServer } from '@nexus_js/server';
 
 const server = await createNexusServer({ root: '.', dev: false });
 export default toCloudflareHandler(server.fetch);</code></pre>
@@ -1644,7 +1644,7 @@ export default toCloudflareHandler(server.fetch);</code></pre>
       <p>The router detects whether the request originates from <code>acme.app.com</code>, <code>custom-domain.io</code>, or a path prefix and automatically scopes the cache, cookies, and server context to that tenant.</p>
 
       <div class="code-title"><span>packages/router/src/tenant.ts — key API</span><span class="code-lang">typescript</span></div>
-      <pre><code class="language-typescript">import { extractTenant } from '@nexus/router';
+      <pre><code class="language-typescript">import { extractTenant } from '@nexus_js/router';
 
 // nexus.config.ts
 export default defineNexusConfig({
@@ -1683,7 +1683,7 @@ const data = await db.products.findMany({
         <tbody>
           <tr><td>Cache keys</td><td>Prefixed with <code>tenant:{id}:</code> — zero cross-tenant cache bleed</td></tr>
           <tr><td>Cookies</td><td>Scoped per tenant domain / subdomain by the browser</td></tr>
-          <tr><td>DB queries</td><td><code>@nexus/db</code> adapter warns if <code>tenantId</code> filter is missing</td></tr>
+          <tr><td>DB queries</td><td><code>@nexus_js/db</code> adapter warns if <code>tenantId</code> filter is missing</td></tr>
           <tr><td>Vary headers</td><td>Automatic <code>Vary: Host</code> on all tenant-aware responses</td></tr>
         </tbody>
       </table>
@@ -1701,7 +1701,7 @@ const data = await db.products.findMany({
       <h3>The <code>$localSync</code> rune</h3>
       <div class="code-title"><span>src/routes/captures/+page.nx</span><span class="code-lang">html</span></div>
       <pre><code class="language-html">&lt;script&gt;
-import { $localSync } from '@nexus/sync';
+import { $localSync } from '@nexus_js/sync';
 
 // Reactive, offline-first collection — backed by IndexedDB
 const captures = $localSync('pokemon-captures', {
@@ -1775,7 +1775,7 @@ async function remove(id) {
   renderTooltip,
   renderModal,
   renderProgressRing,
-} from '@nexus/ui';
+} from '@nexus_js/ui';
 
 // All of these compile to 0 bytes of JS — pure CSS interaction</code></pre>
 
@@ -1837,11 +1837,11 @@ await validateActionToken(token, sessionId, secretKey);
   Wrap sensitive logic in a Server Action instead.</code></pre>
 
       <h3>3 — XSS Auto-Encoding</h3>
-      <p><code>@nexus/serialize</code> automatically HTML entity-encodes all strings flowing from server to client islands. No developer action required.</p>
+      <p><code>@nexus_js/serialize</code> automatically HTML entity-encodes all strings flowing from server to client islands. No developer action required.</p>
       <pre><code class="language-typescript">// Before serialization (server side):
 { name: "&lt;script&gt;alert(1)&lt;/script&gt;" }
 
-// After @nexus/serialize.encode (island receives):
+// After @nexus_js/serialize.encode (island receives):
 { name: "&amp;lt;script&amp;gt;alert(1)&amp;lt;/script&amp;gt;" }</code></pre>
 
       <h3>4 — Per-Action Rate Limiting</h3>
@@ -1893,8 +1893,8 @@ nexus audit --json       # Machine-readable output</code></pre>
           <tr><td>Forms without input validation schema</td><td>Static AST</td><td>🟠 High</td></tr>
           <tr><td>Routes missing auth middleware</td><td>Route manifest</td><td>🟠 High</td></tr>
           <tr><td>Missing security headers in production</td><td>nexus.config.ts</td><td>🟡 Medium</td></tr>
-          <tr><td>Dependency CVEs (OSV database)</td><td>@nexus/audit engine</td><td>Varies</td></tr>
-          <tr><td>Supply chain risks (npm registry)</td><td>@nexus/audit engine</td><td>🟡 Medium+</td></tr>
+          <tr><td>Dependency CVEs (OSV database)</td><td>@nexus_js/audit engine</td><td>Varies</td></tr>
+          <tr><td>Supply chain risks (npm registry)</td><td>@nexus_js/audit engine</td><td>🟡 Medium+</td></tr>
           <tr><td>Open redirect patterns</td><td>Static AST</td><td>🟠 High</td></tr>
         </tbody>
       </table>
@@ -1924,7 +1924,7 @@ nexus audit --json       # Machine-readable output</code></pre>
     <section id="supply-chain">
       <div class="section-label">Security — v0.6</div>
       <h2>⛓️ Supply Chain Guard</h2>
-      <p class="lead"><code>@nexus/audit</code> queries the npm registry to detect high-risk dependency patterns before they become your problem.</p>
+      <p class="lead"><code>@nexus_js/audit</code> queries the npm registry to detect high-risk dependency patterns before they become your problem.</p>
 
       <h3>Risk signals detected</h3>
       <table class="dir-table">
@@ -2013,7 +2013,7 @@ nexus fix --force        # Also fix medium + low severity</code></pre>
         </div>
         <p style="color:var(--muted);margin-bottom:12px">Integrated Dependency Auditing &amp; Supply Chain Guard</p>
         <ul style="color:var(--text);line-height:2;list-style:disc;padding-left:16px">
-          <li>New package <code>@nexus/audit</code> — OSV CVE scanning with offline-first cache</li>
+          <li>New package <code>@nexus_js/audit</code> — OSV CVE scanning with offline-first cache</li>
           <li>Supply chain risk analysis (single maintainer, rapid versions, abandoned packages)</li>
           <li><code>nexusSecurity</code> Vite plugin — build-time CVE blocking with 4 severity modes</li>
           <li><code>nexus fix</code> CLI — automated one-command vulnerability remediation</li>
@@ -2031,7 +2031,7 @@ nexus fix --force        # Also fix medium + low severity</code></pre>
         <ul style="color:var(--text);line-height:2;list-style:disc;padding-left:16px">
           <li>Anti-CSRF &amp; Replay: HMAC-signed single-use action tokens per island render</li>
           <li>Ghost Wall: compiler blocks builds when server secrets reach client bundles</li>
-          <li>XSS auto-encoding in <code>@nexus/serialize</code> for all server→client strings</li>
+          <li>XSS auto-encoding in <code>@nexus_js/serialize</code> for all server→client strings</li>
           <li>Per-action rate limiting with sliding window &amp; RFC 6585 <code>Retry-After</code> headers</li>
           <li><code>nexus audit</code> CLI — static code analysis + dependency CVE scanning</li>
           <li>Hardened Mode: automatic security headers (CSP, HSTS, X-Frame-Options)</li>
@@ -2045,10 +2045,10 @@ nexus fix --force        # Also fix medium + low severity</code></pre>
         </div>
         <p style="color:var(--muted);margin-bottom:12px">Multi-Tenant, Local-First, Zero-Bundle</p>
         <ul style="color:var(--text);line-height:2;list-style:disc;padding-left:16px">
-          <li>Native multi-tenant support in <code>@nexus/router</code> with typed <code>tenant</code> context</li>
-          <li><code>@nexus/sync</code> — <code>$localSync</code> rune with IndexedDB + background server sync</li>
-          <li><code>@nexus/ui</code> — 5 zero-JS CSS-only interactive components</li>
-          <li>Multi-Tenant Row Level Security warnings in <code>@nexus/db</code> adapter</li>
+          <li>Native multi-tenant support in <code>@nexus_js/router</code> with typed <code>tenant</code> context</li>
+          <li><code>@nexus_js/sync</code> — <code>$localSync</code> rune with IndexedDB + background server sync</li>
+          <li><code>@nexus_js/ui</code> — 5 zero-JS CSS-only interactive components</li>
+          <li>Multi-Tenant Row Level Security warnings in <code>@nexus_js/db</code> adapter</li>
         </ul>
       </div>
 
@@ -2091,7 +2091,7 @@ nexus fix --force        # Also fix medium + low severity</code></pre>
         <ul style="color:var(--text);line-height:2;list-style:disc;padding-left:16px">
           <li>Islands Architecture, Svelte 5 Runes, Server Actions, File-based Routing</li>
           <li>PPR, Edge-Cache headers, Global State Store, SPA Navigation (Morphing)</li>
-          <li>BYOD Database adapters, <code>@nexus/serialize</code>, <code>@nexus/assets</code></li>
+          <li>BYOD Database adapters, <code>@nexus_js/serialize</code>, <code>@nexus_js/assets</code></li>
         </ul>
       </div>
     </section>
@@ -2145,25 +2145,25 @@ nexus fix --force        # Also fix medium + low severity</code></pre>
       <table class="dir-table">
         <thead><tr><th>Package</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td><code>@nexus/compiler</code></td><td>.nx → JS transform, AOT CSS scoping, island preload scanner</td></tr>
-          <tr><td><code>@nexus/runtime</code></td><td>Runes, island hydration, store, navigation, cache, $optimistic, $sync</td></tr>
-          <tr><td><code>@nexus/server</code></td><td>HTTP server, SSR renderer, streaming SSR, Server Actions, error boundaries</td></tr>
-          <tr><td><code>@nexus/router</code></td><td>File-based route manifest builder</td></tr>
-          <tr><td><code>@nexus/cli</code></td><td><code>nexus</code> CLI + Nexus Studio dashboard + <code>create-nexus</code> scaffolder</td></tr>
-          <tr><td><code>@nexus/assets</code></td><td>AVIF/WebP image optimization, font preloading and inlining</td></tr>
-          <tr><td><code>@nexus/head</code></td><td><code>defineHead()</code> server-side + <code>useHead()</code> reactive client-side</td></tr>
-          <tr><td><code>@nexus/middleware</code></td><td>CORS, rate limit, auth, geo, security headers — Cloudflare/Vercel adapters</td></tr>
-          <tr><td><code>@nexus/serialize</code></td><td>SuperJSON-like: Date, Map, Set, BigInt, RegExp, URL, Uint8Array, Error</td></tr>
-          <tr><td><code>@nexus/types</code></td><td>E2E type generation for routes, params, and Server Actions</td></tr>
-          <tr><td><code>@nexus/testing</code></td><td><code>renderSSR</code>, <code>mountIsland</code>, <code>createActionTestHarness</code> for Vitest</td></tr>
+          <tr><td><code>@nexus_js/compiler</code></td><td>.nx → JS transform, AOT CSS scoping, island preload scanner</td></tr>
+          <tr><td><code>@nexus_js/runtime</code></td><td>Runes, island hydration, store, navigation, cache, $optimistic, $sync</td></tr>
+          <tr><td><code>@nexus_js/server</code></td><td>HTTP server, SSR renderer, streaming SSR, Server Actions, error boundaries</td></tr>
+          <tr><td><code>@nexus_js/router</code></td><td>File-based route manifest builder</td></tr>
+          <tr><td><code>@nexus_js/cli</code></td><td><code>nexus</code> CLI + Nexus Studio dashboard + <code>create-nexus</code> scaffolder</td></tr>
+          <tr><td><code>@nexus_js/assets</code></td><td>AVIF/WebP image optimization, font preloading and inlining</td></tr>
+          <tr><td><code>@nexus_js/head</code></td><td><code>defineHead()</code> server-side + <code>useHead()</code> reactive client-side</td></tr>
+          <tr><td><code>@nexus_js/middleware</code></td><td>CORS, rate limit, auth, geo, security headers — Cloudflare/Vercel adapters</td></tr>
+          <tr><td><code>@nexus_js/serialize</code></td><td>SuperJSON-like: Date, Map, Set, BigInt, RegExp, URL, Uint8Array, Error</td></tr>
+          <tr><td><code>@nexus_js/types</code></td><td>E2E type generation for routes, params, and Server Actions</td></tr>
+          <tr><td><code>@nexus_js/testing</code></td><td><code>renderSSR</code>, <code>mountIsland</code>, <code>createActionTestHarness</code> for Vitest</td></tr>
           <tr><td><code>vite-plugin-nexus</code></td><td>Vite plugin for HMR, CSS preprocessing, island manifest emission, CVE blocking</td></tr>
-          <tr><td><code>@nexus/db</code></td><td>BYOD DB adapter: Prisma, Drizzle ORM, libSQL/Turso, or custom</td></tr>
-          <tr><td><code>@nexus/sync</code></td><td><code>$localSync</code> rune — IndexedDB offline writes + background server sync + conflict resolution</td></tr>
-          <tr><td><code>@nexus/ui</code></td><td>Zero-Bundle CSS-only interactive components (Accordion, Tabs, Modal, Tooltip, Progress Ring)</td></tr>
-          <tr><td><code>@nexus/audit</code></td><td>OSV CVE scanning, supply chain risk analysis, override policy with auto-expiry</td></tr>
-          <tr><td><code>@nexus/connect</code></td><td>SSE pub/sub real-time state sync — <code>$socket(topic)</code> rune</td></tr>
-          <tr><td><code>@nexus/ai</code></td><td>Micro-ML predictive prefetch with Network Information API awareness</td></tr>
-          <tr><td><code>@nexus/marketplace</code></td><td><code>nexus add &lt;block&gt;</code> — official Nexus Blocks installer</td></tr>
+          <tr><td><code>@nexus_js/db</code></td><td>BYOD DB adapter: Prisma, Drizzle ORM, libSQL/Turso, or custom</td></tr>
+          <tr><td><code>@nexus_js/sync</code></td><td><code>$localSync</code> rune — IndexedDB offline writes + background server sync + conflict resolution</td></tr>
+          <tr><td><code>@nexus_js/ui</code></td><td>Zero-Bundle CSS-only interactive components (Accordion, Tabs, Modal, Tooltip, Progress Ring)</td></tr>
+          <tr><td><code>@nexus_js/audit</code></td><td>OSV CVE scanning, supply chain risk analysis, override policy with auto-expiry</td></tr>
+          <tr><td><code>@nexus_js/connect</code></td><td>SSE pub/sub real-time state sync — <code>$socket(topic)</code> rune</td></tr>
+          <tr><td><code>@nexus_js/ai</code></td><td>Micro-ML predictive prefetch with Network Information API awareness</td></tr>
+          <tr><td><code>@nexus_js/marketplace</code></td><td><code>nexus add &lt;block&gt;</code> — official Nexus Blocks installer</td></tr>
         </tbody>
       </table>
 

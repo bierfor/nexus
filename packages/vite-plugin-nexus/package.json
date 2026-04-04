@@ -1,12 +1,15 @@
 {
   "name": "vite-plugin-nexus",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "Official Vite plugin for Nexus — transforms .nx files, HMR, island manifests, Server Actions",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
-    ".": { "import": "./dist/index.js", "types": "./dist/index.d.ts" }
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
@@ -14,9 +17,10 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@nexus/audit": "workspace:*",
-    "@nexus/compiler": "workspace:*",
-    "@nexus/types": "workspace:*"
+    "@nexus_js/assets": "workspace:*",
+    "@nexus_js/audit": "workspace:*",
+    "@nexus_js/compiler": "workspace:*",
+    "@nexus_js/types": "workspace:*"
   },
   "peerDependencies": {
     "vite": ">=5.0.0"
@@ -25,5 +29,33 @@
     "@types/node": "^22.0.0",
     "typescript": "^5.5.0",
     "vite": "^5.0.0"
+  },
+  "license": "MIT",
+  "homepage": "https://nexusjs.dev",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bierfor/nexus.git",
+    "directory": "packages/vite-plugin-nexus"
+  },
+  "bugs": {
+    "url": "https://github.com/bierfor/nexus/issues"
+  },
+  "keywords": [
+    "nexus",
+    "framework",
+    "full-stack",
+    "svelte",
+    "islands",
+    "ssr",
+    "vite",
+    "server-actions"
+  ],
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
   }
 }

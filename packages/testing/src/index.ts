@@ -1,12 +1,12 @@
 /**
- * @nexus/testing — Test utilities for Nexus components.
+ * @nexus_js/testing — Test utilities for Nexus components.
  *
  * Supports two test modes:
  *   1. SSR mode: renders the server output, asserts on HTML strings
  *   2. Island mode: mounts the client island in jsdom, tests reactivity
  *
  * Example:
- *   import { renderSSR, mountIsland, screen, fireEvent } from '@nexus/testing';
+ *   import { renderSSR, mountIsland, screen, fireEvent } from '@nexus_js/testing';
  *
  *   // SSR test
  *   test('renders user name', async () => {
@@ -32,7 +32,7 @@
  *   });
  */
 
-import { compile, parse } from '@nexus/compiler';
+import { compile, parse } from '@nexus_js/compiler';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 

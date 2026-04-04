@@ -4,7 +4,7 @@
  * The SearchBar island is mounted here so it persists
  * across SPA navigation (Server-Driven Morphing preserves it).
  */
-import { defineHead } from '@nexus/head';
+import { defineHead } from '@nexus_js/head';
 
 defineHead({
   title: 'Nexus Pokédex — Islands + GraphQL + Shield Cache',

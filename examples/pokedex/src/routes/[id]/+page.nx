@@ -10,9 +10,9 @@
  *   4. BattleMode Island: client:idle + $sync('local') for offline-first.
  *   5. Smart Cache-Control: Nexus emits correct headers automatically.
  */
-import { cache } from '@nexus/runtime';
+import { cache } from '@nexus_js/runtime';
 import { fetchPokemonDetail } from '../../lib/pokeapi.js';
-import { defineHead } from '@nexus/head';
+import { defineHead } from '@nexus_js/head';
 
 const id = Number(ctx.params.id);
 if (isNaN(id) || id < 1 || id > 1025) {

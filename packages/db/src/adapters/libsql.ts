@@ -1,5 +1,5 @@
 /**
- * @nexus/db/adapters/libsql — Turso/libSQL adapter.
+ * @nexus_js/db/adapters/libsql — Turso/libSQL adapter.
  *
  * libSQL is the Edge-native SQLite database. This adapter provides:
  *   - Typed query helpers wrapping the libSQL client
@@ -8,7 +8,7 @@
  *
  * @example
  * import { createClient } from '@libsql/client';
- * import { libsqlAdapter } from '@nexus/db/adapters/libsql';
+ * import { libsqlAdapter } from '@nexus_js/db/adapters/libsql';
  *
  * export const db = libsqlAdapter(createClient({
  *   url: process.env.TURSO_URL!,

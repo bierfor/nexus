@@ -4,7 +4,7 @@
  * Usage (inside a .nx island):
  *
  * ```ts
- * import { $localSync } from '@nexus/sync';
+ * import { $localSync } from '@nexus_js/sync';
  *
  * const captures = $localSync<string[]>('my-captures', {
  *   default: [],

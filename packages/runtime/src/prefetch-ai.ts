@@ -328,7 +328,7 @@ export function buildClientManifest(minConfidence = 0.5): PrefetchManifest {
  *
  * @example
  * // nexus.config.ts
- * import { defineAIPrefetch } from '@nexus/runtime/prefetch-ai';
+ * import { defineAIPrefetch } from '@nexus_js/runtime/prefetch-ai';
  * export default defineNexusConfig({
  *   ai: defineAIPrefetch({
  *     mode: 'smart',

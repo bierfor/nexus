@@ -1,0 +1,23 @@
+{
+  "name": "image-gallery",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Nexus demo — @nexus_js/assets renderImage + /_nexus/image (sharp: AVIF/WebP, srcset, cache)",
+  "scripts": {
+    "dev": "nexus dev --port 3040",
+    "build": "nexus build",
+    "start": "nexus start --port 3040"
+  },
+  "dependencies": {
+    "@nexus_js/assets": "workspace:*",
+    "@nexus_js/head": "workspace:*",
+    "@nexus_js/runtime": "workspace:*",
+    "@nexus_js/server": "workspace:*"
+  },
+  "devDependencies": {
+    "@nexus_js/cli": "workspace:*",
+    "@nexus_js/compiler": "workspace:*",
+    "typescript": "^5.5.0"
+  }
+}

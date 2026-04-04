@@ -1,7 +1,7 @@
 {
-  "name": "@nexus/compiler",
-  "version": "0.6.0",
-  "description": "Nexus compiler \u2014 transforms .nx files into optimized server/client bundles",
+  "name": "@nexus_js/compiler",
+  "version": "0.7.0",
+  "description": "Nexus compiler — transforms .nx files into optimized server/client bundles",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -18,10 +18,39 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "magic-string": "^0.30.0"
+    "magic-string": "^0.30.0",
+    "typescript": "^5.5.0"
   },
   "devDependencies": {
     "typescript": "^5.5.0",
     "vitest": "^2.0.0"
+  },
+  "license": "MIT",
+  "homepage": "https://nexusjs.dev",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bierfor/nexus.git",
+    "directory": "packages/compiler"
+  },
+  "bugs": {
+    "url": "https://github.com/bierfor/nexus/issues"
+  },
+  "keywords": [
+    "nexus",
+    "framework",
+    "full-stack",
+    "svelte",
+    "islands",
+    "ssr",
+    "vite",
+    "server-actions"
+  ],
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
   }
 }

@@ -1,5 +1,5 @@
 /**
- * @nexus/db/adapters/prisma — Prisma Client adapter.
+ * @nexus_js/db/adapters/prisma — Prisma Client adapter.
  *
  * Features:
  *   - Automatic Edge compatibility (uses Prisma Accelerate if PRISMA_ACCELERATE_URL is set)
@@ -9,7 +9,7 @@
  *
  * @example
  * import { PrismaClient } from '@prisma/client';
- * import { prismaAdapter } from '@nexus/db/adapters/prisma';
+ * import { prismaAdapter } from '@nexus_js/db/adapters/prisma';
  *
  * export const db = prismaAdapter(new PrismaClient(), {
  *   softDelete: true,

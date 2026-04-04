@@ -17,7 +17,7 @@
  *   { __t: 'Set',     v: [item, ...] }
  *   { __t: 'BigInt',  v: '9007199254740993' }
  *   { __t: 'RegExp',  v: { src: 'foo', flags: 'gi' } }
- *   { __t: 'URL',     v: 'https://nexus.dev' }
+ *   { __t: 'URL',     v: 'https://nexusjs.dev' }
  *   { __t: 'Undef' }
  *   { __t: 'NaN' }
  *   { __t: 'Inf',     v: 1 | -1 }
@@ -242,7 +242,7 @@ export async function callAction<TInput, TOutput>(
 
 /**
  * HTML entity encoding applied to ALL strings that travel from server → client
- * via @nexus/serialize. This is Nexus's first line of XSS defense.
+ * via @nexus_js/serialize. This is Nexus's first line of XSS defense.
  *
  * Why not rely on frameworks? Because the serializer is the choke point —
  * every string that reaches an island prop passes through here.
@@ -271,7 +271,7 @@ function encodeHtmlEntities(str: string): string {
  *
  * @example
  * // In your island template:
- * import { sanitize } from '@nexus/serialize';
+ * import { sanitize } from '@nexus_js/serialize';
  * html`<p>${sanitize(userBio)}</p>`
  */
 export function sanitize(input: unknown): string {

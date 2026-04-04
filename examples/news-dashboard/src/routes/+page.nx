@@ -1,0 +1,227 @@
+---
+import { fetchTopStories } from '$lib/hn-news.js';
+import { defineHead } from '@nexus_js/head';
+
+const fetched = await fetchTopStories(15);
+const articles =
+  fetched.length > 0
+    ? fetched
+    : [
+        {
+          id: '0',
+          tag: 'Hacker News',
+          title: 'No se pudieron cargar historias en vivo',
+          excerpt:
+            'Revisa tu conexión y recarga. El servidor obtiene datos de https://hacker-news.firebaseio.com/v0/ (API pública, sin clave).',
+          date: '',
+          href: 'https://github.com/HackerNews/API',
+        },
+      ];
+
+defineHead({
+  title: `Nexus · Noticias (${articles.length} · Hacker News)`,
+  description: 'Demo SSR: historias reales desde la API pública de Hacker News',
+  themeColor: '#f8fafc',
+  links: [
+    {
+      rel: 'stylesheet',
+      href: 'https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap',
+    },
+  ],
+});
+---
+
+<template>
+  <div class="page">
+    <main class="main">
+      <header class="masthead">
+        <p class="brand">Nexus</p>
+        <h1>Noticias en vivo</h1>
+        <p class="lede">
+          Historias reales desde la API pública de <strong>Hacker News</strong> (fetch en el servidor en cada render).
+          Cada tarjeta enlaza al artículo original.
+        </p>
+      </header>
+
+      <p class="feed-source">
+        Fuente: <a href="https://github.com/HackerNews/API" target="_blank" rel="noopener noreferrer">Hacker News API</a>
+        · sin API key · datos frescos en cada recarga
+      </p>
+
+      <ul class="news-list">
+        {#each articles as article}
+          <li class="news-card">
+            <a
+              class="news-card-link"
+              href="{article.href}"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <span class="news-tag">{article.tag}</span>
+              <h2 class="news-title">{article.title}</h2>
+              <p class="news-excerpt">{article.excerpt}</p>
+              <time class="news-date" datetime="{article.date}">{article.date}</time>
+            </a>
+          </li>
+        {/each}
+      </ul>
+
+      <footer class="foot">
+        <p class="foot-hint">
+          <strong>Nexus.js</strong> v0.6 · <code>examples/news-dashboard</code> · <code>pnpm dev</code> puerto 3030
+        </p>
+        <p class="foot-meta">
+          <a href="https://github.com/bierfor/nexus" target="_blank" rel="noopener noreferrer">GitHub</a>
+        </p>
+      </footer>
+    </main>
+  </div>
+</template>
+
+<style>
+  :global(*, *::before, *::after) { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :global(html) {
+    min-height: 100dvh;
+    background: #f1f5f9;
+  }
+  :global(body) {
+    min-height: 100dvh;
+    margin: 0;
+    font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+    color: #0f172a;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .page {
+    min-height: 100dvh;
+    max-width: 640px;
+    margin: 0 auto;
+    background: #fff;
+    box-shadow: 0 0 0 1px #e2e8f0;
+  }
+
+  .main {
+    padding: clamp(1.5rem, 4vw, 2.5rem);
+  }
+
+  .masthead { margin-bottom: 2rem; }
+  .brand {
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: #94a3b8;
+    margin-bottom: 0.5rem;
+  }
+  .masthead h1 {
+    font-size: clamp(1.5rem, 4vw, 2rem);
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    margin-bottom: 0.5rem;
+  }
+  .lede {
+    font-size: 0.9375rem;
+    color: #64748b;
+    max-width: 56ch;
+  }
+  .lede strong { color: #475569; font-weight: 600; }
+
+  .feed-source {
+    font-size: 0.75rem;
+    color: #94a3b8;
+    margin-bottom: 1.25rem;
+    line-height: 1.5;
+  }
+  .feed-source a {
+    color: #4f46e5;
+    font-weight: 600;
+    text-decoration: none;
+  }
+  .feed-source a:hover { text-decoration: underline; }
+
+  .news-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+  .news-card {
+    border-radius: 10px;
+    border: 1px solid #e2e8f0;
+    background: #fafafa;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    overflow: hidden;
+  }
+  .news-card:hover {
+    border-color: #cbd5e1;
+    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.06);
+  }
+  .news-card-link {
+    display: block;
+    padding: 1.15rem 1.25rem;
+    text-decoration: none;
+    color: inherit;
+    outline: none;
+  }
+  .news-card-link:focus-visible {
+    box-shadow: inset 0 0 0 2px #818cf8;
+  }
+  .news-tag {
+    display: inline-block;
+    font-size: 0.625rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #4f46e5;
+    background: #eef2ff;
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    margin-bottom: 0.5rem;
+  }
+  .news-title {
+    font-size: 1.05rem;
+    font-weight: 600;
+    margin-bottom: 0.35rem;
+    letter-spacing: -0.02em;
+  }
+  .news-excerpt {
+    font-size: 0.875rem;
+    color: #64748b;
+    margin-bottom: 0.5rem;
+  }
+  .news-date {
+    font-size: 0.75rem;
+    color: #94a3b8;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .foot {
+    margin-top: 2.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid #f1f5f9;
+  }
+  .foot-hint {
+    font-size: 0.75rem;
+    color: #94a3b8;
+    margin-bottom: 0.5rem;
+  }
+  .foot-hint code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    background: #f1f5f9;
+    padding: 0.1rem 0.35rem;
+    border-radius: 4px;
+  }
+  .foot-hint strong { color: #64748b; }
+  .foot-meta {
+    font-size: 0.75rem;
+  }
+  .foot-meta a {
+    color: #4f46e5;
+    font-weight: 600;
+    text-decoration: none;
+  }
+  .foot-meta a:hover { text-decoration: underline; }
+</style>

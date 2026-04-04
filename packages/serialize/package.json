@@ -1,7 +1,7 @@
 {
-  "name": "@nexus/serialize",
-  "version": "0.6.0",
-  "description": "Nexus serializer \u2014 lossless transport of Date, Map, Set, BigInt, RegExp, URL between server and client",
+  "name": "@nexus_js/serialize",
+  "version": "0.7.0",
+  "description": "Nexus serializer — lossless transport of Date, Map, Set, BigInt, RegExp, URL between server and client",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -20,5 +20,33 @@
   "devDependencies": {
     "typescript": "^5.5.0",
     "vitest": "^2.0.0"
+  },
+  "license": "MIT",
+  "homepage": "https://nexusjs.dev",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bierfor/nexus.git",
+    "directory": "packages/serialize"
+  },
+  "bugs": {
+    "url": "https://github.com/bierfor/nexus/issues"
+  },
+  "keywords": [
+    "nexus",
+    "framework",
+    "full-stack",
+    "svelte",
+    "islands",
+    "ssr",
+    "vite",
+    "server-actions"
+  ],
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
   }
 }

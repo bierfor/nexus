@@ -1,5 +1,5 @@
 ---
-import { defineHead } from '@nexus/head';
+import { defineHead } from '@nexus_js/head';
 
 defineHead({
   title: 'Editor de flujo — NexusFlow',
@@ -8,6 +8,8 @@ defineHead({
 ---
 
 <script>
+  import { callAction } from '@nexus_js/serialize';
+
   type NodeItem = { id: string; label: string; x: number; y: number; kind: string };
 
   let nodes = $state<NodeItem[]>([
@@ -68,16 +70,31 @@ defineHead({
   }
 
   async function publish() {
-    publishStatus = 'Validando grafo…';
-    await new Promise((r) => setTimeout(r, 400));
-    const orphan = edges.some(
-      (e) => !nodes.some((n) => n.id === e.from) || !nodes.some((n) => n.id === e.to),
-    );
-    if (orphan) {
-      publishStatus = 'Rechazado: arista huérfana';
+    publishStatus = 'Validando en servidor…';
+    const fid =
+      typeof document !== 'undefined'
+        ? document.querySelector('[data-flow]')?.getAttribute('data-flow') ?? 'default'
+        : 'default';
+    const out = await callAction('publishFlow', {
+      nodes: nodes.map((n) => ({ ...n })),
+      edges: edges.map((e) => ({ ...e })),
+      flowId: fid,
+    });
+    if (out.error) {
+      publishStatus = out.error;
       return;
     }
-    publishStatus = 'Publicado (demo) — con Server Action real el servidor validaría el JSON completo.';
+    const d = out.data;
+    publishStatus =
+      d && typeof d === 'object' && d !== null && 'message' in d
+        ? String(Reflect.get(d, 'message'))
+        : 'OK';
+  }
+
+  /** Registrada automáticamente en el servidor (sidecar + preload al arrancar). */
+  async function publishFlow(input) {
+    "use server";
+    return validateFlowPayload(input);
   }
 
   $effect(() => {
@@ -109,7 +126,8 @@ defineHead({
         <h1>Flujo <span class="mono flow-id">{ctx.params.id}</span></h1>
         <p class="lead">
           <strong>$state</strong> en nodos y aristas; <strong>$derived</strong> recalcula los trazos SVG al mover bloques.
-          Persistencia en <code>localStorage</code> (sustituto pedagógico de SQLite WASM). Botón publicar simula la validación de servidor.
+          Persistencia en <code>localStorage</code> (sustituto pedagógico de SQLite WASM). <strong>Publicar</strong> llama a la Server Action
+          <code class="mono">publishFlow</code> (<code>/_nexus/action/publishFlow</code>) validada en <code>src/lib/validate-flow.js</code>.
         </p>
       </div>
       <div class="actions">
@@ -145,6 +163,12 @@ defineHead({
       </div>
       <p class="flow-hint">Cada movimiento escribe en almacenamiento local; recarga la página para comprobar la persistencia.</p>
     </div>
+    <aside class="sync-bar" client:visible aria-label="Segunda isla">
+      <p class="sync-bar-txt">
+        Segunda isla · <span class="mono">client:visible</span> — mismo bundle que el canvas; el runtime hidrata cada
+        <span class="mono">&lt;nexus-island&gt;</span> según su índice.
+      </p>
+    </aside>
   </section>
 </template>
 
@@ -247,6 +271,20 @@ defineHead({
     font-size: 0.8rem;
     font-weight: 600;
   }
+  .sync-bar {
+    margin-top: 1rem;
+    padding: 0.65rem 0.85rem;
+    border-radius: 8px;
+    border: 1px dashed rgba(167, 139, 250, 0.35);
+    background: rgba(167, 139, 250, 0.06);
+  }
+  .sync-bar-txt {
+    margin: 0;
+    font-size: 0.78rem;
+    color: #a78bfa;
+    line-height: 1.45;
+  }
+  .sync-bar .mono { color: #c4b5fd; }
   .flow-hint {
     margin: 0;
     font-size: 0.8rem;

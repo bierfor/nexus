@@ -10,7 +10,7 @@ import type {
 import { join, normalize } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { scopeCSS, scopeTemplate, unwrapOuterTemplateElement } from './css-scope.js';
-import { wrapSelfClientIslandMarkers } from './island-wrap.js';
+import { wrapSelfClientIslandMarkers, type IslandWrapResult } from './island-wrap.js';
 import { islandSsrStubLines } from './island-ssr-stubs.js';
 
 /** Generates a unique stable island ID from filepath + component name */
@@ -61,9 +61,7 @@ export function generate(
     islandWrap.didWrap ||
     parsed.islandDirectives.length > 0 ||
     (parsed.script?.content ?? '').includes('$state');
-  const clientCode = needsClientIsland
-    ? generateClientIsland(parsed, opts, islandWrap.clientTemplate ?? parsed.template?.content ?? '')
-    : null;
+  const clientCode = needsClientIsland ? generateClientIsland(parsed, opts, islandWrap) : null;
 
   // ── Island manifest ────────────────────────────────────────────────────────
   const islandManifest: IslandManifest | null =
@@ -108,7 +106,7 @@ function generateServerModule(
   parsed: ParsedComponent,
   opts: CompileOptions,
   processedTemplate: string,
-  islandWrap: { didWrap: boolean },
+  islandWrap: IslandWrapResult,
 ): string {
   const lines: string[] = [];
 
@@ -158,13 +156,20 @@ function generateServerModule(
 // ─────────────────────────────────────────────────────────────────────────────
 // Client island: sent to browser only for interactive components
 // ─────────────────────────────────────────────────────────────────────────────
-function generateClientIsland(parsed: ParsedComponent, opts: CompileOptions, templateForMeta: string): string {
+function generateClientIsland(parsed: ParsedComponent, _opts: CompileOptions, islandWrap: IslandWrapResult): string {
   const lines: string[] = [];
 
   lines.push(`// [Nexus] Client Island — ${parsed.filepath}`);
   lines.push(`// Hydration strategy: ${parsed.islandDirectives.map((d) => d.directive).join(', ') || 'client:load'}`);
   lines.push('');
   lines.push("import { createIsland, $state, $derived, $effect } from '/_nexus/rt/island.js';");
+  lines.push('');
+
+  const fragments =
+    islandWrap.clientFragments.length > 0
+      ? islandWrap.clientFragments
+      : [islandWrap.clientTemplate ?? parsed.template?.content ?? ''];
+  lines.push(`const __nxTemplates = [${fragments.map((f) => JSON.stringify(f)).join(', ')}];`);
   lines.push('');
 
   // Script content with Runes (already Svelte-5-style, pass through)
@@ -174,10 +179,12 @@ function generateClientIsland(parsed: ParsedComponent, opts: CompileOptions, tem
     lines.push('');
   }
 
-  // Mount function
+  // Mount function — each <nexus-island> passes data-nexus-island-index to pick the right template slice
   lines.push('export function mount(el, props = {}) {');
+  lines.push(`  const idx = Number(el.getAttribute('data-nexus-island-index') ?? '0');`);
+  lines.push('  const tpl = __nxTemplates[idx] ?? __nxTemplates[0];');
   lines.push('  return createIsland(el, {');
-  lines.push(`    template: ${JSON.stringify(templateForMeta)},`);
+  lines.push('    template: tpl,');
   lines.push('    ...props,');
   lines.push('  });');
   lines.push('}');
@@ -194,20 +201,31 @@ function generateActionsModule(actions: ServerAction[], filepath: string): strin
   lines.push(`// [Nexus] Server Actions — generated from ${filepath}`);
   lines.push(`"use server";`);
   lines.push('');
-  lines.push("import { registerAction } from '@nexus/server/actions';");
+  const needsCreateAction = actions.some((a) => a.createActionSource);
+  lines.push(
+    needsCreateAction
+      ? "import { createAction, registerAction } from '@nexus_js/server/actions';"
+      : "import { registerAction } from '@nexus_js/server/actions';",
+  );
   lines.push('');
 
   for (const action of actions) {
     lines.push(`/** @nexus-action "${action.name}" */`);
-    lines.push(
-      `registerAction(${JSON.stringify(action.name)}, async (${action.params.join(', ')}) => {`,
-    );
-    for (const line of action.body.split('\n')) {
-      const t = line.trim();
-      if (!t) continue;
-      lines.push(`  ${t}`);
+    if (action.createActionSource) {
+      lines.push(
+        `registerAction(${JSON.stringify(action.name)}, ${action.createActionSource}, { csrf: false });`,
+      );
+    } else {
+      lines.push(
+        `registerAction(${JSON.stringify(action.name)}, async (${action.params.join(', ')}) => {`,
+      );
+      for (const line of action.body.split('\n')) {
+        const t = line.trim();
+        if (!t) continue;
+        lines.push(`  ${t}`);
+      }
+      lines.push(`}, { csrf: false });`);
     }
-    lines.push(`}, { csrf: false });`);
     lines.push('');
   }
 

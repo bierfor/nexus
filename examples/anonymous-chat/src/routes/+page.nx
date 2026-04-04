@@ -1,15 +1,21 @@
 ---
-import { defineHead } from '@nexus/head';
+import { defineHead } from '@nexus_js/head';
 
 defineHead({
-  title: 'Nexus Chat — Anónimo',
-  description: 'Chat en tiempo real sin cuentas (demo Nexus SSE + Server Actions)',
-  meta: [{ name: 'theme-color', content: '#0c1222' }],
+  title: 'Nexus · Chat demo',
+  description: 'Presentación: chat en tiempo real con Islands, Server Actions y SSE',
+  themeColor: '#f8fafc',
+  links: [
+    {
+      rel: 'stylesheet',
+      href: 'https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap',
+    },
+  ],
 });
 ---
 
 <script>
-  import { serialize, deserialize } from '@nexus/serialize';
+  import { serialize, deserialize } from '@nexus_js/serialize';
 
   let nick    = $state('');
   let text    = $state('');
@@ -135,205 +141,361 @@ defineHead({
 </script>
 
 <template>
-  <div class="root" client:load>
+  <div class="shell" client:load>
+    <div class="root">
     <header class="hero">
-      <div class="badge">⚡ Nexus Connect — SSE</div>
-      <h1>Chat anónimo</h1>
-      <p class="sub">Sin registro. Nick aleatorio. Tiempo real vía <code>/_nexus/connect</code>. Mensajes en RAM del servidor.</p>
+      <p class="brand">Nexus</p>
+      <p class="badge">Connect · Actions · SSE</p>
+      <h1>Chat en vivo</h1>
+      <p class="sub">Sin cuentas · nick por pestaña · <code>/_nexus/connect</code></p>
     </header>
 
-    <section class="card">
+    <section class="card" aria-label="Sala de chat">
       <div class="card-head">
-        <span>💬 Sala global</span>
-        <span class="live-dot">● EN VIVO</span>
+        <span class="card-title">Sala compartida</span>
+        <span class="live"><span class="live-dot" aria-hidden="true"></span> En vivo</span>
       </div>
 
       <div class="feed-container">
-        <p class="feed-empty" id="nx-empty">Aún no hay mensajes — sé el primero 👇</p>
+        <p class="feed-empty" id="nx-empty">Todavía no hay mensajes. Escribe el primero abajo.</p>
         <ul class="feed" id="nx-feed" aria-live="polite" aria-label="Mensajes del chat"></ul>
       </div>
 
       <div class="composer">
-        <input id="nx-nick" class="nick-input" type="text" maxlength="20" placeholder="Tu nick" autocomplete="off" />
-        <input id="nx-msg"  class="msg-input"  type="text" maxlength="400" placeholder="Escribe algo... (Enter para enviar)" autocomplete="off" />
-        <button id="nx-send" class="send-btn" type="button">Enviar →</button>
+        <input id="nx-nick" class="nick-input" type="text" maxlength="20" placeholder="Nick" autocomplete="off" aria-label="Nick" />
+        <input id="nx-msg"  class="msg-input"  type="text" maxlength="400" placeholder="Mensaje — Enter para enviar" autocomplete="off" aria-label="Mensaje" />
+        <button id="nx-send" class="send-btn" type="button">Enviar</button>
       </div>
 
-      <p class="err-bar" id="nx-err" hidden></p>
+      <p class="err-bar" id="nx-err" hidden role="alert"></p>
     </section>
 
     <footer class="footer">
-      <p>Demo de <strong>Nexus v0.6</strong> · Islands + Server Actions + SSE · Abre varias pestañas para ver el chat en tiempo real</p>
+      <p class="built-with">
+        <span class="nx-mark" aria-hidden="true">◇</span>
+        Built with <strong>Nexus.js</strong>
+        <span class="ver">v0.6</span>
+      </p>
+      <p class="footer-hint">Abre otra pestaña para ver el tiempo real.</p>
+      <a
+        class="footer-link"
+        href="https://github.com/bierfor/nexus"
+        target="_blank"
+        rel="noopener noreferrer"
+      >github.com/bierfor/nexus</a>
     </footer>
+    </div>
   </div>
 </template>
 
 <style>
   :global(*, *::before, *::after) { box-sizing: border-box; margin: 0; padding: 0; }
-  :global(html, body) {
-    min-height: 100vh;
-    background: radial-gradient(ellipse 100% 70% at 50% -15%, #1e1b4b 0%, #0c1222 55%, #07090f 100%);
-    color: #e2e8f0;
-    font-family: system-ui, -apple-system, sans-serif;
+
+  /* Altura real del viewport + caja flex en html/body = centrado fiable del isla */
+  :global(html) {
+    min-height: 100dvh;
+    background: #f8fafc;
+    background-image:
+      radial-gradient(ellipse 70% 45% at 50% 0%, rgba(99, 102, 241, 0.05), transparent),
+      linear-gradient(180deg, #ffffff 0%, #f8fafc 55%, #f1f5f9 100%);
+  }
+  :global(body) {
+    min-height: 100dvh;
+    margin: 0;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    padding: clamp(0.75rem, 3vw, 1.5rem);
+    color: #0f172a;
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
     line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  :global(body > nexus-island) {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    max-width: 420px;
+    flex: 0 1 auto;
+    align-self: center;
+  }
+
+  /* El bloque del chat (ancho fijo lógico, centrado por el flex del padre) */
+  .shell {
+    width: 100%;
+    max-width: 400px;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: center;
+    padding: 0;
+    box-sizing: border-box;
   }
 
   .root {
-    max-width: 680px;
-    margin: 0 auto;
-    padding: 2.5rem 1.25rem 4rem;
+    width: 100%;
+    max-width: 400px;
     display: flex;
     flex-direction: column;
-    gap: 2rem;
+    gap: 1.25rem;
   }
 
-  /* Hero */
+  /* Hero — presentación */
   .hero { text-align: center; }
+  .brand {
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    color: #cbd5e1;
+    margin-bottom: 0.75rem;
+  }
   .badge {
     display: inline-block;
-    background: rgba(124,58,237,.15);
-    border: 1px solid rgba(124,58,237,.3);
-    border-radius: 999px;
-    padding: 3px 14px;
-    font-size: .7rem;
-    letter-spacing: .08em;
+    font-size: 0.625rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: #a78bfa;
-    margin-bottom: .85rem;
+    color: #94a3b8;
+    background: rgba(255, 255, 255, 0.8);
+    border: 1px solid #e2e8f0;
+    border-radius: 999px;
+    padding: 0.3rem 0.75rem;
+    margin-bottom: 0.85rem;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
   }
   .hero h1 {
-    font-size: clamp(1.7rem, 5vw, 2.6rem);
-    font-weight: 800;
-    letter-spacing: -.035em;
-    background: linear-gradient(120deg, #f8fafc 30%, #94a3b8);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    margin-bottom: .5rem;
+    font-size: clamp(1.375rem, 4vw, 1.75rem);
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    color: #0f172a;
+    margin-bottom: 0.45rem;
   }
-  .sub { color: #64748b; font-size: .875rem; max-width: 50ch; margin: 0 auto; }
-  .sub code { font-family: ui-monospace, monospace; color: #818cf8; font-size: .82em; }
+  .sub {
+    color: #94a3b8;
+    font-size: 0.8125rem;
+    max-width: 34ch;
+    margin: 0 auto;
+    font-weight: 400;
+  }
+  .sub code {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 0.8125em;
+    color: #4338ca;
+    background: #eef2ff;
+    padding: 0.12em 0.35em;
+    border-radius: 4px;
+    font-weight: 500;
+  }
 
   /* Card */
   .card {
-    border-radius: 18px;
-    border: 1px solid rgba(148,163,184,.09);
-    background: rgba(13,21,40,.6);
-    backdrop-filter: blur(24px);
-    box-shadow: 0 28px 80px rgba(0,0,0,.45);
+    border-radius: 10px;
+    border: 1px solid #e2e8f0;
+    background: #ffffff;
+    box-shadow:
+      0 1px 2px rgba(15, 23, 42, 0.04),
+      0 16px 48px -16px rgba(15, 23, 42, 0.1);
     overflow: hidden;
   }
   .card-head {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: .55rem 1.15rem;
-    background: rgba(30,41,59,.55);
-    border-bottom: 1px solid rgba(148,163,184,.07);
-    font-size: .7rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: .08em;
-    color: #64748b;
+    padding: 0.65rem 1rem;
+    background: #fafafa;
+    border-bottom: 1px solid #f1f5f9;
   }
-  .live-dot { color: #10b981; animation: pulse 2.2s ease-in-out infinite; }
-  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+  .card-title {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: #475569;
+  }
+  .live {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #059669;
+  }
+  .live-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #10b981;
+    box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.25);
+    animation: pulse 2s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.75; transform: scale(0.92); }
+  }
 
   /* Feed */
   .feed-empty {
-    padding: 2.2rem 1.25rem;
+    padding: 2.5rem 1.5rem;
     text-align: center;
-    color: #475569;
-    font-size: .875rem;
+    color: #94a3b8;
+    font-size: 0.875rem;
   }
   .feed-empty[hidden] { display: none; }
   .feed {
     list-style: none;
-    max-height: min(55vh, 420px);
+    max-height: min(42vh, 320px);
     overflow-y: auto;
     scrollbar-width: thin;
-    scrollbar-color: #334155 transparent;
+    scrollbar-color: #cbd5e1 #f8fafc;
   }
   .msg {
     display: grid;
-    grid-template-columns: minmax(5.5rem, 8rem) 1fr auto;
-    gap: .35rem .75rem;
-    padding: .58rem 1.15rem;
-    border-bottom: 1px solid rgba(51,65,85,.25);
-    font-size: .875rem;
+    grid-template-columns: minmax(4.5rem, 6.5rem) 1fr auto;
+    gap: 0.35rem 0.65rem;
+    padding: 0.55rem 1rem;
+    border-bottom: 1px solid #f1f5f9;
+    font-size: 0.875rem;
     align-items: baseline;
-    transition: background .1s;
+    transition: background 0.12s ease;
   }
+  .msg:nth-child(even) { background: #fafbfc; }
   .msg:last-child { border-bottom: none; }
-  .msg:hover { background: rgba(30,41,59,.5); }
+  .msg:hover { background: #f1f5f9; }
   .msg-nick {
-    font-weight: 700;
-    color: #818cf8;
+    font-weight: 600;
+    color: #4f46e5;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
   }
-  .msg-body { color: #e2e8f0; word-break: break-word; }
-  .msg-time { font-size: .7rem; color: #475569; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .msg-body { color: #334155; word-break: break-word; }
+  .msg-time {
+    font-size: 0.6875rem;
+    color: #94a3b8;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+  }
 
   /* Composer */
   .composer {
     display: flex;
-    gap: .6rem;
-    padding: .85rem 1rem;
-    border-top: 1px solid rgba(148,163,184,.07);
-    background: rgba(10,18,35,.7);
+    gap: 0.45rem;
+    padding: 0.85rem 1rem;
+    border-top: 1px solid #f1f5f9;
+    background: #fafafa;
     flex-wrap: wrap;
     align-items: center;
   }
-  .nick-input, .msg-input {
-    padding: .52rem .8rem;
-    border-radius: 10px;
-    border: 1px solid #1e293b;
-    background: #0b1120;
-    color: #f1f5f9;
-    font-size: .875rem;
+  .nick-input,
+  .msg-input {
+    padding: 0.55rem 0.85rem;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+    background: #ffffff;
+    color: #0f172a;
+    font-size: 0.875rem;
+    font-family: inherit;
     outline: none;
-    transition: border-color .15s, box-shadow .15s;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
   }
-  .nick-input:focus, .msg-input:focus {
-    border-color: #6366f1;
-    box-shadow: 0 0 0 2px rgba(99,102,241,.18);
+  .nick-input::placeholder,
+  .msg-input::placeholder { color: #94a3b8; }
+  .nick-input:focus,
+  .msg-input:focus {
+    border-color: #a5b4fc;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
   }
-  .nick-input { width: 115px; flex-shrink: 0; }
-  .msg-input  { flex: 1 1 160px; }
+  .nick-input { width: 92px; flex-shrink: 0; }
+  .msg-input { flex: 1 1 140px; min-width: 0; }
 
   .send-btn {
-    padding: .52rem 1.2rem;
-    border-radius: 10px;
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
     border: none;
-    background: linear-gradient(135deg, #6366f1, #7c3aed);
-    color: #fff;
+    background: #0f172a;
+    color: #ffffff;
     font-weight: 600;
-    font-size: .875rem;
+    font-size: 0.875rem;
+    font-family: inherit;
     cursor: pointer;
-    transition: filter .15s, transform .1s;
+    transition: background 0.15s ease, transform 0.1s ease;
     white-space: nowrap;
   }
-  .send-btn:hover:not(:disabled) { filter: brightness(1.1); transform: translateY(-1px); }
-  .send-btn:active { transform: translateY(0); }
-  .send-btn:disabled { opacity: .45; cursor: not-allowed; transform: none; }
+  .send-btn:hover:not(:disabled) { background: #1e293b; }
+  .send-btn:active:not(:disabled) { transform: scale(0.98); }
+  .send-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    transform: none;
+  }
 
   /* Error */
   .err-bar {
-    padding: .4rem 1.15rem .5rem;
-    font-size: .8rem;
-    color: #fca5a5;
-    background: rgba(239,68,68,.08);
-    border-top: 1px solid rgba(239,68,68,.15);
+    padding: 0.5rem 1.25rem 0.65rem;
+    font-size: 0.8125rem;
+    color: #b91c1c;
+    background: #fef2f2;
+    border-top: 1px solid #fecaca;
   }
   .err-bar[hidden] { display: none; }
 
-  /* Footer */
+  /* Footer — Built with Nexus.js */
   .footer {
     text-align: center;
-    font-size: .78rem;
-    color: #334155;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.35rem;
+    padding-top: 0.25rem;
   }
-  .footer strong { color: #475569; }
+  .built-with {
+    font-size: 0.8125rem;
+    color: #64748b;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .nx-mark {
+    color: #a5b4fc;
+    font-size: 0.9rem;
+    line-height: 1;
+  }
+  .built-with strong {
+    font-weight: 600;
+    color: #0f172a;
+    letter-spacing: -0.02em;
+  }
+  .ver {
+    font-size: 0.6875rem;
+    font-weight: 500;
+    color: #94a3b8;
+    padding: 0.1rem 0.4rem;
+    background: #f1f5f9;
+    border-radius: 4px;
+  }
+  .footer-hint {
+    font-size: 0.6875rem;
+    color: #cbd5e1;
+    max-width: 28ch;
+    line-height: 1.45;
+  }
+  .footer-link {
+    font-size: 0.6875rem;
+    font-weight: 500;
+    color: #6366f1;
+    text-decoration: none;
+    border-bottom: 1px solid transparent;
+    transition: color 0.15s ease, border-color 0.15s ease;
+  }
+  .footer-link:hover {
+    color: #4f46e5;
+    border-bottom-color: #c7d2fe;
+  }
 </style>

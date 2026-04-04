@@ -79,9 +79,9 @@ export async function runFix(opts: FixOptions): Promise<void> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let audit: any;
   try {
-    audit = await import('@nexus/audit');
+    audit = await import('@nexus_js/audit');
   } catch {
-    log.error('@nexus/audit not installed. Run: pnpm add -D @nexus/audit');
+    log.error('@nexus_js/audit not installed. Run: pnpm add -D @nexus_js/audit');
     process.exitCode = 1;
     return;
   }

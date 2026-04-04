@@ -1,8 +1,8 @@
 /**
- * Dev / Node server assets: /@nexus/runtime ESM mirror + aggregated scoped CSS from .nx files.
+ * Dev / Node server assets: /@nexus_js/runtime ESM mirror + aggregated scoped CSS from .nx files.
  */
 
-import { compile } from '@nexus/compiler';
+import { compile } from '@nexus_js/compiler';
 import { existsSync } from 'node:fs';
 import { readdir, readFile, stat } from 'node:fs/promises';
 import { join, relative, resolve, normalize, sep } from 'node:path';
@@ -17,11 +17,11 @@ export function bustAggregatedStylesCache(): void {
 }
 
 /**
- * Locate `@nexus/runtime/dist` without `require.resolve` (pnpm "exports" blocks package.json / bare resolve from apps).
+ * Locate `@nexus_js/runtime/dist` without `require.resolve` (pnpm "exports" blocks package.json / bare resolve from apps).
  */
 export function resolveRuntimeDistDir(appRoot: string): string | null {
   const candidates = [
-    join(appRoot, 'node_modules', '@nexus', 'runtime', 'dist'),
+    join(appRoot, 'node_modules', '@nexus_js', 'runtime', 'dist'),
     join(appRoot, '..', '..', 'packages', 'runtime', 'dist'),
   ];
   for (const d of candidates) {
@@ -31,11 +31,11 @@ export function resolveRuntimeDistDir(appRoot: string): string | null {
 }
 
 /**
- * Locate `@nexus/serialize/dist` — served to the browser at `/_nexus/rt/serialize.js`.
+ * Locate `@nexus_js/serialize/dist` — served to the browser at `/_nexus/rt/serialize.js`.
  */
 export function resolveSerializeDistFile(appRoot: string): string | null {
   const candidates = [
-    join(appRoot, 'node_modules', '@nexus', 'serialize', 'dist', 'index.js'),
+    join(appRoot, 'node_modules', '@nexus_js', 'serialize', 'dist', 'index.js'),
     join(appRoot, '..', '..', 'packages', 'serialize', 'dist', 'index.js'),
   ];
   for (const f of candidates) {
@@ -177,7 +177,7 @@ export async function tryServeRuntimeAsset(
   pathname: string,
   appRoot: string,
 ): Promise<{ body: Buffer; contentType: string } | null> {
-  // Special alias: /_nexus/rt/serialize.js → @nexus/serialize/dist/index.js
+  // Special alias: /_nexus/rt/serialize.js → @nexus_js/serialize/dist/index.js
   if (pathname === '/_nexus/rt/serialize.js') {
     const serializeFile = resolveSerializeDistFile(appRoot);
     if (!serializeFile) return null;

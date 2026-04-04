@@ -10,7 +10,7 @@
  *   - Netlify Edge Functions
  *
  * Usage in src/middleware.ts:
- *   import { defineMiddleware, sequence, auth, cors, rateLimit } from '@nexus/middleware';
+ *   import { defineMiddleware, sequence, auth, cors, rateLimit } from '@nexus_js/middleware';
  *
  *   export default defineMiddleware(
  *     sequence(

@@ -9,11 +9,11 @@
     "start": "nexus start"
   },
   "dependencies": {
-    "@nexus/runtime": "workspace:*"
+    "@nexus_js/runtime": "workspace:*"
   },
   "devDependencies": {
-    "@nexus/cli": "workspace:*",
-    "@nexus/compiler": "workspace:*",
+    "@nexus_js/cli": "workspace:*",
+    "@nexus_js/compiler": "workspace:*",
     "typescript": "^5.5.0"
   }
 }

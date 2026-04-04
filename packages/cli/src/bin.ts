@@ -155,8 +155,8 @@ async function runDev(opts: { root: string; port: number }): Promise<void> {
   const req = createRequire(import.meta.url);
   const pkg = req('../package.json') as { version: string };
 
-  const { createNexusServer } = await import('@nexus/server');
-  type RequestLogInfo = import('@nexus/server').RequestLogInfo;
+  const { createNexusServer } = await import('@nexus_js/server');
+  type RequestLogInfo = import('@nexus_js/server').RequestLogInfo;
 
   const server = await createNexusServer({
     root: opts.root,
@@ -209,9 +209,9 @@ async function runDev(opts: { root: string; port: number }): Promise<void> {
   // Shows warnings for critical/high CVEs but never kills the dev server
   void (async () => {
     try {
-      // Dynamic import — @nexus/audit is optional (gracefully skipped if not installed)
+      // Dynamic import — @nexus_js/audit is optional (gracefully skipped if not installed)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const audit: any = await import('@nexus/audit');
+      const audit: any = await import('@nexus_js/audit');
       const { readFile: rf } = await import('node:fs/promises');
       const { join: pj }    = await import('node:path');
 
@@ -255,7 +255,7 @@ async function runDev(opts: { root: string; port: number }): Promise<void> {
         }
       }
     } catch {
-      // Audit failure (offline, @nexus/audit not installed) is silently ignored in dev mode
+      // Audit failure (offline, @nexus_js/audit not installed) is silently ignored in dev mode
     }
   })();
 
@@ -291,8 +291,8 @@ async function runBuild(opts: { root: string }): Promise<void> {
   const _start = Date.now();
   console.log(`\n  ${c.mag}${c.bold}◆ NEXUS${c.reset}  ${c.dim}building for production...${c.reset}\n`);
 
-  const { compile } = await import('@nexus/compiler');
-  const { buildRouteManifest } = await import('@nexus/router');
+  const { compile } = await import('@nexus_js/compiler');
+  const { buildRouteManifest } = await import('@nexus_js/router');
   const { existsSync } = await import('node:fs');
   const { readFile, writeFile, mkdir } = await import('node:fs/promises');
   const { join } = await import('node:path');
@@ -327,9 +327,17 @@ async function runBuild(opts: { root: string }): Promise<void> {
     if (result.actionsModule) {
       const actionsPath = outPath.replace(/\.js$/u, '.actions.js');
       let code = result.actionsModule;
+      const preambleLines: string[] = [];
       const store = join(opts.root, 'src/lib/chat-room.js');
       if (code.includes('appendMessage') && existsSync(store)) {
-        code = `import { appendMessage } from ${JSON.stringify(pathToFileURL(store).href)};\n${code}`;
+        preambleLines.push(`import { appendMessage } from ${JSON.stringify(pathToFileURL(store).href)};`);
+      }
+      const flowVal = join(opts.root, 'src/lib/validate-flow.js');
+      if (code.includes('validateFlowPayload') && existsSync(flowVal)) {
+        preambleLines.push(`import { validateFlowPayload } from ${JSON.stringify(pathToFileURL(flowVal).href)};`);
+      }
+      if (preambleLines.length > 0) {
+        code = `${preambleLines.join('\n')}\n${code}`;
       }
       await writeFile(actionsPath, code, 'utf-8');
     }
@@ -353,7 +361,7 @@ async function runBuild(opts: { root: string }): Promise<void> {
 async function runStart(opts: { root: string; port: number }): Promise<void> {
   const _start = Date.now();
 
-  const { createNexusServer } = await import('@nexus/server');
+  const { createNexusServer } = await import('@nexus_js/server');
 
   const server = await createNexusServer({
     root: opts.root,
@@ -378,7 +386,7 @@ async function runStart(opts: { root: string; port: number }): Promise<void> {
 }
 
 async function printRoutes(opts: { root: string }): Promise<void> {
-  const { buildRouteManifest } = await import('@nexus/router');
+  const { buildRouteManifest } = await import('@nexus_js/router');
   const { join } = await import('node:path');
 
   const manifest = await buildRouteManifest(join(opts.root, 'src', 'routes'));

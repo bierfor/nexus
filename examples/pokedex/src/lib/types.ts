@@ -10,7 +10,7 @@ export interface PokemonListItem {
   id: number;
   name: string;
   types: string[];
-  /** Official artwork URL — will be proxied through @nexus/assets */
+  /** Official artwork URL — will be proxied through @nexus_js/assets */
   sprite: string;
   /** Dominant color extracted server-side for instant placeholder */
   color: string;

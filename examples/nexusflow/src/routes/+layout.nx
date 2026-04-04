@@ -2,7 +2,7 @@
 /**
  * Cascarón: sidebar/header en HTML/CSS; estado global (perfil, notificaciones, sync) en una sola isla.
  */
-import { defineHead } from '@nexus/head';
+import { defineHead } from '@nexus_js/head';
 
 const nav = [
   { href: '/', label: 'Dashboard' },

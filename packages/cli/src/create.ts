@@ -52,7 +52,7 @@ async function main(): Promise<void> {
   console.log(`    ${DIM}cd${RESET} ${projectName}`);
   console.log(`    ${DIM}pnpm install${RESET}`);
   console.log(`    ${DIM}pnpm dev${RESET}\n`);
-  console.log(`  ${CYAN}◆${RESET} Docs: ${BOLD}https://nexus.dev${RESET}\n`);
+  console.log(`  ${CYAN}◆${RESET} Docs: ${BOLD}https://nexusjs.dev${RESET}\n`);
 }
 
 async function writeProjectFiles(dir: string, name: string): Promise<void> {
@@ -69,11 +69,11 @@ async function writeProjectFiles(dir: string, name: string): Promise<void> {
         check: 'nexus check',
       },
       dependencies: {
-        '@nexus/runtime': 'workspace:*',
+        '@nexus_js/runtime': 'workspace:*',
       },
       devDependencies: {
-        '@nexus/cli': 'workspace:*',
-        '@nexus/compiler': 'workspace:*',
+        '@nexus_js/cli': 'workspace:*',
+        '@nexus_js/compiler': 'workspace:*',
         typescript: '^5.5.0',
       },
     }, null, 2),
@@ -84,7 +84,7 @@ async function writeProjectFiles(dir: string, name: string): Promise<void> {
       include: ['src/**/*'],
     }, null, 2),
 
-    'nexus.config.ts': `import type { NexusConfig } from '@nexus/cli';
+    'nexus.config.ts': `import type { NexusConfig } from '@nexus_js/cli';
 
 export default {
   // Islands hydration strategy defaults
@@ -239,10 +239,10 @@ export async function POST(ctx) {
 export const db = {
   user: {
     async findFirst() {
-      return { id: 1, name: 'Demo User', email: 'demo@nexus.dev' };
+      return { id: 1, name: 'Demo User', email: 'demo@nexusjs.dev' };
     },
     async findMany() {
-      return [{ id: 1, name: 'Demo User', email: 'demo@nexus.dev' }];
+      return [{ id: 1, name: 'Demo User', email: 'demo@nexusjs.dev' }];
     },
     async update(args: { where?: unknown; data: unknown }) {
       return { ...args.data };

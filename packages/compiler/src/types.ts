@@ -46,6 +46,11 @@ export interface ServerAction {
   body: string;
   /** Inferred TypeScript return type */
   returnType: string;
+  /**
+   * If set, emitted as `registerAction(name, createAction(...), { csrf: false })` instead of a raw
+   * async handler (from `const x = createAction(...)` in the .nx script).
+   */
+  createActionSource?: string;
 }
 
 export interface CompileOptions {

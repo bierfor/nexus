@@ -1,5 +1,6 @@
 export { parse } from './parser.js';
 export { generate } from './codegen.js';
+export { extractServerActionsFromSource } from './server-actions-extract.js';
 export type {
   ParsedComponent,
   CompileOptions,

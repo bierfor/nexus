@@ -101,7 +101,7 @@ function actionStatusColor(status: ActionLogEntry['status']): string {
 export const nexusLogger = {
   /**
    * Logs an SSR route render to the terminal.
-   * Called by @nexus/server after each page response.
+   * Called by @nexus_js/server after each page response.
    */
   route(entry: RouteLogEntry): void {
     const sym    = routeSymbol(entry);
@@ -131,7 +131,7 @@ export const nexusLogger = {
 
   /**
    * Logs a Server Action invocation.
-   * Called by @nexus/server/actions after each action resolves/rejects.
+   * Called by @nexus_js/server/actions after each action resolves/rejects.
    */
   action(entry: ActionLogEntry): void {
     const sCol = actionStatusColor(entry.status);
@@ -207,5 +207,5 @@ export const nexusLogger = {
   },
 };
 
-// ── Re-export for use in @nexus/server/index.ts ───────────────────────────────
+// ── Re-export for use in @nexus_js/server/index.ts ───────────────────────────────
 export type { RouteLogEntry as NexusRouteLog, ActionLogEntry as NexusActionLog };

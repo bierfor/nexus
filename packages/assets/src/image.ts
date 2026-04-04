@@ -5,17 +5,20 @@
  *   - Generates <picture> with AVIF + WebP + original fallback sources
  *   - Computes intrinsic width/height to prevent CLS
  *   - Emits responsive srcset for each configured breakpoint
- *   - Adds blur placeholder (base64 LQIP) for perceived performance
+ *   - Blur placeholder hook (data-nx-blur) for perceived performance
  *
  * On the client:
  *   - Native `loading="lazy"` + `decoding="async"`
- *   - IntersectionObserver for below-the-fold images
- *   - Optional `client:visible` island for JS-powered effects
+ *   - IntersectionObserver for below-the-fold images (optional island)
  *
  * Usage in .nx templates:
- *   <NexusImage src="/hero.jpg" alt="Hero" width={1280} height={720} priority />
- *   <NexusImage src="/avatar.png" alt="Avatar" size={48} round />
+ *   import { renderImage } from '@nexus_js/assets';
+ *   renderImage({ src: "/hero.jpg", alt: "Hero", width: 1280, height: 720, priority: true })
  */
+
+import { readFile } from 'node:fs/promises';
+import { join, resolve, sep } from 'node:path';
+import sharp from 'sharp';
 
 export interface ImageProps {
   src: string;
@@ -48,6 +51,15 @@ export interface OptimizedImageSrc {
   url: string;
   width: number;
   format: ImageFormat;
+}
+
+/** Options for {@link handleImageRequest} (Node / Vite dev server). */
+export interface ImageHandlerOptions {
+  /**
+   * Directory used to resolve local `src` paths (e.g. `/photo.jpg` → `<publicDir>/photo.jpg`).
+   * When omitted, local files fall back to passthrough behavior.
+   */
+  publicDir?: string;
 }
 
 /** Default responsive breakpoints (px) */
@@ -148,64 +160,145 @@ export function imageUrl(
   return `/_nexus/image?src=${encodeURIComponent(src)}&w=${width}&f=${format}&q=${quality}`;
 }
 
+const REMOTE_MAX_BYTES = 12 * 1024 * 1024;
+
 /** HTTP handler for the /_nexus/image endpoint */
-export async function handleImageRequest(request: Request): Promise<Response> {
+export async function handleImageRequest(
+  request: Request,
+  options: ImageHandlerOptions = {},
+): Promise<Response> {
   const url = new URL(request.url);
   const src = url.searchParams.get('src') ?? '';
   const remoteUrl = url.searchParams.get('url') ?? '';
-  const width = parseInt(url.searchParams.get('w') ?? '800', 10);
-  const format = (url.searchParams.get('f') ?? 'original') as ImageFormat | 'original';
-  const quality = parseInt(url.searchParams.get('q') ?? '80', 10);
+  const width = Math.min(Math.max(parseInt(url.searchParams.get('w') ?? '800', 10) || 800, 1), 8192);
+  const hasExplicitFormat = url.searchParams.has('f');
+  const formatParam = (url.searchParams.get('f') ?? 'original') as ImageFormat | 'original';
+  const quality = Math.min(Math.max(parseInt(url.searchParams.get('q') ?? '80', 10) || 80, 1), 100);
 
-  // Check browser's Accept header to negotiate format
-  const accept = request.headers.get('accept') ?? '';
-  const negotiatedFormat = negotiateFormat(format, accept);
+  // Only honor `f=` when present. Omitted `f` means "original" raster (JPEG/PNG), not Accept-based AVIF/WebP,
+  // so <picture><source type=avif> and <img> fallback stay distinct.
+  const outputFormat: ImageFormat | 'original' = hasExplicitFormat ? formatParam : 'original';
+
+  const cacheHeaders = {
+    'cache-control': 'public, max-age=31536000, immutable',
+  } as const;
 
   try {
-    // In a real implementation, use `sharp` or `@squoosh/lib` for conversion.
-    // Here we emit the correct Content-Type and pass through the original.
-    // When sharp is installed, swap this with actual conversion:
-    //
-    // const sharp = await import('sharp');
-    // const pipeline = sharp(inputBuffer).resize(width, null, { withoutEnlargement: true });
-    // if (negotiatedFormat === 'avif') pipeline.avif({ quality });
-    // else if (negotiatedFormat === 'webp') pipeline.webp({ quality });
-    // const output = await pipeline.toBuffer();
+    let input: Buffer;
+    let sourceLabel: string;
 
-    const source = remoteUrl || src;
-    const cacheKey = `${source}:${width}:${negotiatedFormat}:${quality}`;
+    if (remoteUrl) {
+      if (!remoteUrl.startsWith('https://') && !remoteUrl.startsWith('http://')) {
+        return new Response('Invalid URL', { status: 400 });
+      }
+      const fetched = await fetchRemoteImage(remoteUrl);
+      if (!fetched) {
+        return new Response('Failed to fetch image', { status: 502 });
+      }
+      input = fetched;
+      sourceLabel = remoteUrl;
+    } else if (src) {
+      if (!options.publicDir) {
+        return new Response('Local src requires publicDir (set in Nexus server / Vite plugin)', { status: 400 });
+      }
+      const path = safeResolvePublicPath(options.publicDir, src);
+      if (!path) {
+        return new Response('Invalid path', { status: 400 });
+      }
+      try {
+        input = await readFile(path);
+      } catch {
+        return new Response('Not found', { status: 404 });
+      }
+      sourceLabel = src;
+    } else {
+      return new Response('Missing src or url', { status: 400 });
+    }
 
-    const mimeTypes: Record<string, string> = {
-      avif: 'image/avif',
-      webp: 'image/webp',
-      png: 'image/png',
-      jpg: 'image/jpeg',
-      jpeg: 'image/jpeg',
-      original: 'image/jpeg',
-    };
-
-    return new Response(null, {
-      status: 302,
+    const { body, contentType } = await encodeWithSharp(input, width, outputFormat, quality);
+    return new Response(new Uint8Array(body), {
+      status: 200,
       headers: {
-        location: source,
-        'cache-control': 'public, max-age=31536000, immutable',
-        'content-type': mimeTypes[negotiatedFormat] ?? 'image/jpeg',
-        'vary': 'Accept',
+        ...cacheHeaders,
+        'content-type': contentType,
+        'x-nexus-image-source': encodeURIComponent(sourceLabel.slice(0, 200)),
       },
     });
   } catch (err) {
-    return new Response('Image optimization failed', { status: 500 });
+    const message = err instanceof Error ? err.message : String(err);
+    return new Response(`Image optimization failed: ${message}`, { status: 500 });
   }
 }
 
-function negotiateFormat(
-  requested: ImageFormat | 'original',
-  accept: string,
-): ImageFormat | 'original' {
-  if (requested !== 'original') return requested;
-  if (accept.includes('image/avif')) return 'avif';
-  if (accept.includes('image/webp')) return 'webp';
-  return 'original';
+function safeResolvePublicPath(publicDir: string, src: string): string | null {
+  const normalized = src.replace(/^\/+/, '');
+  if (normalized.includes('..')) return null;
+  const full = resolve(join(publicDir, normalized));
+  const root = resolve(publicDir);
+  if (full !== root && !full.startsWith(root + sep)) return null;
+  return full;
+}
+
+async function fetchRemoteImage(remoteUrl: string): Promise<Buffer | null> {
+  const ac = new AbortController();
+  const t = setTimeout(() => ac.abort(), 15_000);
+  try {
+    const res = await fetch(remoteUrl, {
+      signal: ac.signal,
+      headers: { 'user-agent': 'NexusImage/1.0' },
+      redirect: 'follow',
+    });
+    if (!res.ok) return null;
+    const len = res.headers.get('content-length');
+    if (len && Number(len) > REMOTE_MAX_BYTES) return null;
+    const buf = Buffer.from(await res.arrayBuffer());
+    if (buf.length > REMOTE_MAX_BYTES) return null;
+    return buf;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(t);
+  }
+}
+
+async function encodeWithSharp(
+  input: Buffer,
+  width: number,
+  outputFormat: ImageFormat | 'original',
+  quality: number,
+): Promise<{ body: Uint8Array; contentType: string }> {
+  let pipeline = sharp(input).rotate().resize({
+    width,
+    withoutEnlargement: true,
+    fit: 'inside',
+  });
+
+  const meta = await sharp(input).metadata();
+
+  if (outputFormat === 'avif') {
+    const buf = await pipeline.avif({ quality }).toBuffer();
+    return { body: buf, contentType: 'image/avif' };
+  }
+  if (outputFormat === 'webp') {
+    const buf = await pipeline.webp({ quality }).toBuffer();
+    return { body: buf, contentType: 'image/webp' };
+  }
+  if (outputFormat === 'png') {
+    const buf = await pipeline.png({ compressionLevel: 9 }).toBuffer();
+    return { body: buf, contentType: 'image/png' };
+  }
+  if (outputFormat === 'jpg') {
+    const buf = await pipeline.jpeg({ quality, mozjpeg: true }).toBuffer();
+    return { body: buf, contentType: 'image/jpeg' };
+  }
+
+  // original: resize only, preserve alpha when present
+  if (meta.hasAlpha || meta.format === 'png') {
+    const buf = await pipeline.png({ compressionLevel: 9 }).toBuffer();
+    return { body: buf, contentType: 'image/png' };
+  }
+  const buf = await pipeline.jpeg({ quality, mozjpeg: true }).toBuffer();
+  return { body: buf, contentType: 'image/jpeg' };
 }
 
 function getResponsiveWidths(maxWidth: number): number[] {

@@ -1,8 +1,8 @@
 ---
 // SERVER BLOCK — zero JS, runs per-request
 import { db } from '$lib/db';
-import { cache, revalidate } from '@nexus/runtime';
-import { defineHead } from '@nexus/head';
+import { cache, revalidate } from '@nexus_js/runtime';
+import { defineHead } from '@nexus_js/head';
 
 // Cached DB call — revalidated when 'posts' tag is invalidated
 const user = await cache(() => db.user.findFirst(), { tags: ['user'], ttl: 30 });

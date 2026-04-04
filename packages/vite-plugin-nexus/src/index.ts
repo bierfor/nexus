@@ -13,8 +13,8 @@
  */
 
 import type { Plugin, ViteDevServer, ModuleNode } from 'vite';
-import { compile } from '@nexus/compiler';
-import { generateTypes } from '@nexus/types';
+import { compile } from '@nexus_js/compiler';
+import { generateTypes } from '@nexus_js/types';
 import { readFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 
@@ -85,7 +85,7 @@ export function nexus(opts: NexusPluginOptions = {}): Plugin[] {
 
         // Server Actions endpoint
         if (ACTION_ROUTE_RE.test(url)) {
-          const { handleActionRequest } = await import('@nexus/server/actions' as string);
+          const { handleActionRequest } = await import('@nexus_js/server/actions' as string);
           const webReq = nodeToWebRequest(req);
           const webRes = await handleActionRequest(webReq);
           await pipeResponse(webRes, res);
@@ -94,9 +94,16 @@ export function nexus(opts: NexusPluginOptions = {}): Plugin[] {
 
         // Image optimizer endpoint
         if (IMAGE_ROUTE_RE.test(url)) {
-          const { handleImageRequest } = await import('@nexus/assets/image' as string);
+          const { handleImageRequest } = await import('@nexus_js/assets/image' as string);
           const webReq = nodeToWebRequest(req);
-          const webRes = await handleImageRequest(webReq);
+          const publicDir = join(root, 'public');
+          const webRes = await handleImageRequest(webReq, { publicDir });
+          if (req.method === 'HEAD') {
+            res.statusCode = webRes.status;
+            webRes.headers.forEach((v: string, k: string) => res.setHeader(k, v));
+            res.end();
+            return;
+          }
           await pipeResponse(webRes, res);
           return;
         }
@@ -293,7 +300,7 @@ async function pipeResponse(
 ): Promise<void> {
   res.statusCode = webRes.status;
   webRes.headers.forEach((v, k) => res.setHeader(k, v));
-  const body = await webRes.text();
+  const body = Buffer.from(await webRes.arrayBuffer());
   res.end(body);
 }
 
@@ -308,7 +315,7 @@ export function defineNexusConfig(config: Record<string, unknown> = {}) {
   return {
     plugins: [nexus()],
     optimizeDeps: {
-      include: ['@nexus/runtime'],
+      include: ['@nexus_js/runtime'],
     },
     build: {
       rollupOptions: {

@@ -13,7 +13,7 @@ Islands Architecture · Svelte 5 Runes · Server Actions · Edge-First · Zero-J
 [![pnpm](https://img.shields.io/badge/pnpm-9-f69220.svg)](https://pnpm.io/)
 [![Node](https://img.shields.io/badge/Node-≥20-5fa04e.svg)](https://nodejs.org/)
 
-[Documentation](./docs/index.html) · [Examples](./examples/) · [Contributing](./CONTRIBUTING.md) · [Changelog](./CHANGELOG.md)
+**[Documentation — nexusjs.dev](https://nexusjs.dev)** · [Examples](./examples/) · [Contributing](./CONTRIBUTING.md) · [Changelog](./CHANGELOG.md) · [Publishing to npm](./docs/PUBLISHING.md)
 
 </div>
 
@@ -63,16 +63,22 @@ Nexus:              ▓                     18kb JS (only the like button)
 ### Create a new project
 
 ```bash
-pnpm create nexus@latest my-app
+npm exec --package=@nexus_js/cli@latest -- create-nexus my-app
 cd my-app
 pnpm dev
 ```
 
+Or: `npm install -g @nexus_js/cli` then `create-nexus my-app`.
+
+Official guides and API docs: **[nexusjs.dev](https://nexusjs.dev)**.
+
 ### Manual setup
 
 ```bash
-pnpm add @nexus/server @nexus/runtime @nexus/router
+pnpm add @nexus_js/server @nexus_js/runtime @nexus_js/router
 ```
+
+**Maintainers:** publishing all packages to npm is documented in [docs/PUBLISHING.md](./docs/PUBLISHING.md) — use **`pnpm release`** after aligning versions with **`pnpm version:framework -- <semver>`**.
 
 ---
 
@@ -83,8 +89,8 @@ Nexus components use the `.nx` extension, a superset of HTML with three sections
 ```html
 ---
 // Server block — runs ONLY on the server, never in the browser
-import { cache } from '@nexus/runtime';
-import { defineHead } from '@nexus/head';
+import { cache } from '@nexus_js/runtime';
+import { defineHead } from '@nexus_js/head';
 
 const posts = await cache('posts', () => fetch('/api/posts').then(r => r.json()), {
   ttl: 60,
@@ -170,7 +176,7 @@ src/routes/
 
 ## Server Actions
 
-Server Actions are typed, race-condition-safe, and use `@nexus/serialize` for transparent transport of complex types.
+Server Actions are typed, race-condition-safe, and use `@nexus_js/serialize` for transparent transport of complex types.
 
 ```typescript
 // src/routes/blog/[slug]/+page.nx
@@ -234,7 +240,7 @@ Zero hydration misses across SPA navigation:
 
 ```typescript
 // In any island — state persists across /shop → /checkout
-import { useStore } from '@nexus/runtime';
+import { useStore } from '@nexus_js/runtime';
 
 const cart = useStore('cart', {
   default: [] as CartItem[],
@@ -271,8 +277,8 @@ Nexus doesn't bundle an ORM. It wraps your client with caching and invalidation:
 
 ```typescript
 // nexus.config.ts
-import { defineNexus } from '@nexus/cli';
-import { defineDB } from '@nexus/db';
+import { defineNexus } from '@nexus_js/cli';
+import { defineDB } from '@nexus_js/db';
 import { PrismaClient } from '@prisma/client';
 
 export default defineNexus({
@@ -331,6 +337,8 @@ create-nexus my-app    # Scaffold a new project
 
 ## Monorepo Architecture
 
+The **framework** you install from npm (`@nexus_js/*`, `vite-plugin-nexus`) lives **only** in `packages/`. The `examples/` and `docs/` directories are demos and the marketing site — they are not published as framework packages.
+
 ```
 nexus/
 ├── packages/
@@ -363,8 +371,8 @@ Nexus targets the Web Platform. Any runtime that speaks `Request` / `Response` w
 | Platform | Status | Notes |
 |---|---|---|
 | Node.js (≥20) | ✅ Production | Default runtime |
-| Cloudflare Workers | ✅ Production | Via `@nexus/middleware` adapter |
-| Vercel Edge | ✅ Production | Via `@nexus/middleware` adapter |
+| Cloudflare Workers | ✅ Production | Via `@nexus_js/middleware` adapter |
+| Vercel Edge | ✅ Production | Via `@nexus_js/middleware` adapter |
 | Deno Deploy | ✅ Production | Web-standard APIs only |
 | Bun | ✅ Production | Drop-in Node.js compatibility |
 | Docker / VPS | ✅ Production | `nexus build && nexus start` |
@@ -401,6 +409,6 @@ MIT © 2026 [Nexus Contributors](https://github.com/bierfor/nexus/graphs/contrib
 
 Built with conviction that the web deserves better defaults.
 
-**[Get Started →](./docs/index.html)**
+**[Get Started → nexusjs.dev](https://nexusjs.dev)**
 
 </div>

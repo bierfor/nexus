@@ -2,7 +2,8 @@
  * Load route modules in dev (compile .nx → .mjs) and prod (pre-built .js under .nexus/output).
  */
 
-import { compile } from '@nexus/compiler';
+import { compile } from '@nexus_js/compiler';
+import { buildRouteManifest } from '@nexus_js/router';
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { mkdir, readdir, readFile, stat, unlink, writeFile } from 'node:fs/promises';
 import { dirname, join, relative } from 'node:path';
@@ -28,7 +29,7 @@ function compiledServerPath(appRoot: string, pattern: string): string {
 }
 
 /**
- * Resolve @nexus/compiler dist entry + fingerprint. `require.resolve('…/package.json')` fails
+ * Resolve @nexus_js/compiler dist entry + fingerprint. `require.resolve('…/package.json')` fails
  * because package.json is not exported — use `import.meta.resolve` from this module instead.
  */
 /** Newest mtime among `dist/*.js` so codegen-only edits invalidate the dev-server cache. */
@@ -49,7 +50,7 @@ function compilerDistMeta():
   | { entry: string; mtimeMs: number; fingerprint: string }
   | null {
   try {
-    const entry = fileURLToPath(import.meta.resolve('@nexus/compiler', import.meta.url));
+    const entry = fileURLToPath(import.meta.resolve('@nexus_js/compiler', import.meta.url));
     const distDir = dirname(entry);
     const mtimeMs = Math.max(statSync(entry).mtimeMs, maxMtimeMsCompilerDist(distDir));
     const pkgDir = dirname(distDir);
@@ -74,11 +75,30 @@ function actionsSidecarPath(serverPath: string): string {
   return serverPath.replace(/\.mjs$/u, '.actions.mjs').replace(/\.js$/u, '.actions.js');
 }
 
-/** Optional import so server actions can call into app code (e.g. chat store). */
+/** Auto-import app `$lib` helpers used inside generated action bodies (sidecar has no imports from .nx). */
 function actionsImportPreamble(appRoot: string, actionsCode: string): string {
-  const store = join(appRoot, 'src/lib/chat-room.js');
-  if (!actionsCode.includes('appendMessage') || !existsSync(store)) return '';
-  return `import { appendMessage } from ${JSON.stringify(pathToFileURL(store).href)};\n`;
+  const rules: Array<{ needle: string; rel: string; name: string }> = [
+    { needle: 'appendMessage', rel: 'src/lib/chat-room.js', name: 'appendMessage' },
+    { needle: 'validateFlowPayload', rel: 'src/lib/validate-flow.js', name: 'validateFlowPayload' },
+  ];
+  const byFile = new Map<string, Set<string>>();
+  for (const { needle, rel, name } of rules) {
+    if (!actionsCode.includes(needle)) continue;
+    const abs = join(appRoot, rel);
+    if (!existsSync(abs)) continue;
+    let set = byFile.get(abs);
+    if (!set) {
+      set = new Set();
+      byFile.set(abs, set);
+    }
+    set.add(name);
+  }
+  const lines: string[] = [];
+  for (const [abs, set] of byFile) {
+    const names = [...set].sort().join(', ');
+    lines.push(`import { ${names} } from ${JSON.stringify(pathToFileURL(abs).href)};\n`);
+  }
+  return lines.join('');
 }
 
 async function writeActionsSidecar(
@@ -135,6 +155,46 @@ async function collectFilesRecursive(
  * code changes (including edits to files imported from the sidecar, e.g. `$lib/chat-room.js`).
  * Called from `server.reload()` when the CLI file watcher fires.
  */
+/**
+ * Loads every route module once so generated `*.actions.*` sidecars run `registerAction`
+ * before any HTTP request. Dev: compiles each `.nx` route; prod: imports `*.actions.js` from `.nexus/output`.
+ */
+export async function preloadRegisteredServerActions(appRoot: string, dev: boolean): Promise<void> {
+  if (dev) {
+    const routesDir = join(appRoot, 'src', 'routes');
+    const manifest = await buildRouteManifest(routesDir);
+    const seen = new Set<string>();
+    for (const route of manifest.routes) {
+      if (!route.filepath.endsWith('.nx')) continue;
+      if (seen.has(route.filepath)) continue;
+      seen.add(route.filepath);
+      try {
+        await loadRouteModule(route.filepath, { dev: true, appRoot, pattern: route.pattern });
+      } catch (err) {
+        console.error(`[Nexus] Failed to preload server actions for ${route.filepath}:`, err);
+      }
+    }
+    await reimportDevActionSidecars(appRoot);
+    return;
+  }
+
+  const outDir = join(appRoot, '.nexus', 'output');
+  let files: string[] = [];
+  try {
+    files = await collectFilesRecursive(outDir, (n) => n.endsWith('.actions.js'));
+  } catch {
+    return;
+  }
+  for (const p of files) {
+    try {
+      const st = await stat(p);
+      await import(`${pathToFileURL(p).href}?t=${st.mtimeMs}`);
+    } catch (err) {
+      console.error(`[Nexus] Failed to import server actions sidecar (${p}):`, err);
+    }
+  }
+}
+
 export async function reimportDevActionSidecars(appRoot: string): Promise<void> {
   const root = join(appRoot, '.nexus', 'dev-server');
   let files: string[] = [];

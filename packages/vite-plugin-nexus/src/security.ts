@@ -1,7 +1,7 @@
 /**
  * Nexus Security Vite Plugin — Compiler-Level Dependency Blocking.
  *
- * Integrates the @nexus/audit engine directly into the Vite module resolution
+ * Integrates the @nexus_js/audit engine directly into the Vite module resolution
  * pipeline. When an import is resolved, the plugin checks the package against
  * the OSV CVE database BEFORE the bundler processes the module.
  *
@@ -108,13 +108,13 @@ export function nexusSecurity(opts: NexusSecurityPluginOptions = {}): Plugin {
     async buildStart() {
       _scanned.clear();
 
-      // Lazy import to avoid loading @nexus/audit in non-security builds
+      // Lazy import to avoid loading @nexus_js/audit in non-security builds
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       let auditMod: any;
       try {
-        auditMod = await import('@nexus/audit');
+        auditMod = await import('@nexus_js/audit');
       } catch {
-        this.warn('[Nexus Security] @nexus/audit not installed. Run: pnpm add -D @nexus/audit');
+        this.warn('[Nexus Security] @nexus_js/audit not installed. Run: pnpm add -D @nexus_js/audit');
         return;
       }
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -199,7 +199,7 @@ export function nexusSecurity(opts: NexusSecurityPluginOptions = {}): Plugin {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       let auditMod2: any;
       try {
-        auditMod2 = await import('@nexus/audit');
+        auditMod2 = await import('@nexus_js/audit');
       } catch { return null; }
 
       try {

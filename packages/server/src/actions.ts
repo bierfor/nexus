@@ -30,7 +30,7 @@
 
 import { createContext } from './context.js';
 import type { NexusContext } from './context.js';
-import { serialize, deserialize } from '@nexus/serialize';
+import { serialize, deserialize } from '@nexus_js/serialize';
 import {
   validateActionToken,
   extractSessionId,

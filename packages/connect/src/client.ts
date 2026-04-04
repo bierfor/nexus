@@ -6,7 +6,7 @@
  *
  * Usage in a .nx island:
  *   <script>
- *   import { $socket } from '@nexus/connect/client';
+ *   import { $socket } from '@nexus_js/connect/client';
  *
  *   const captures = $socket('global-captures', { default: { count: 0 } });
  *   // captures.value.count is always up-to-date

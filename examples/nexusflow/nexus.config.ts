@@ -1,4 +1,4 @@
-import type { NexusConfig } from '@nexus/cli';
+import type { NexusConfig } from '@nexus_js/cli';
 
 /**
  * NexusFlow — consumed by CLI / Guard; `server.port` matches `nexus dev --port` in package.json.

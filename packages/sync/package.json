@@ -1,12 +1,42 @@
 {
-  "name": "@nexus/sync",
-  "version": "0.6.0",
+  "name": "@nexus_js/sync",
+  "version": "0.7.0",
   "description": "Nexus Local-First Sync Engine — IndexedDB-backed optimistic mutations with conflict resolution",
   "type": "module",
   "main": "./src/index.ts",
   "exports": {
     ".": "./src/index.ts"
   },
-  "keywords": ["nexus", "local-first", "sync", "indexeddb", "offline"],
-  "license": "MIT"
+  "keywords": [
+    "nexus",
+    "local-first",
+    "sync",
+    "indexeddb",
+    "offline",
+    "framework",
+    "full-stack",
+    "svelte",
+    "islands",
+    "ssr",
+    "vite",
+    "server-actions"
+  ],
+  "license": "MIT",
+  "homepage": "https://nexusjs.dev",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bierfor/nexus.git",
+    "directory": "packages/sync"
+  },
+  "bugs": {
+    "url": "https://github.com/bierfor/nexus/issues"
+  },
+  "files": [
+    "src",
+    "README.md"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  }
 }

@@ -1,6 +1,7 @@
 /**
- * Wraps the first element that uses a client:* hydration directive in <nexus-island>,
+ * Wraps every element that uses a client:* hydration directive in <nexus-island>,
  * so the Node dev server can serve a real ESM bundle at /_nexus/islands/client.mjs.
+ * Multiple islands per page share one client module; each wrapper gets data-nexus-island-index.
  */
 
 import { relative } from 'node:path';
@@ -58,13 +59,15 @@ function islandQueryParam(absFilePath: string, appRoot?: string): string {
 
 export interface IslandWrapResult {
   template: string;
-  /** Inner HTML (single island root) for the client bundle metadata; null if no wrap. */
+  /** First island inner root (backward compat for single-island callers) */
   clientTemplate: string | null;
+  /** One HTML fragment per island (same order as data-nexus-island-index) */
+  clientFragments: string[];
   didWrap: boolean;
 }
 
 /**
- * Finds the first tag with a `client:*` directive and wraps it (and its balanced children)
+ * Finds every tag with a `client:*` directive and wraps each (balanced subtree)
  * in <nexus-island> pointing at /_nexus/islands/client.mjs.
  */
 export function wrapSelfClientIslandMarkers(
@@ -72,49 +75,65 @@ export function wrapSelfClientIslandMarkers(
   absFilePath: string,
   appRoot?: string,
 ): IslandWrapResult {
-  const m = OPEN_WITH_CLIENT_RE.exec(template);
-  if (!m) {
-    return { template, clientTemplate: null, didWrap: false };
-  }
-
-  const tag = m[1] ?? 'div';
-  const fullAttrs = m[2] ?? '';
-  const openMatchStart = m.index ?? 0;
-  const openTagEnd = openMatchStart + m[0].length;
-
-  const strat = fullAttrs.match(CLIENT_DIR_RE);
-  const strategy = (strat?.[1] ?? 'load') as 'load' | 'idle' | 'visible' | 'media';
-  const mediaQuery = strat?.[2];
-
-  const cleanAttrs = stripClientDirective(fullAttrs);
-  const balanced = extractBalanced(template, openTagEnd, tag);
-  if (!balanced) {
-    return { template, clientTemplate: null, didWrap: false };
-  }
-
+  let t = template;
+  const fragments: string[] = [];
   const idBase = absFilePath.replace(/[^a-zA-Z0-9]/g, '_');
-  const islandId = `island_${idBase}_root`.toLowerCase();
   const q = islandQueryParam(absFilePath, appRoot);
   const islandUrl = `/_nexus/islands/client.mjs?${q}`;
-  const dataStrategy =
-    strategy === 'media' && mediaQuery
-      ? `data-nexus-strategy="client:media" data-nexus-media="${escapeAttr(mediaQuery)}"`
-      : `data-nexus-strategy="client:${strategy}"`;
 
-  const innerRootOpen = `<${tag}${cleanAttrs ? ' ' + cleanAttrs : ''}>`;
-  const innerRootClose = `</${tag}>`;
-  const clientTemplate = innerRootOpen + balanced.inner + innerRootClose;
+  while (true) {
+    OPEN_WITH_CLIENT_RE.lastIndex = 0;
+    const m = OPEN_WITH_CLIENT_RE.exec(t);
+    if (!m) {
+      break;
+    }
 
-  const wrapped =
-    template.slice(0, openMatchStart) +
-    `<nexus-island
+    const tag = m[1] ?? 'div';
+    const fullAttrs = m[2] ?? '';
+    const openMatchStart = m.index ?? 0;
+    const openTagEnd = openMatchStart + m[0].length;
+
+    const strat = fullAttrs.match(CLIENT_DIR_RE);
+    const strategy = (strat?.[1] ?? 'load') as 'load' | 'idle' | 'visible' | 'media';
+    const mediaQuery = strat?.[2];
+
+    const cleanAttrs = stripClientDirective(fullAttrs);
+    const balanced = extractBalanced(t, openTagEnd, tag);
+    if (!balanced) {
+      break;
+    }
+
+    const innerRootOpen = `<${tag}${cleanAttrs ? ' ' + cleanAttrs : ''}>`;
+    const innerRootClose = `</${tag}>`;
+    const clientTemplate = innerRootOpen + balanced.inner + innerRootClose;
+    fragments.push(clientTemplate);
+
+    const islandIdx = fragments.length - 1;
+    const islandId = `island_${idBase}_${islandIdx}`.toLowerCase();
+    const dataStrategy =
+      strategy === 'media' && mediaQuery
+        ? `data-nexus-strategy="client:media" data-nexus-media="${escapeAttr(mediaQuery)}"`
+        : `data-nexus-strategy="client:${strategy}"`;
+
+    const wrapped =
+      t.slice(0, openMatchStart) +
+      `<nexus-island
     data-nexus-island="${islandId}"
+    data-nexus-island-index="${islandIdx}"
     data-nexus-component="${islandUrl}"
     ${dataStrategy}
   >${clientTemplate}</nexus-island>` +
-    template.slice(balanced.closeEnd);
+      t.slice(balanced.closeEnd);
 
-  return { template: wrapped, clientTemplate, didWrap: true };
+    t = wrapped;
+  }
+
+  return {
+    template: t,
+    clientTemplate: fragments[0] ?? null,
+    clientFragments: fragments,
+    didWrap: fragments.length > 0,
+  };
 }
 
 function escapeAttr(s: string): string {

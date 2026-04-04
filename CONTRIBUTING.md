@@ -12,6 +12,7 @@ Thank you for your interest in contributing to Nexus. This document explains the
 - [Commit Convention](#commit-convention)
 - [Pull Request Process](#pull-request-process)
 - [Adding a New Package](#adding-a-new-package)
+- [Publishing to npm (maintainers)](#publishing-to-npm-maintainers)
 - [Writing Tests](#writing-tests)
 - [Reporting Bugs](#reporting-bugs)
 
@@ -74,19 +75,21 @@ pnpm studio
 ### Working on a specific package
 
 ```bash
-# Build only @nexus/runtime
-pnpm --filter @nexus/runtime build
+# Build only @nexus_js/runtime
+pnpm --filter @nexus_js/runtime build
 
-# Run tests for @nexus/serialize
-pnpm --filter @nexus/serialize test
+# Run tests for @nexus_js/serialize
+pnpm --filter @nexus_js/serialize test
 
-# Dev mode for @nexus/compiler
-pnpm --filter @nexus/compiler dev
+# Dev mode for @nexus_js/compiler
+pnpm --filter @nexus_js/compiler dev
 ```
 
 ---
 
 ## Project Structure
+
+**Published framework:** everything users install from npm (`@nexus_js/*`, `vite-plugin-nexus`) is developed under **`packages/`** only. **`examples/`** are sample apps; **`docs/`** is the static site — neither is published as a framework package.
 
 ```
 nexus/
@@ -113,9 +116,9 @@ nexus/
 **Dependency rules (enforced by convention):**
 
 ```
-compiler  → (no @nexus deps)
+compiler  → (no @nexus_js deps)
 runtime   → serialize
-router    → (no @nexus deps)
+router    → (no @nexus_js deps)
 server    → compiler, runtime, router, serialize, assets, head
 cli       → server, compiler, router
 db        → runtime, serialize
@@ -177,7 +180,7 @@ Nexus uses [Conventional Commits](https://www.conventionalcommits.org/).
 
 ### Scopes
 
-Use the package name without the `@nexus/` prefix:
+Use the package name without the `@nexus_js/` prefix:
 
 ```
 feat(runtime): add $sync rune persistence modes
@@ -224,7 +227,7 @@ See `.github/pull_request_template.md`.
 2. Copy `package.json` structure from an existing package (e.g., `packages/head`):
    ```json
    {
-     "name": "@nexus/my-package",
+     "name": "@nexus_js/my-package",
      "version": "0.1.0",
      "type": "module",
      "exports": { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" } },
@@ -238,7 +241,13 @@ See `.github/pull_request_template.md`.
 
 5. Add to `packages/` — pnpm workspaces picks it up automatically
 
-6. If other packages depend on it, add it to their `dependencies` as `"@nexus/my-package": "workspace:*"`
+6. If other packages depend on it, add it to their `dependencies` as `"@nexus_js/my-package": "workspace:*"`
+
+---
+
+## Publishing to npm (maintainers)
+
+Official instructions (authentication, **`pnpm release`** for the full framework, **`pnpm version:framework`**, troubleshooting) are in **[docs/PUBLISHING.md](./docs/PUBLISHING.md)**. The public site and package metadata use **[nexusjs.dev](https://nexusjs.dev)** as the canonical homepage.
 
 ---
 
@@ -264,9 +273,9 @@ describe('myFunction', () => {
 
 Run tests:
 ```bash
-pnpm --filter @nexus/my-package test
+pnpm --filter @nexus_js/my-package test
 # or in watch mode:
-pnpm --filter @nexus/my-package test -- --watch
+pnpm --filter @nexus_js/my-package test -- --watch
 ```
 
 ---

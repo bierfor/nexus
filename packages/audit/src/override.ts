@@ -15,7 +15,7 @@
  * Usage in nexus.config.ts:
  *
  * ```ts
- * import { defineNexusConfig } from '@nexus/core';
+ * import { defineNexusConfig } from '@nexus_js/core';
  *
  * export default defineNexusConfig({
  *   security: {

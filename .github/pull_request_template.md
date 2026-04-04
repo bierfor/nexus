@@ -17,19 +17,19 @@
 
 <!-- Check all that apply -->
 
-- [ ] `@nexus/compiler`
-- [ ] `@nexus/runtime`
-- [ ] `@nexus/server`
-- [ ] `@nexus/router`
-- [ ] `@nexus/cli`
-- [ ] `@nexus/assets`
-- [ ] `@nexus/head`
-- [ ] `@nexus/middleware`
-- [ ] `@nexus/serialize`
-- [ ] `@nexus/types`
-- [ ] `@nexus/testing`
-- [ ] `@nexus/vite-plugin-nexus`
-- [ ] `@nexus/db`
+- [ ] `@nexus_js/compiler`
+- [ ] `@nexus_js/runtime`
+- [ ] `@nexus_js/server`
+- [ ] `@nexus_js/router`
+- [ ] `@nexus_js/cli`
+- [ ] `@nexus_js/assets`
+- [ ] `@nexus_js/head`
+- [ ] `@nexus_js/middleware`
+- [ ] `@nexus_js/serialize`
+- [ ] `@nexus_js/types`
+- [ ] `@nexus_js/testing`
+- [ ] `vite-plugin-nexus`
+- [ ] `@nexus_js/db`
 - [ ] `examples/`
 - [ ] `docs/`
 

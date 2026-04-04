@@ -31,7 +31,7 @@
  *   </script>
  */
 
-import { $effect } from '@nexus/runtime';
+import { $effect } from '@nexus_js/runtime';
 
 export interface HeadMeta {
   /** Page title (also sets og:title and twitter:title by default) */

@@ -7,11 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.7.0] — 2026-04-04
+
+### Changed
+
+- Workspace and all `packages/*` framework packages aligned to **0.7.0** (`@nexus_js/*`, `vite-plugin-nexus`).
+- Publishing workflow: `pnpm release`, `pnpm version:framework`, and [docs/PUBLISHING.md](./docs/PUBLISHING.md).
+
 ## [0.6.0] — 2026-04-03
 
 ### Added
 
-**`@nexus/audit` — Integrated Dependency Auditing Engine (new package)**
+**`@nexus_js/audit` — Integrated Dependency Auditing Engine (new package)**
 
 *CVE Scanning via Google OSV (`src/engine.ts`)*
 - `auditPackage(pkg, version?)` — queries `api.osv.dev` for known CVEs, no API key required
@@ -103,7 +110,7 @@ For your own packages, use `npm access list collaborators {pkg}` with appropriat
 
 ### Added
 
-**`@nexus/server` — Security by Default (5-Layer Protection)**
+**`@nexus_js/server` — Security by Default (5-Layer Protection)**
 
 *Anti-CSRF & Anti-Replay (`packages/server/src/csrf.ts`)*
 - `generateActionToken(sessionId, actionName, secret)` — HMAC-SHA256 signed, base64url-encoded token
@@ -131,7 +138,7 @@ For your own packages, use `npm access list collaborators {pkg}` with appropriat
 - `schema: z.object(...)` — Zod-compatible input validation before handler runs (prevents SQL injection via type coercion)
 - Re-exports: `generateActionToken`, `validateActionToken`, `createRateLimiter`, `RateLimitError`, `parseWindow`
 
-**`@nexus/serialize` — XSS Auto-Protection**
+**`@nexus_js/serialize` — XSS Auto-Protection**
 - All `string` values serialized for server→client transport are now HTML entity encoded
 - Encodes: `&`, `<`, `>`, `"`, `'`, `` ` `` using Unicode escapes (`\u003c`, etc.)
 - Survives re-serialization (JSON.stringify preserves Unicode escapes)
@@ -169,17 +176,17 @@ For your own packages, use `npm access list collaborators {pkg}` with appropriat
 
 ### Added
 
-**`@nexus/router` — Multi-Tenant First-Class Support**
+**`@nexus_js/router` — Multi-Tenant First-Class Support**
 - `extractTenant(request, config)` — extracts tenant from subdomain, custom domain, or URL path
 - `TenantConfig` type with `mode`, `baseDomain`, `pathPrefix`, `resolve`, and `fallback` options
 - `scopeTenantKey(tenant, key)` — scopes Shield Cache keys per tenant, preventing cross-tenant data leaks
 - `tenantHeaders(tenant)` — generates `x-nexus-tenant`, `x-nexus-tenant-domain` headers for CDN routing
 - `tenantVaryHeader(mode)` — generates correct `Vary` header for CDN cache isolation per tenant
-- All exports available via `@nexus/router`
+- All exports available via `@nexus_js/router`
 - Supports `'subdomain'`, `'custom-domain'`, and `'path'` tenancy modes
 - Optional async `resolve` function for loading tenant metadata (plan, name, logo) from your DB
 
-**`@nexus/sync` — Local-First Sync Engine**
+**`@nexus_js/sync` — Local-First Sync Engine**
 - `NexusSyncEngine` class — IndexedDB-backed operation queue with background server sync
 - Writes are instant (IndexedDB) with zero perceived latency for the user
 - Pending ops survive page refreshes — stored in IDB, not memory
@@ -195,7 +202,7 @@ For your own packages, use `npm access list collaborators {pkg}` with appropriat
   - `subscribe(cb)` — reactive change notifications
 - `isOnline()` and `waitForOnline()` utilities
 
-**`@nexus/ui` — Zero-Bundle CSS-Only Components**
+**`@nexus_js/ui` — Zero-Bundle CSS-Only Components**
 - Every component generates pure HTML+CSS — 0.0 bytes of JavaScript shipped
 - Nexus compiler detects `@zero-bundle` annotation and replaces components at build time
 - Works with JavaScript disabled in the browser
@@ -209,7 +216,7 @@ For your own packages, use `npm access list collaborators {pkg}` with appropriat
 - All styles use `@layer nexus.ui` for safe cascade management
 
 **`examples/pokedex` — Local-First Offline Demo**
-- Battle capture now uses `@nexus/sync` pattern: IndexedDB write first, server sync second
+- Battle capture now uses `@nexus_js/sync` pattern: IndexedDB write first, server sync second
 - `/_nexus/sync` POST endpoint — receives sync ops, acks/conflicts back to client
 - `/_nexus/sync/captures` GET endpoint — returns server-side capture state
 - `handleSyncOps(ops)` — server-side op handler with conflict detection
@@ -226,7 +233,7 @@ For your own packages, use `npm access list collaborators {pkg}` with appropriat
 
 ### Added
 
-**`@nexus/server` — Production-grade request pipeline**
+**`@nexus_js/server` — Production-grade request pipeline**
 - `RequestLogInfo` interface: structured per-request data (method, path, status, duration, cacheStrategy, isAction)
 - `onRequest` hook in `NexusServerOptions` — lets the CLI (or any host) receive request events without coupling ANSI formatting to the server package
 - `cacheStrategy` field populated from `x-nexus-cache-strategy` renderer header and exposed via the hook
@@ -237,7 +244,7 @@ For your own packages, use `npm access list collaborators {pkg}` with appropriat
 
 ### Changed
 
-**`@nexus/cli` — Developer Experience overhaul (DX 2.0)**
+**`@nexus_js/cli` — Developer Experience overhaul (DX 2.0)**
 - `nexus dev` now shows a Vite-style ANSI startup banner: `◆ NEXUS v0.2.0  ready in Xms` with local URL
 - `nexus dev` prints a request access log for every request: timestamp · method · path · status · duration · cache tag (`⚡ cached`, `🌐 dynamic`, `🔒 private`, `⚡ action`)
 - `nexus dev` file watcher now debounces at 100ms and logs `[HMR] filename event — reloading routes` on every `.nx`/`.ts` change
@@ -275,19 +282,19 @@ For your own packages, use `npm access list collaborators {pkg}` with appropriat
 - Edge runtime compatibility via Web-standard `Request`/`Response` APIs
 
 **Packages**
-- `@nexus/compiler` — `.nx` → JS transform with AOT CSS scoping (`@layer nexus.scoped`) and island preload scanner
-- `@nexus/runtime` — Runes engine, island hydration, global state store, SPA navigation (Server-Driven DOM Morphing), cache, optimistic UI, `$sync` rune
-- `@nexus/server` — HTTP server, SSR renderer with auto Edge-Cache headers, streaming SSR with Suspense, file-based error boundaries, Server Actions with AbortController and race condition strategies
-- `@nexus/router` — File-based route manifest builder
-- `@nexus/cli` — `nexus dev/build/start/studio/check/routes/analyze` + `create-nexus` scaffolder + Nexus Studio dashboard
-- `@nexus/assets` — AVIF/WebP image optimization with srcset and blur placeholder; Google/local font optimization
-- `@nexus/head` — `defineHead()` and `useHead()` for SEO metadata management
-- `@nexus/middleware` — Web-standard middleware (CORS, rate limit, auth, geo, security headers) with Cloudflare/Vercel adapters
-- `@nexus/serialize` — SuperJSON-like serializer for `Date`, `Map`, `Set`, `BigInt`, `RegExp`, `URL`, `Uint8Array`, `undefined`, `NaN`, `Infinity`, `Error`
-- `@nexus/types` — E2E type generation for routes, params, and Server Actions
-- `@nexus/testing` — `renderSSR`, `mountIsland`, `createActionTestHarness` for Vitest/Playwright
-- `@nexus/vite-plugin-nexus` — Vite plugin for HMR, CSS preprocessing, island manifest emission
-- `@nexus/db` — BYOD thin provider adapter with Prisma, Drizzle, and libSQL/Turso adapters
+- `@nexus_js/compiler` — `.nx` → JS transform with AOT CSS scoping (`@layer nexus.scoped`) and island preload scanner
+- `@nexus_js/runtime` — Runes engine, island hydration, global state store, SPA navigation (Server-Driven DOM Morphing), cache, optimistic UI, `$sync` rune
+- `@nexus_js/server` — HTTP server, SSR renderer with auto Edge-Cache headers, streaming SSR with Suspense, file-based error boundaries, Server Actions with AbortController and race condition strategies
+- `@nexus_js/router` — File-based route manifest builder
+- `@nexus_js/cli` — `nexus dev/build/start/studio/check/routes/analyze` + `create-nexus` scaffolder + Nexus Studio dashboard
+- `@nexus_js/assets` — AVIF/WebP image optimization with srcset and blur placeholder; Google/local font optimization
+- `@nexus_js/head` — `defineHead()` and `useHead()` for SEO metadata management
+- `@nexus_js/middleware` — Web-standard middleware (CORS, rate limit, auth, geo, security headers) with Cloudflare/Vercel adapters
+- `@nexus_js/serialize` — SuperJSON-like serializer for `Date`, `Map`, `Set`, `BigInt`, `RegExp`, `URL`, `Uint8Array`, `undefined`, `NaN`, `Infinity`, `Error`
+- `@nexus_js/types` — E2E type generation for routes, params, and Server Actions
+- `@nexus_js/testing` — `renderSSR`, `mountIsland`, `createActionTestHarness` for Vitest/Playwright
+- `@nexus_js/vite-plugin-nexus` — Vite plugin for HMR, CSS preprocessing, island manifest emission
+- `@nexus_js/db` — BYOD thin provider adapter with Prisma, Drizzle, and libSQL/Turso adapters
 
 **DX Features**
 - Nexus Studio: real-time dev dashboard (Layout Tree, Island Map, Action Log, Cache Inspector, Store Viewer)

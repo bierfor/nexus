@@ -1,6 +1,6 @@
 import { readdir, stat } from 'node:fs/promises';
 import { join, relative, extname, basename, dirname } from 'node:path';
-import type { RouteManifest, RouteEntry } from '@nexus/compiler';
+import type { RouteManifest, RouteEntry } from '@nexus_js/compiler';
 
 export type { RouteManifest, RouteEntry };
 

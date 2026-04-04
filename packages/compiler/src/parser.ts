@@ -5,15 +5,12 @@ import type {
   IslandHydration,
   ServerAction,
 } from './types.js';
+import { extractServerActionsFromSource } from './server-actions-extract.js';
 
 /** Regex patterns for parsing .nx files */
 const FRONTMATTER_RE = /^---\n([\s\S]*?)\n---/;
 const SCRIPT_BLOCK_RE = /<script(?:\s[^>]*)?>(\n[\s\S]*?)<\/script>/;
 const STYLE_BLOCK_RE = /<style(?:\s[^>]*)?>(\n[\s\S]*?)<\/style>/;
-const SERVER_ACTION_RE =
-  /(?:export\s+)?async\s+function\s+(\w+)\s*\(([^)]*)\)\s*\{[\s\S]*?"use server"[\s\S]*?\}/g;
-const USE_SERVER_FN_RE =
-  /(?:export\s+)?(?:async\s+)?function\s+(\w+)\s*\(([^)]*)\)\s*\{([\s\S]*?)"use server"([\s\S]*?)\}/g;
 
 const ISLAND_DIRECTIVES: IslandHydration[] = [
   'client:load',
@@ -111,9 +108,9 @@ export function parse(source: string, filepath: string): ParsedComponent {
   // --- Server Actions ---
   const scriptContent = script?.content ?? '';
   const frontmatterContent = frontmatter?.content ?? '';
-  const serverActions = extractServerActions(scriptContent + '\n' + frontmatterContent);
+  const serverActions = extractServerActionsFromSource(scriptContent + '\n' + frontmatterContent);
 
-  if (serverActions.length > 0 && !source.includes('"use server"')) {
+  if (serverActions.length > 0 && !source.includes('use server')) {
     warnings.push(
       `Found server action patterns without "use server" directive in ${filepath}`,
     );
@@ -150,34 +147,4 @@ function extractIslandDirectives(template: string): IslandDirective[] {
   }
 
   return directives;
-}
-
-function extractServerActions(code: string): ServerAction[] {
-  const actions: ServerAction[] = [];
-  const seen = new Set<string>();
-
-  // Match functions that contain "use server"
-  const re =
-    /(?:export\s+)?(?:async\s+)?function\s+(\w+)\s*\(([^)]*)\)\s*\{([\s\S]*?)\}/g;
-
-  let match: RegExpExecArray | null;
-  while ((match = re.exec(code)) !== null) {
-    const name = match[1];
-    const params = match[2];
-    const body = match[3];
-
-    if (!name || !body?.includes('"use server"')) continue;
-    if (seen.has(name)) continue;
-    seen.add(name);
-
-    const cleaned = body.replace('"use server"', '').replace(/^\s*;\s*/u, '').trim();
-    actions.push({
-      name,
-      params: params ? params.split(',').map((p) => p.trim()).filter(Boolean) : [],
-      body: cleaned,
-      returnType: 'Promise<unknown>',
-    });
-  }
-
-  return actions;
 }

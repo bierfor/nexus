@@ -1,0 +1,275 @@
+---
+import { renderImage } from '@nexus_js/assets';
+import { defineHead } from '@nexus_js/head';
+
+defineHead({
+  title: 'Nexus · Galería optimizada (AVIF / WebP / srcset)',
+  description:
+    'Demo de @nexus_js/assets: picture + sharp en /_nexus/image, tamaños responsivos y carga diferida.',
+  themeColor: '#0c1222',
+  links: [
+    {
+      rel: 'stylesheet',
+      href: 'https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,600;0,9..40,700;1,9..40,400&family=Fraunces:ital,opsz,wght@0,9..144,600;1,9..144,600&display=swap',
+    },
+  ],
+});
+
+const hero = renderImage({
+  src: '/gallery/landscape.jpg',
+  alt: 'Lago y montañas — imagen local en public/gallery',
+  width: 1280,
+  height: 853,
+  priority: true,
+  quality: 82,
+  sizes: '(max-width: 1280px) 100vw, 1280px',
+});
+
+const remote = renderImage({
+  src: 'https://picsum.photos/id/1018/2400/1600',
+  alt: 'Carretera — misma URL optimizada en el servidor (fetch + sharp)',
+  width: 960,
+  height: 640,
+  quality: 78,
+  placeholder: 'blur',
+});
+
+const cardA = renderImage({
+  src: '/gallery/portrait.jpg',
+  alt: 'Retrato vertical',
+  width: 480,
+  height: 720,
+  quality: 80,
+  sizes: '(max-width: 640px) 100vw, 480px',
+});
+
+const cardB = renderImage({
+  src: '/gallery/landscape.jpg',
+  alt: 'Miniatura paisaje',
+  width: 400,
+  height: 267,
+  quality: 75,
+  round: false,
+});
+
+const avatar = renderImage({
+  src: '/gallery/landscape.jpg',
+  alt: 'Avatar demo',
+  size: 96,
+  round: true,
+  quality: 85,
+  class: 'avatar-pic',
+});
+---
+
+<template>
+  <div class="page">
+    <header class="masthead">
+      <p class="eyebrow">Nexus · @nexus_js/assets</p>
+      <h1>Imágenes optimizadas en el servidor</h1>
+      <p class="lede">
+        Cada <code>renderImage()</code> genera un <code>&lt;picture&gt;</code> con fuentes AVIF y WebP,
+        <code>srcset</code> por anchos y un fallback JPEG/PNG. El endpoint
+        <code>/_nexus/image</code> redimensiona con <strong>sharp</strong> y envía
+        <code>Cache-Control: immutable</code>.
+      </p>
+    </header>
+
+    <section class="panel hero-panel" aria-labelledby="hero-title">
+      <h2 id="hero-title">Above the fold · prioridad alta</h2>
+      <p class="hint">
+        <code>priority: true</code> → <code>loading=&quot;eager&quot;</code>,
+        <code>decoding=&quot;sync&quot;</code>, <code>fetchpriority=&quot;high&quot;</code>
+      </p>
+      <div class="hero-slot">
+        {hero}
+      </div>
+    </section>
+
+    <section class="panel" aria-labelledby="remote-title">
+      <h2 id="remote-title">URL remota · proxy + conversión</h2>
+      <p class="hint">
+        Las URLs absolutas pasan por <code>/_nexus/image?url=...</code>: fetch en el servidor, mismo pipeline.
+      </p>
+      <div class="remote-slot">
+        {remote}
+      </div>
+    </section>
+
+    <section class="panel" aria-labelledby="grid-title">
+      <h2 id="grid-title">Lazy load · tarjetas</h2>
+      <p class="hint">Sin <code>priority</code>: <code>loading=&quot;lazy&quot;</code> y <code>decoding=&quot;async&quot;</code>.</p>
+      <div class="grid">
+        <article class="card">
+          {cardA}
+          <p class="cap">Vertical · <code>sizes</code> acotado</p>
+        </article>
+        <article class="card">
+          {cardB}
+          <p class="cap">Horizontal · calidad 75</p>
+        </article>
+        <article class="card card-round">
+          {avatar}
+          <p class="cap"><code>round</code> · 96×96</p>
+        </article>
+      </div>
+    </section>
+
+    <footer class="foot">
+      <p>
+        <code>examples/image-gallery</code> ·
+        <code>pnpm --filter image-gallery dev</code> · puerto 3040
+      </p>
+    </footer>
+  </div>
+</template>
+
+<style>
+  :global(:root) {
+    --bg: #0c1222;
+    --surface: #141c32;
+    --line: rgba(255, 255, 255, 0.08);
+    --text: #e8edf7;
+    --muted: #8b9cbb;
+    --accent: #7cf0c4;
+    --mono: 'DM Sans', system-ui, sans-serif;
+    --display: 'Fraunces', Georgia, serif;
+  }
+
+  .page {
+    font-family: var(--mono);
+    color: var(--text);
+    background: radial-gradient(1200px 600px at 10% -10%, #1a2a4a 0%, transparent 55%),
+      radial-gradient(900px 500px at 90% 20%, #132238 0%, transparent 50%), var(--bg);
+    min-height: 100vh;
+    padding: 2.5rem clamp(1.25rem, 4vw, 3rem) 4rem;
+  }
+
+  .masthead {
+    max-width: 52rem;
+    margin-bottom: 2.5rem;
+  }
+
+  .eyebrow {
+    font-size: 0.75rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 0.75rem;
+    font-weight: 600;
+  }
+
+  h1 {
+    font-family: var(--display);
+    font-size: clamp(1.75rem, 4vw, 2.5rem);
+    font-weight: 600;
+    line-height: 1.15;
+    margin-bottom: 1rem;
+  }
+
+  .lede {
+    color: var(--muted);
+    line-height: 1.65;
+    font-size: 1.05rem;
+  }
+
+  .lede code {
+    font-size: 0.88em;
+    color: #c5d4f0;
+    background: rgba(124, 240, 196, 0.08);
+    padding: 0.1em 0.35em;
+    border-radius: 4px;
+  }
+
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 1.5rem clamp(1rem, 3vw, 2rem);
+    margin-bottom: 1.75rem;
+    max-width: 72rem;
+  }
+
+  .panel h2 {
+    font-family: var(--display);
+    font-size: 1.25rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .hint {
+    font-size: 0.9rem;
+    color: var(--muted);
+    margin-bottom: 1.25rem;
+    line-height: 1.5;
+  }
+
+  .hint code {
+    font-size: 0.85em;
+    color: #b8c9e8;
+  }
+
+  .hero-slot :global(picture),
+  .remote-slot :global(picture) {
+    display: block;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 24px 48px rgba(0, 0, 0, 0.35);
+  }
+
+  .hero-slot :global(img),
+  .remote-slot :global(img) {
+    width: 100%;
+    height: auto;
+    vertical-align: middle;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1.25rem;
+  }
+
+  .card {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 12px;
+    padding: 0.75rem;
+    border: 1px solid var(--line);
+  }
+
+  .card :global(picture) {
+    display: block;
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  .card :global(img) {
+    width: 100%;
+    height: auto;
+    vertical-align: middle;
+  }
+
+  .card-round :global(picture) {
+    max-width: 96px;
+    margin: 0 auto;
+  }
+
+  .card-round :global(img) {
+    object-fit: cover;
+  }
+
+  .cap {
+    margin-top: 0.75rem;
+    font-size: 0.85rem;
+    color: var(--muted);
+  }
+
+  .foot {
+    margin-top: 2rem;
+    font-size: 0.85rem;
+    color: var(--muted);
+  }
+
+  .foot code {
+    color: #a8bddc;
+  }
+</style>
