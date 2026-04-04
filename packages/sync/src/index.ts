@@ -26,8 +26,10 @@ export type {
 } from './byte-mirror-protocol.js';
 
 /** Convenience: check if the browser is currently online. */
-export const isOnline = (): boolean =>
-  typeof navigator !== 'undefined' ? navigator.onLine : true;
+export const isOnline = (): boolean => {
+  if (typeof navigator === 'undefined') return true;
+  return navigator.onLine !== false;
+};
 
 /** Returns a promise that resolves when the browser comes back online. */
 export function waitForOnline(): Promise<void> {
