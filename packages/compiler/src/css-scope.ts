@@ -96,17 +96,141 @@ export function scopeCSS(rawCSS: string, filepath: string): ScopedCSS {
  * Skips elements that are: slot, nexus-island, html, head, body.
  * Handles :global(selector) — removes scoping for that selector.
  */
+/**
+ * `.nx` pages often use `<template>...</template>` as the root. In the live DOM,
+ * `<template>` contents are inert (not rendered). SSR must unwrap the outer
+ * wrapper so the shell is visible; nested `<template>` inside the tree is rare
+ * and still wrapped until unwrapped by the same pass on inner routes only when
+ * they are the file root.
+ */
+export function unwrapOuterTemplateElement(html: string): string {
+  const t = html.trimStart();
+  if (!/^<template\b/i.test(t)) return html;
+
+  const lower = t.toLowerCase();
+  let depth = 0;
+  let i = 0;
+  let contentStart = -1;
+
+  while (i < t.length) {
+    const open = lower.indexOf('<template', i);
+    const close = lower.indexOf('</template>', i);
+
+    if (open !== -1 && (close === -1 || open < close)) {
+      if (depth === 0) {
+        const gt = t.indexOf('>', open);
+        if (gt === -1) return html;
+        contentStart = gt + 1;
+      }
+      depth++;
+      i = open + '<template'.length;
+      continue;
+    }
+
+    if (close !== -1) {
+      depth--;
+      if (depth === 0 && contentStart !== -1) {
+        return t.slice(contentStart, close).trim();
+      }
+      i = close + '</template>'.length;
+      continue;
+    }
+
+    break;
+  }
+
+  return html;
+}
+
 export function scopeTemplate(html: string, hash: string): string {
-  // Inject data-nx on all opening HTML tags (not self-closing meta/link/etc)
-  return html.replace(
-    /<([a-zA-Z][a-zA-Z0-9-]*)(\s[^>]*)?>/g,
-    (full, tag: string, attrs: string = '') => {
-      const skip = new Set(['html', 'head', 'body', 'meta', 'link', 'script', 'style', 'nexus-island', 'slot']);
-      if (skip.has(tag.toLowerCase())) return full;
-      if (attrs.includes('data-nx=')) return full; // already scoped
-      return `<${tag}${attrs} data-nx="${hash}">`;
-    },
-  );
+  const skip = new Set(['html', 'head', 'body', 'meta', 'link', 'script', 'style', 'nexus-island', 'slot']);
+  let out = '';
+  let i = 0;
+  while (i < html.length) {
+    const lt = html.indexOf('<', i);
+    if (lt === -1) {
+      out += html.slice(i);
+      break;
+    }
+    out += html.slice(i, lt);
+    const afterLt = html.slice(lt + 1);
+    if (afterLt[0] === '/' || afterLt[0] === '!') {
+      const gt = html.indexOf('>', lt);
+      if (gt === -1) {
+        out += html.slice(lt);
+        break;
+      }
+      out += html.slice(lt, gt + 1);
+      i = gt + 1;
+      continue;
+    }
+    const tagM = /^([a-zA-Z][\w-]*)/.exec(afterLt);
+    if (!tagM) {
+      out += '<';
+      i = lt + 1;
+      continue;
+    }
+    const tag = tagM[1] ?? '';
+    if (!tag) {
+      out += '<';
+      i = lt + 1;
+      continue;
+    }
+    const lower = tag.toLowerCase();
+    let j = lt + 1 + tagM[0].length;
+    let brace = 0;
+    let quote: string | null = null;
+    let closed = false;
+    while (j < html.length) {
+      const c = html[j];
+      if (quote !== null) {
+        if (c === '\\' && j + 1 < html.length) {
+          j += 2;
+          continue;
+        }
+        if (c === quote) quote = null;
+        j++;
+        continue;
+      }
+      if (c === '"' || c === "'") {
+        quote = c;
+        j++;
+        continue;
+      }
+      if (c === '{') brace++;
+      else if (c === '}') brace = Math.max(0, brace - 1);
+      else if (c === '/' && html[j + 1] === '>' && brace === 0) {
+        const full = html.slice(lt, j + 2);
+        if (skip.has(lower) || full.includes('data-nx=')) {
+          out += full;
+        } else {
+          const attrPart = html.slice(lt + 1 + tagM[0].length, j);
+          out += `<${tag}${attrPart} data-nx="${hash}" />`;
+        }
+        j += 2;
+        closed = true;
+        break;
+      } else if (c === '>' && brace === 0) {
+        const full = html.slice(lt, j + 1);
+        if (skip.has(lower) || full.includes('data-nx=')) {
+          out += full;
+        } else {
+          const attrPart = html.slice(lt + 1 + tagM[0].length, j);
+          out += `<${tag}${attrPart} data-nx="${hash}">`;
+        }
+        j++;
+        closed = true;
+        break;
+      }
+      j++;
+    }
+    if (!closed) {
+      out += html.slice(lt);
+      break;
+    }
+    i = j;
+  }
+  return out;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

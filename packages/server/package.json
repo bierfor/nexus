@@ -27,6 +27,7 @@
   },
   "dependencies": {
     "@nexus/compiler": "workspace:*",
+    "@nexus/connect": "workspace:*",
     "@nexus/router": "workspace:*",
     "@nexus/serialize": "workspace:*"
   },

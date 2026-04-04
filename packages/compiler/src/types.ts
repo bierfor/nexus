@@ -55,6 +55,8 @@ export interface CompileOptions {
   /** Whether to emit island manifests for the runtime */
   emitIslandManifest: boolean;
   target: 'node' | 'edge' | 'browser';
+  /** App root — used for stable /_nexus/islands/client.mjs?path=… query strings */
+  appRoot?: string;
 }
 
 export interface CompileResult {

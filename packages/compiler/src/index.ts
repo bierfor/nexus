@@ -31,6 +31,7 @@ export function compile(
     ssr: opts.ssr ?? true,
     emitIslandManifest: opts.emitIslandManifest ?? true,
     target: opts.target ?? 'node',
+    ...(opts.appRoot !== undefined ? { appRoot: opts.appRoot } : {}),
   };
 
   const parsed = parse(source, filepath);

@@ -18,8 +18,55 @@ importers:
         specifier: ^2.0.0
         version: 2.1.9(@types/node@22.19.17)
 
+  examples/anonymous-chat:
+    dependencies:
+      '@nexus/connect':
+        specifier: workspace:*
+        version: link:../../packages/connect
+      '@nexus/head':
+        specifier: workspace:*
+        version: link:../../packages/head
+      '@nexus/runtime':
+        specifier: workspace:*
+        version: link:../../packages/runtime
+      '@nexus/serialize':
+        specifier: workspace:*
+        version: link:../../packages/serialize
+      '@nexus/server':
+        specifier: workspace:*
+        version: link:../../packages/server
+    devDependencies:
+      '@nexus/cli':
+        specifier: workspace:*
+        version: link:../../packages/cli
+      '@nexus/compiler':
+        specifier: workspace:*
+        version: link:../../packages/compiler
+      typescript:
+        specifier: ^5.5.0
+        version: 5.9.3
+
   examples/basic:
     dependencies:
+      '@nexus/runtime':
+        specifier: workspace:*
+        version: link:../../packages/runtime
+    devDependencies:
+      '@nexus/cli':
+        specifier: workspace:*
+        version: link:../../packages/cli
+      '@nexus/compiler':
+        specifier: workspace:*
+        version: link:../../packages/compiler
+      typescript:
+        specifier: ^5.5.0
+        version: 5.9.3
+
+  examples/nexusflow:
+    dependencies:
+      '@nexus/head':
+        specifier: workspace:*
+        version: link:../../packages/head
       '@nexus/runtime':
         specifier: workspace:*
         version: link:../../packages/runtime
@@ -192,6 +239,9 @@ importers:
       '@nexus/compiler':
         specifier: workspace:*
         version: link:../compiler
+      '@nexus/connect':
+        specifier: workspace:*
+        version: link:../connect
       '@nexus/router':
         specifier: workspace:*
         version: link:../router

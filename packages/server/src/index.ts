@@ -9,7 +9,16 @@ import { join, extname } from 'node:path';
 import { buildRouteManifest, matchRoute } from '@nexus/router';
 import type { RouteManifest } from '@nexus/router';
 import { handleActionRequest } from './actions.js';
+import { handleSSERequestNode, isConnectRequest, topicFromUrl } from '@nexus/connect';
+import {
+  buildAggregatedNxStylesheet,
+  bustAggregatedStylesCache,
+  compileIslandClientBundle,
+  isIslandClientRequest,
+  tryServeRuntimeAsset,
+} from './dev-assets.js';
 import { renderRoute } from './renderer.js';
+import { reimportDevActionSidecars } from './load-module.js';
 import { createContext, RedirectSignal, NotFoundSignal } from './context.js';
 import type { RenderOptions } from './renderer.js';
 
@@ -74,8 +83,10 @@ export async function createNexusServer(opts: NexusServerOptions) {
 
   const renderOpts: RenderOptions = {
     dev,
+    appRoot: opts.root,
     assets: {
-      runtime: '/_nexus/runtime.js',
+      /** ESM entry + chunks served from @nexus/runtime/dist via /_nexus/rt/* */
+      runtime: '/_nexus/rt/index.js',
       styles: ['/_nexus/styles.css'],
       islands: new Map(),
     },
@@ -106,9 +117,51 @@ export async function createNexusServer(opts: NexusServerOptions) {
     // ── Server Actions ──────────────────────────────────────────────────────
     if (url.pathname.startsWith('/_nexus/action/')) {
       _isAction = true;
-      const request = nodeToWebRequest(req);
+      const request = await incomingMessageToWebRequest(req);
       const response = await handleActionRequest(request);
       await webToNodeResponse(response, res);
+      return;
+    }
+
+    // ── Nexus Connect — SSE (/_nexus/connect/:topic) ────────────────────────
+    if (method === 'GET' && isConnectRequest(url)) {
+      handleSSERequestNode(req, res, topicFromUrl(url));
+      return;
+    }
+
+    // ── @nexus/runtime ESM (browser import graph: /_nexus/rt/index.js → ./island.js …)
+    const rt = await tryServeRuntimeAsset(url.pathname, opts.root);
+    if (rt) {
+      res.writeHead(200, { 'content-type': rt.contentType });
+      res.end(rt.body);
+      return;
+    }
+
+    // ── Client island ESM (dynamic import target for <nexus-island>) ───────
+    if (isIslandClientRequest(url.pathname) && method === 'GET') {
+      const out = await compileIslandClientBundle(opts.root, url);
+      res.writeHead(out.status, {
+        'content-type': 'application/javascript; charset=utf-8',
+        'cache-control': dev ? 'no-store' : 'public, max-age=120',
+      });
+      res.end(out.body);
+      return;
+    }
+
+    // ── Aggregated scoped CSS from all .nx files under src/
+    if (url.pathname === '/_nexus/styles.css' && method === 'GET') {
+      try {
+        const css = await buildAggregatedNxStylesheet(opts.root);
+        res.writeHead(200, {
+          'content-type': 'text/css; charset=utf-8',
+          'cache-control': dev ? 'no-store' : 'public, max-age=300',
+        });
+        res.end(css);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        res.writeHead(500, { 'content-type': 'text/plain; charset=utf-8' });
+        res.end(`[Nexus] Failed to build styles: ${msg}`);
+      }
       return;
     }
 
@@ -170,7 +223,11 @@ export async function createNexusServer(opts: NexusServerOptions) {
 
     /** Re-scans src/routes — called on file changes in dev mode. */
     async reload(): Promise<void> {
+      bustAggregatedStylesCache();
       manifest = await buildRouteManifest(routesDir);
+      if (dev) {
+        await reimportDevActionSidecars(opts.root);
+      }
     },
 
     close(): void {
@@ -190,6 +247,26 @@ function nodeToWebRequest(req: IncomingMessage): Request {
     if (value) headers.set(key, Array.isArray(value) ? value.join(', ') : value);
   }
   return new Request(url, { method: req.method ?? 'GET', headers });
+}
+
+/** Full body (for POST server actions — `nodeToWebRequest` omits the stream). */
+async function incomingMessageToWebRequest(req: IncomingMessage): Promise<Request> {
+  const url = `http://${req.headers.host ?? 'localhost'}${req.url ?? '/'}`;
+  const headers = new Headers();
+  for (const [key, value] of Object.entries(req.headers)) {
+    if (value) headers.set(key, Array.isArray(value) ? value.join(', ') : value);
+  }
+  const chunks: Buffer[] = [];
+  for await (const chunk of req) {
+    chunks.push(Buffer.from(chunk));
+  }
+  const raw = Buffer.concat(chunks);
+  const method = req.method ?? 'GET';
+  const init: RequestInit = { method, headers };
+  if (raw.length > 0 && (method === 'POST' || method === 'PUT' || method === 'PATCH')) {
+    init.body = new Uint8Array(raw);
+  }
+  return new Request(url, init);
 }
 
 async function webToNodeResponse(

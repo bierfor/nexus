@@ -18,9 +18,12 @@
 import type { MatchedRoute } from '@nexus/router';
 import type { IslandManifest } from '@nexus/compiler';
 import type { NexusContext } from './context.js';
+import { loadRouteModule } from './load-module.js';
 
 export interface RenderOptions {
   dev: boolean;
+  /** Required for loading `.nx` routes (dev compile + prod build path). */
+  appRoot: string;
   assets: AssetManifest;
 }
 
@@ -166,7 +169,11 @@ export async function renderRoute(
   const layoutSlots: string[] = [];
   for (const layout of matched.layouts) {
     try {
-      const mod = await import(/* @vite-ignore */ layout.filepath);
+      const mod = await loadRouteModule(layout.filepath, {
+        dev: opts.dev,
+        appRoot: opts.appRoot,
+        pattern: layout.pattern,
+      });
       if (typeof mod.render === 'function') {
         const result = await mod.render(ctx);
         layoutSlots.push(result.html ?? '');
@@ -178,7 +185,11 @@ export async function renderRoute(
 
   // Render the page itself
   try {
-    const pageMod = await import(/* @vite-ignore */ matched.route.filepath);
+    const pageMod = await loadRouteModule(matched.route.filepath, {
+      dev: opts.dev,
+      appRoot: opts.appRoot,
+      pattern: matched.route.pattern,
+    });
     if (typeof pageMod.render === 'function') {
       const result = await pageMod.render(ctx);
       pageHtml = result.html ?? '';
@@ -260,6 +271,18 @@ function wrapWithDocument(
     ? `<script type="module" src="${opts.assets.runtime}"></script>`
     : '';
 
+  // Import map — resolves @nexus/* bare specifiers inside dynamically-imported island bundles.
+  // Must appear before any <script type="module"> that uses these specifiers.
+  const importMap = `<script type="importmap">
+{
+  "imports": {
+    "@nexus/runtime/island": "/_nexus/rt/island.js",
+    "@nexus/runtime": "/_nexus/rt/index.js",
+    "@nexus/serialize": "/_nexus/rt/serialize.js"
+  }
+}
+</script>`;
+
   // HMR WebSocket reconnector (dev only)
   const hmrScript = opts.dev ? `<script>
 (function(){
@@ -289,6 +312,7 @@ window.__NEXUS_BUILD_INFO__ = {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     ${styleLinks}
+    ${importMap}
     ${hmrScript}
     ${bridgeScript}
     ${runtimeScript}

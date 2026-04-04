@@ -170,10 +170,11 @@ function extractServerActions(code: string): ServerAction[] {
     if (seen.has(name)) continue;
     seen.add(name);
 
+    const cleaned = body.replace('"use server"', '').replace(/^\s*;\s*/u, '').trim();
     actions.push({
       name,
       params: params ? params.split(',').map((p) => p.trim()).filter(Boolean) : [],
-      body: body.replace('"use server"', '').trim(),
+      body: cleaned,
       returnType: 'Promise<unknown>',
     });
   }

@@ -1,0 +1,23 @@
+{
+  "name": "nexusflow",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "NexusFlow — demo app driven by @nexus/compiler + nexus dev (SSR from .nx)",
+  "scripts": {
+    "dev": "nexus dev --port 3010",
+    "build": "nexus build",
+    "start": "nexus start --port 3010",
+    "audit": "nexus audit",
+    "check": "nexus check"
+  },
+  "dependencies": {
+    "@nexus/head": "workspace:*",
+    "@nexus/runtime": "workspace:*"
+  },
+  "devDependencies": {
+    "@nexus/cli": "workspace:*",
+    "@nexus/compiler": "workspace:*",
+    "typescript": "^5.5.0"
+  }
+}

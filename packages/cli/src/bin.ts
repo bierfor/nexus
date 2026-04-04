@@ -293,8 +293,10 @@ async function runBuild(opts: { root: string }): Promise<void> {
 
   const { compile } = await import('@nexus/compiler');
   const { buildRouteManifest } = await import('@nexus/router');
+  const { existsSync } = await import('node:fs');
   const { readFile, writeFile, mkdir } = await import('node:fs/promises');
   const { join } = await import('node:path');
+  const { pathToFileURL } = await import('node:url');
 
   const routesDir = join(opts.root, 'src', 'routes');
   const outDir = join(opts.root, '.nexus', 'output');
@@ -310,14 +312,26 @@ async function runBuild(opts: { root: string }): Promise<void> {
       mode: 'server',
       dev: false,
       emitIslandManifest: true,
+      appRoot: opts.root,
     });
 
-    const outPath = join(outDir, route.pattern === '/' ? 'index' : route.pattern) + '.js';
+    const outSeg = route.pattern === '/' ? 'index' : route.pattern.replace(/^\//, '');
+    const outPath = join(outDir, outSeg) + '.js';
     await mkdir(join(outPath, '..'), { recursive: true });
     await writeFile(outPath, result.serverCode, 'utf-8');
 
     if (result.clientCode) {
       await writeFile(outPath.replace('.js', '.client.js'), result.clientCode, 'utf-8');
+    }
+
+    if (result.actionsModule) {
+      const actionsPath = outPath.replace(/\.js$/u, '.actions.js');
+      let code = result.actionsModule;
+      const store = join(opts.root, 'src/lib/chat-room.js');
+      if (code.includes('appendMessage') && existsSync(store)) {
+        code = `import { appendMessage } from ${JSON.stringify(pathToFileURL(store).href)};\n${code}`;
+      }
+      await writeFile(actionsPath, code, 'utf-8');
     }
 
     compiled++;

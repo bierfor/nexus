@@ -1,0 +1,109 @@
+---
+import { defineHead } from '@nexus/head';
+
+defineHead({
+  title: 'Credenciales — NexusFlow',
+  description: 'Formularios y narrativa Hardened Mode / auditoría de dependencias',
+});
+
+const auditHint = {
+  pkg: 'oauth4webapi',
+  vulns: 0,
+  lastScan: '2026-04-01',
+};
+---
+
+<script>
+  function preventSubmit(e) {
+    e.preventDefault();
+  }
+</script>
+
+<template>
+<section class="page">
+  <h1>Gestión de credenciales</h1>
+  <p class="lead">
+    Los valores nunca se imprimen desde el bloque servidor en este demo. En un despliegue con
+    <strong>Hardened Mode</strong>, un <code class="mono">console.log</code> accidental con secretos en código de cliente
+    falla el build. Tras guardar, Nexus puede auditar la librería OAuth (ej. <span class="mono">{auditHint.pkg}</span> — {auditHint.vulns} CVEs conocidos en el último escaneo simulado).
+  </p>
+  <div class="forms" client:load>
+    <form class="card" onsubmit={preventSubmit}>
+      <h2>Slack</h2>
+      <label class="field">
+        Bot token
+        <input name="slack" type="password" autocomplete="off" placeholder="xoxb-…" />
+      </label>
+      <button type="submit" class="btn">Cifrar y guardar (cliente)</button>
+      <p class="fine">Demo: no se envía a ningún backend; ilustra el flujo de formulario aislado.</p>
+    </form>
+    <form class="card" onsubmit={preventSubmit}>
+      <h2>Discord</h2>
+      <label class="field">
+        Bot token
+        <input name="discord" type="password" autocomplete="off" />
+      </label>
+      <button type="submit" class="btn">Cifrar y guardar (cliente)</button>
+    </form>
+    <form class="card" onsubmit={preventSubmit}>
+      <h2>Gmail OAuth</h2>
+      <label class="field">
+        Client ID
+        <input name="gmail_id" type="text" autocomplete="off" />
+      </label>
+      <label class="field">
+        Client secret
+        <input name="gmail_secret" type="password" autocomplete="off" />
+      </label>
+      <button type="submit" class="btn">Validar + auditar dependencia</button>
+    </form>
+  </div>
+</section>
+</template>
+
+<style>
+  .page h1 { margin: 0 0 0.5rem; font-size: 1.4rem; }
+  .lead { margin: 0 0 1.25rem; color: #94a3b8; font-size: 0.88rem; max-width: 62ch; line-height: 1.55; }
+  .lead code { color: #a78bfa; }
+  .mono { font-family: ui-monospace, monospace; }
+  .forms {
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  }
+  .card {
+    padding: 1rem;
+    border-radius: 12px;
+    border: 1px solid #1f2937;
+    background: rgba(17, 24, 39, 0.5);
+  }
+  .card h2 { margin: 0 0 0.75rem; font-size: 0.95rem; color: #e5e7eb; }
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    font-size: 0.75rem;
+    color: #94a3b8;
+    margin-bottom: 0.65rem;
+  }
+  .field input {
+    padding: 0.45rem 0.55rem;
+    border-radius: 8px;
+    border: 1px solid #334155;
+    background: #0f172a;
+    color: #e5e7eb;
+    font-size: 0.85rem;
+  }
+  .btn {
+    margin-top: 0.25rem;
+    padding: 0.4rem 0.75rem;
+    border-radius: 8px;
+    border: 1px solid rgba(56, 189, 248, 0.4);
+    background: rgba(56, 189, 248, 0.12);
+    color: #e5e7eb;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .fine { margin: 0.5rem 0 0; font-size: 0.7rem; color: #64748b; }
+</style>
