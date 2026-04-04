@@ -18,9 +18,10 @@ import {
   tryServeRuntimeAsset,
 } from './dev-assets.js';
 import { devErrorHtmlPage } from './dev-error-html.js';
+import { broadcastDevHotReload, subscribeDevHotClient } from './dev-hot.js';
 import { renderRoute } from './renderer.js';
 import { handleNavigationRequest } from './navigate.js';
-import { preloadRegisteredServerActions } from './load-module.js';
+import { bumpDevReloadGeneration, preloadRegisteredServerActions } from './load-module.js';
 import { createContext, RedirectSignal, NotFoundSignal } from './context.js';
 import type { RenderOptions } from './renderer.js';
 
@@ -30,6 +31,18 @@ export { createContext } from './context.js';
 export type { NexusContext, CookieOptions } from './context.js';
 export type { RenderResult, RenderOptions } from './renderer.js';
 export { mergeRoutePretext } from './renderer.js';
+export { registerDevRadarSink, emitDevRadar, sanitizeTelemetryValue, newTraceId } from './devradar.js';
+export type {
+  DevRadarEvent,
+  ActionCallPayload,
+  ActionResultPayload,
+  ActionErrorPayload,
+  PretextProfilePayload,
+  SecurityAuditPayload,
+  SecurityReportPayload,
+  SecurityReportCheck,
+  RuneTelemetryPayload,
+} from './devradar.js';
 
 /** Merge ctx response headers (Set-Cookie, etc.) with redirect Location. */
 function redirectHeadersForWriteHead(err: RedirectSignal): Record<string, string | string[]> {
@@ -77,6 +90,32 @@ export interface NexusServerOptions {
    * The server itself does NOT print request logs — the host controls formatting.
    */
   onRequest?: (info: RequestLogInfo) => void;
+  /**
+   * From `nexus.config.ts` `security` — when `hardened: true`, HTML and API responses get baseline security headers.
+   */
+  security?: { hardened?: boolean };
+}
+
+/** Merge Hardened Mode headers (changelog v0.5) — CSP nonces are a future enhancement. */
+function mergeHardenedHeaders(
+  headers: Record<string, string | string[] | number | undefined>,
+  hardened: boolean | undefined,
+  dev: boolean,
+): Record<string, string | string[] | number> {
+  const h: Record<string, string | string[] | number> = {};
+  for (const [k, v] of Object.entries(headers)) {
+    if (v !== undefined) h[k] = v;
+  }
+  if (!hardened) return h;
+  h['x-frame-options'] = 'DENY';
+  h['x-content-type-options'] = 'nosniff';
+  h['referrer-policy'] = 'strict-origin-when-cross-origin';
+  h['permissions-policy'] = 'camera=(), microphone=(), geolocation=()';
+  h['x-nexus-security'] = 'hardened';
+  if (!dev) {
+    h['strict-transport-security'] = 'max-age=31536000; includeSubDomains';
+  }
+  return h;
 }
 
 const MIME_TYPES: Record<string, string> = {
@@ -115,6 +154,9 @@ export async function createNexusServer(opts: NexusServerOptions) {
     },
   };
 
+  const sec = (h: Record<string, string | string[] | number | undefined>) =>
+    mergeHardenedHeaders(h, opts.security?.hardened, dev);
+
   const server = createServer(async (req: IncomingMessage, res: ServerResponse) => {
     const t0  = Date.now();
     const url = new URL(req.url ?? '/', `http://${req.headers.host ?? 'localhost'}`);
@@ -137,12 +179,18 @@ export async function createNexusServer(opts: NexusServerOptions) {
       });
     }
 
+    // ── Dev hot-reload (SSE) — browser listens and calls location.reload() ──
+    if (dev && method === 'GET' && url.pathname === '/_nexus/dev/hot') {
+      subscribeDevHotClient(req, res);
+      return;
+    }
+
     // ── Server Actions ──────────────────────────────────────────────────────
     if (url.pathname.startsWith('/_nexus/action/')) {
       _isAction = true;
       const request = await incomingMessageToWebRequest(req);
       const response = await handleActionRequest(request);
-      await webToNodeResponse(response, res);
+      await webToNodeResponse(response, res, sec);
       return;
     }
 
@@ -179,11 +227,11 @@ export async function createNexusServer(opts: NexusServerOptions) {
       if (method === 'HEAD') {
         const headers: Record<string, string> = {};
         response.headers.forEach((value, key) => { headers[key] = value; });
-        res.writeHead(response.status, headers);
+        res.writeHead(response.status, sec(headers));
         res.end();
         return;
       }
-      await webToNodeResponse(response, res);
+      await webToNodeResponse(response, res, sec);
       return;
     }
 
@@ -208,7 +256,7 @@ export async function createNexusServer(opts: NexusServerOptions) {
     if (url.pathname === '/_nexus/navigate' && method === 'GET') {
       const request = nodeToWebRequest(req);
       const response = await handleNavigationRequest(request, manifest, renderOpts);
-      await webToNodeResponse(response, res);
+      await webToNodeResponse(response, res, sec);
       return;
     }
 
@@ -246,7 +294,7 @@ export async function createNexusServer(opts: NexusServerOptions) {
     // ── SSR routing ─────────────────────────────────────────────────────────
     const matched = matchRoute(url.pathname, manifest);
     if (!matched) {
-      res.writeHead(404, { 'content-type': 'text/html' });
+      res.writeHead(404, sec({ 'content-type': 'text/html' }));
       res.end(notFoundPage(url.pathname, dev));
       return;
     }
@@ -257,16 +305,16 @@ export async function createNexusServer(opts: NexusServerOptions) {
     try {
       const result = await renderRoute(matched, ctx, renderOpts);
       _cacheStrategy = result.headers['x-nexus-cache-strategy'];
-      res.writeHead(result.status, result.headers);
+      res.writeHead(result.status, sec(result.headers as Record<string, string | string[] | number | undefined>));
       res.end(result.html);
     } catch (err) {
       if (err instanceof RedirectSignal) {
-        res.writeHead(err.status, redirectHeadersForWriteHead(err));
+        res.writeHead(err.status, sec(redirectHeadersForWriteHead(err) as Record<string, string | string[] | number | undefined>));
         res.end();
         return;
       }
       if (err instanceof NotFoundSignal) {
-        res.writeHead(404, { 'content-type': 'text/html' });
+        res.writeHead(404, sec({ 'content-type': 'text/html' }));
         res.end(notFoundPage(url.pathname, dev));
         return;
       }
@@ -276,7 +324,7 @@ export async function createNexusServer(opts: NexusServerOptions) {
       } else {
         console.error('[Nexus] Unhandled error:', err);
       }
-      res.writeHead(500, { 'content-type': 'text/html' });
+      res.writeHead(500, sec({ 'content-type': 'text/html' }));
       res.end(serverErrorPage(err, dev));
     }
   });
@@ -298,10 +346,12 @@ export async function createNexusServer(opts: NexusServerOptions) {
 
     /** Re-scans src/routes — called on file changes in dev mode. */
     async reload(): Promise<void> {
+      bumpDevReloadGeneration();
       bustAggregatedStylesCache();
       manifest = await buildRouteManifest(routesDir);
       if (dev) {
         await preloadRegisteredServerActions(opts.root, true);
+        broadcastDevHotReload();
       }
     },
 
@@ -344,13 +394,19 @@ async function incomingMessageToWebRequest(req: IncomingMessage): Promise<Reques
   return new Request(url, init);
 }
 
+type HeaderMerge = (
+  h: Record<string, string | string[] | number | undefined>,
+) => Record<string, string | string[] | number>;
+
 async function webToNodeResponse(
   response: Response,
   res: ServerResponse,
+  mergeHeaders?: HeaderMerge,
 ): Promise<void> {
   const headers: Record<string, string> = {};
   response.headers.forEach((value, key) => { headers[key] = value; });
-  res.writeHead(response.status, headers);
+  const merged = mergeHeaders ? mergeHeaders(headers) : headers;
+  res.writeHead(response.status, merged);
   const body = Buffer.from(await response.arrayBuffer());
   res.end(body);
 }

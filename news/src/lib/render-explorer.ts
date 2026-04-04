@@ -11,8 +11,22 @@ import {
   type CmsFlashNews,
 } from './cms-api.ts';
 import { getLocaleFromCtx, newsPageCopy, pathWithLang } from './i18n.ts';
+import { flashNewsArticleJsonLd } from './seo-jsonld.ts';
+import { metaDescriptionFromSummary } from './seo-voice.ts';
 import { NP_PAGE_CSS } from './np-shared.ts';
 import { esc } from './rich-text.ts';
+
+function flashFromPretext(ctx: NexusContext, slug: string): CmsFlashNews | null {
+  const raw = ctx.pretext?.flashDetail as CmsFlashNews | undefined;
+  if (raw && raw.slug === slug) return raw;
+  return null;
+}
+
+function publicSiteUrl(ctx: NexusContext): string {
+  return (typeof process !== 'undefined' && process.env?.NEXUS_PUBLIC_SITE_URL?.trim()) ?
+      process.env.NEXUS_PUBLIC_SITE_URL.trim().replace(/\/$/, '')
+    : ctx.url.origin;
+}
 
 function metaLine(
   a: { publishedAt: string | null; readTimeMinutes: number | null; author: { name: string } | null },
@@ -69,19 +83,39 @@ export async function renderFlashDetail(ctx: NexusContext) {
   const slug = ctx.params.slug ?? '';
   const locale = getLocaleFromCtx(ctx);
   const copy = newsPageCopy(locale);
-  const item = await fetchFlashBySlug(slug);
+  const item = flashFromPretext(ctx, slug) ?? (await fetchFlashBySlug(slug));
 
   if (!item) {
     ctx.notFound();
   }
 
-  const f = item!;
+  const f = item;
+  const pool = await fetchFlashNews(40);
+  const related = pool.filter((x) => x.slug !== f.slug).slice(0, 3);
+  const nextHref =
+    related.length > 0 ?
+      pathWithLang(ctx, '/flash/' + encodeURIComponent(related[0].slug))
+    : pathWithLang(ctx, '/flash');
+
+  const articleUrl = new URL(pathWithLang(ctx, '/flash/' + encodeURIComponent(f.slug)), ctx.url.origin).href;
+  const siteUrl = publicSiteUrl(ctx);
+  const ldRaw = flashNewsArticleJsonLd({
+    headline:       f.title,
+    description:    metaDescriptionFromSummary(f.summary, 320),
+    url:            articleUrl,
+    datePublished:  f.publishedAt,
+    siteUrl,
+    publisherName:  copy.masthead,
+  });
+  const jsonLd = `<script type="application/ld+json">${ldRaw.replace(/</g, '\\u003c')}</script>`;
+
   const source =
     f.sourceUrl && /^https?:\/\//i.test(f.sourceUrl.trim()) ?
       `<a class="np-flash-src" href="${esc(f.sourceUrl.trim())}" target="_blank" rel="noopener noreferrer">${esc(f.sourceLabel || copy.explorerSource)}</a>`
     : esc(f.sourceLabel || '—');
 
   const html = `<div class="np-surface np-flash-detail">
+${jsonLd}
 <style>${NP_PAGE_CSS}
 .np-flash-detail__hack {
   margin: 1.5rem 0 0;
@@ -113,6 +147,31 @@ export async function renderFlashDetail(ctx: NexusContext) {
   text-decoration: none;
 }
 .np-back:hover { text-decoration: underline; }
+.np-flash-related { margin-top: 2.25rem; padding-top: 1.5rem; border-top: 1px solid var(--np-rule); }
+.np-flash-related__head {
+  margin: 0 0 1rem;
+  font-family: var(--np-headline);
+  font-weight: 700;
+  font-size: 1.05rem;
+  letter-spacing: -0.02em;
+  color: var(--np-ink);
+}
+.np-flash-next {
+  margin-top: 1.75rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--np-rule);
+}
+.np-flash-next__cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--np-accent);
+  text-decoration: none;
+  letter-spacing: 0.02em;
+}
+.np-flash-next__cta:hover { text-decoration: underline; color: #1d4ed8; }
 </style>
   <a class="np-back" href="${esc(pathWithLang(ctx, '/flash'))}">← ${esc(copy.explorerFlashTitle)}</a>
   <p class="np-page__eyebrow">${esc(copy.explorerFlashTitle)}</p>
@@ -120,6 +179,22 @@ export async function renderFlashDetail(ctx: NexusContext) {
   <p class="np-page__lead">${esc(f.summary)}</p>
   <p class="np-card__meta">${esc(copy.explorerSource)}: ${source}</p>
   ${f.hack ? `<div class="np-flash-detail__hack"><p class="np-flash-detail__hack-label">${esc(copy.explorerHack)}</p>${esc(f.hack)}</div>` : ''}
+  <div class="np-flash-next">
+    <a class="np-flash-next__cta" href="${esc(nextHref)}">${esc(copy.flashCtaNext)}</a>
+  </div>
+  ${related.length > 0 ? `<section class="np-flash-related" aria-label="${esc(copy.flashRelatedHead)}">
+  <h2 class="np-flash-related__head">${esc(copy.flashRelatedHead)}</h2>
+  <div class="np-abstract-grid np-abstract-grid--3">${related
+    .map((r) => {
+      const href = pathWithLang(ctx, '/flash/' + encodeURIComponent(r.slug));
+      return `<a class="np-card" href="${esc(href)}">
+  <h2 class="np-card__title">${esc(r.title)}</h2>
+  <p class="np-card__excerpt">${esc(r.summary)}</p>
+  <p class="np-card__meta">${esc(copy.explorerSource)}${r.sourceLabel ? ` · ${esc(r.sourceLabel)}` : ''}</p>
+</a>`;
+    })
+    .join('\n')}</div>
+</section>` : ''}
 </div>`;
 
   return { html, css: false as const, hasIslands: false as const };

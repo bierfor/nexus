@@ -1,6 +1,6 @@
 {
   "name": "nexus-workspace",
-  "version": "0.7.2",
+  "version": "0.7.4",
   "private": true,
   "description": "Nexus — The Definitive Full-Stack Framework: Islands Architecture + Svelte 5 Runes + Server Actions",
   "workspaces": [

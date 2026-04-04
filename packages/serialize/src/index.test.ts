@@ -1,5 +1,13 @@
 import { describe, it, expect } from 'vitest';
-import { serialize, deserialize, encode, decode } from './index.js';
+import {
+  serialize,
+  deserialize,
+  encode,
+  decode,
+  sanitize,
+  sanitizeDeep,
+  looksLikeHtmlInjection,
+} from './index.js';
 
 describe('Nexus Serialize — round-trip fidelity', () => {
   it('preserves Date', () => {
@@ -90,5 +98,30 @@ describe('Nexus Serialize — round-trip fidelity', () => {
     expect(result).toBeInstanceOf(Error);
     expect(result.message).toBe('Something went wrong');
     expect(result.name).toBe('ValidationError');
+  });
+
+  it('serialize escapes < in JSON text for script embedding without changing parsed values', () => {
+    const malicious = '</script><script>alert(1)</script>';
+    const wire = serialize({ x: malicious });
+    expect(wire.includes('</script>')).toBe(false);
+    expect(wire.includes('\\u003c')).toBe(true);
+    expect(deserialize<{ x: string }>(wire).x).toBe(malicious);
+  });
+
+  it('sanitize escapes HTML metacharacters', () => {
+    expect(sanitize('<img src=x onerror=alert(1)>')).toBe(
+      '&lt;img src=x onerror=alert(1)&gt;',
+    );
+    expect(sanitize(`"'&`)).toBe('&quot;&#39;&amp;');
+  });
+
+  it('sanitizeDeep walks nested structures', () => {
+    const o = { a: '<b>', n: [1, '<i>'] };
+    expect(sanitizeDeep(o)).toEqual({ a: '&lt;b&gt;', n: [1, '&lt;i&gt;'] });
+  });
+
+  it('looksLikeHtmlInjection is a heuristic', () => {
+    expect(looksLikeHtmlInjection('<script>evil</script>')).toBe(true);
+    expect(looksLikeHtmlInjection('hello')).toBe(false);
   });
 });

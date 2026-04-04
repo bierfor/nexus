@@ -52,8 +52,18 @@ interface Tagged<T extends WireTag, V = unknown> {
  * Preserves: Date, Map, Set, BigInt, RegExp, URL, Uint8Array,
  *            undefined, NaN, Infinity, Error, nested objects/arrays.
  */
+/**
+ * Serializes to a JSON string safe to embed in `<script type="application/json">` or inline payloads.
+ * Escapes `<` as `\u003c` in the **serialized text** so `</script>` cannot terminate the host tag;
+ * `JSON.parse` still yields the original string values (round-trip preserves `<`).
+ */
 export function serialize(value: unknown): string {
-  return JSON.stringify(encode(value));
+  return escapeJsonForInlineScript(JSON.stringify(encode(value)));
+}
+
+/** Escape `<` in JSON text for HTML/script embedding (XSS / script-breakout hardening). */
+function escapeJsonForInlineScript(json: string): string {
+  return json.replace(/</g, '\\u003c');
 }
 
 /**
@@ -68,7 +78,7 @@ export function encode(value: unknown): unknown {
     if (!Number.isFinite(value)) return tag('Inf', value > 0 ? 1 : -1);
     return value;
   }
-  if (typeof value === 'string') return encodeHtmlEntities(value);
+  if (typeof value === 'string') return value;
   if (typeof value === 'boolean') return value;
   if (value instanceof Date) return tag('Date', value.toISOString());
   if (value instanceof RegExp) return tag('RegExp', { src: value.source, flags: value.flags });
@@ -168,8 +178,7 @@ export function decode(value: unknown): unknown {
  */
 export function injectProps(islandId: string, props: unknown): string {
   const encoded = serialize(props);
-  const safe = htmlEscape(encoded);
-  return `<script id="__nx_props_${islandId}__" type="application/json">${safe}</script>`;
+  return `<script id="__nx_props_${islandId}__" type="application/json">${encoded}</script>`;
 }
 
 /**
@@ -194,7 +203,7 @@ export function readProps<T = unknown>(islandId: string): T | null {
  * Used by the streaming SSR renderer for out-of-order flushing.
  */
 export function encodeChunk(id: string, data: unknown): string {
-  return JSON.stringify({ id, data: encode(data) }) + '\n';
+  return escapeJsonForInlineScript(JSON.stringify({ id, data: encode(data) })) + '\n';
 }
 
 export function decodeChunk(line: string): { id: string; data: unknown } | null {
@@ -241,57 +250,69 @@ export async function callAction<TInput, TOutput>(
 // ── XSS Protection ────────────────────────────────────────────────────────────
 
 /**
- * HTML entity encoding applied to ALL strings that travel from server → client
- * via @nexus_js/serialize. This is Nexus's first line of XSS defense.
- *
- * Why not rely on frameworks? Because the serializer is the choke point —
- * every string that reaches an island prop passes through here.
- *
- * We use Unicode escape sequences rather than HTML entities because:
- *  1. They survive re-serialization (JSON.stringify preserves \\uXXXX)
- *  2. They work in both HTML context and JS string context
- *  3. They can't be confused with legitimate content
+ * Threat model (not a guarantee of total immunity — attack surfaces evolve):
+ * - **Wire (`serialize` / `deserialize`)**: `escapeJsonForInlineScript` prevents breaking out of
+ *   JSON-in-HTML/script contexts via `<` / `</script>` without changing parsed values after `JSON.parse`.
+ * - **HTML text nodes / attributes**: use {@link sanitize} or {@link sanitizeDeep} when interpolating
+ *   untrusted strings into templates. For rich HTML, use a vetted library (e.g. DOMPurify) instead.
+ * - **Dev-only HMR / observability**: must never run in production; keep NODE_ENV checks in tooling.
  */
-function encodeHtmlEntities(str: string): string {
-  // Only encode characters that are dangerous in HTML context.
-  // We do NOT encode every character (that breaks non-ASCII content).
+
+function escapeHtmlText(str: string): string {
   return str
-    .replace(/&/g,  '\u0026')   // & → ampersand baseline (must be first)
-    .replace(/</g,  '\u003c')   // < → prevent tag injection
-    .replace(/>/g,  '\u003e')   // > → prevent tag close injection
-    .replace(/"/g,  '\u0022')   // " → prevent attribute value escape
-    .replace(/'/g,  '\u0027')   // ' → prevent attribute value escape
-    .replace(/`/g,  '\u0060');  // ` → prevent template literal injection
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 /**
- * Sanitizes a string for safe HTML insertion.
- * Use this in island templates when rendering user-provided content.
- * For rich text, use a DOMPurify-based sanitizer on the client.
+ * Escapes a value for safe **HTML text** insertion (not for raw `innerHTML` of trusted markup).
+ * Prefer {@link serialize} for server→client props; use this when rendering strings into HTML templates.
  *
  * @example
- * // In your island template:
  * import { sanitize } from '@nexus_js/serialize';
- * html`<p>${sanitize(userBio)}</p>`
+ * // Template: <p>${sanitize(userBio)}</p>
  */
 export function sanitize(input: unknown): string {
   if (input === null || input === undefined) return '';
-  const str = String(input);
-  return encodeHtmlEntities(str);
+  return escapeHtmlText(String(input));
+}
+
+/**
+ * Recursively applies {@link sanitize} to every string in plain objects and arrays.
+ * **Do not** use on payloads that will be passed through `serialize` for JSON (double-escaping risk).
+ * Use when **all** string leaves are meant for HTML display (e.g. previewing pretext in a dev panel).
+ */
+export function sanitizeDeep<T = unknown>(value: T): T {
+  return walkSanitize(value) as T;
+}
+
+function walkSanitize(v: unknown): unknown {
+  if (v === null || v === undefined) return v;
+  if (typeof v === 'string') return escapeHtmlText(v);
+  if (typeof v !== 'object') return v;
+  if (Array.isArray(v)) return v.map(walkSanitize);
+  const out: Record<string, unknown> = {};
+  for (const [k, val] of Object.entries(v as Record<string, unknown>)) {
+    out[k] = walkSanitize(val);
+  }
+  return out;
+}
+
+/**
+ * Returns true if the string looks like it contains HTML/script-like markup (heuristic for dev / lint).
+ * Not exhaustive; safe output still requires {@link sanitize} or proper parsing.
+ */
+export function looksLikeHtmlInjection(s: string): boolean {
+  return /<\s*script|<\s*\/\s*script|on\w+\s*=|javascript\s*:|data\s*:\s*text\/html/i.test(s);
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function tag<T extends WireTag, V>(t: T, v?: V): Tagged<T, V> {
   return v !== undefined ? { __t: t, v } : { __t: t } as Tagged<T, V>;
-}
-
-function htmlEscape(str: string): string {
-  return str
-    .replace(/&/g, '\\u0026')
-    .replace(/</g, '\\u003c')
-    .replace(/>/g, '\\u003e')
-    .replace(/\//g, '\\u002f');
 }
 
 function uint8ToBase64(buf: Uint8Array): string {

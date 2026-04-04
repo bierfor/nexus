@@ -30,4 +30,23 @@ export default {
     outDir: '.nexus/output',
     sourcemap: false,
   },
+
+  /**
+   * Hardened mode + optional supply-chain scan on `nexus build`.
+   * - `failOnIslandSecurity`: build fails if the compiler reports `[security]` in island scripts/templates.
+   * - Studio Security Report reads `.nexus/last-build-security.json` after a successful build (dev shows snapshot).
+   */
+  security: {
+    hardened:             true,
+    failOnIslandSecurity: true,
+    audit: {
+      failOn:     ['critical', 'high'],
+      blockBuild: false,
+    },
+  },
+
+  /** DevRadar + Nexus Studio (security report, etc.); default is on in dev when unset. */
+  observability: {
+    enabled: true,
+  },
 } satisfies NexusConfig;

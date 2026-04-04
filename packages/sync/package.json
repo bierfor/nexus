@@ -1,6 +1,6 @@
 {
   "name": "@nexus_js/sync",
-  "version": "0.7.2",
+  "version": "0.7.4",
   "description": "Nexus Local-First Sync Engine — IndexedDB-backed optimistic mutations with conflict resolution",
   "type": "module",
   "main": "./dist/index.js",

@@ -42,6 +42,7 @@ import {
   RateLimitError,
   type RateLimitConfig,
 } from './rate-limit.js';
+import { emitDevRadar, newTraceId, sanitizeTelemetryValue } from './devradar.js';
 
 export type ActionFn<TInput = FormData, TOutput = void> = (
   input: TInput,
@@ -265,6 +266,14 @@ export async function handleActionRequest(request: Request): Promise<Response> {
     const secret    = process.env['NEXUS_SECRET'] ?? 'nexus-dev-secret-change-me';
     const sessionId = extractSessionId(request);
     if (!token) {
+      emitDevRadar({
+        type: 'security:audit',
+        payload: {
+          kind:    'csrf_blocked',
+          message: 'Missing action token',
+          action:  actionName,
+        },
+      });
       return jsonResponse({
         error:  'Missing action token — possible CSRF attack',
         status: 403,
@@ -273,6 +282,14 @@ export async function handleActionRequest(request: Request): Promise<Response> {
     }
     const validation = validateActionToken(token, sessionId, actionName, secret);
     if (!validation.valid) {
+      emitDevRadar({
+        type: 'security:audit',
+        payload: {
+          kind:    validation.replayed ? 'replay' : 'csrf_blocked',
+          message: validation.reason ?? 'Invalid action token',
+          action:  actionName,
+        },
+      });
       return jsonResponse({
         error:  validation.reason ?? 'Invalid action token',
         status: 403,
@@ -286,6 +303,14 @@ export async function handleActionRequest(request: Request): Promise<Response> {
     const limiter = createRateLimiter(opts.rateLimit);
     const result  = limiter.check(request);
     if (!result.allowed) {
+      emitDevRadar({
+        type: 'security:audit',
+        payload: {
+          kind:    'rate_limited',
+          message: `Retry in ${result.retryAfter}s`,
+          action:  actionName,
+        },
+      });
       return new Response(
         JSON.stringify({
           error:       `Rate limit exceeded. Retry in ${result.retryAfter}s.`,
@@ -307,9 +332,22 @@ export async function handleActionRequest(request: Request): Promise<Response> {
 
   // ── Idempotency check ──────────────────────────────────────────────────────
   const idempotencyKey = request.headers.get('x-nexus-idempotency');
+  const traceId = newTraceId();
+  const islandHdr = request.headers.get('x-nexus-island') ?? undefined;
+
   if (idempotencyKey && opts.idempotent) {
     const cached = idempotencyCache.get(idempotencyKey);
     if (cached && Date.now() < cached.expiresAt) {
+      emitDevRadar({
+        type: 'action:result',
+        payload: {
+          id:       traceId,
+          name:     actionName,
+          output:   sanitizeTelemetryValue(cached.result),
+          duration: 0,
+          cached:   true,
+        },
+      });
       return jsonResponse(
         { data: cached.result, status: cached.status, idempotencyKey },
         cached.status,
@@ -318,7 +356,7 @@ export async function handleActionRequest(request: Request): Promise<Response> {
   }
 
   // ── Race condition management ──────────────────────────────────────────────
-  const islandId = request.headers.get('x-nexus-island') ?? 'global';
+  const islandId = islandHdr ?? 'global';
   const raceKey = `${islandId}:${actionName}`;
 
   if (race === 'reject') {
@@ -366,6 +404,20 @@ export async function handleActionRequest(request: Request): Promise<Response> {
     // Deserialize input using Nexus transport (preserves Date, Map, Set, etc.)
     const input = await deserializeInput(request);
 
+    emitDevRadar({
+      type: 'action:call',
+      payload: {
+        id:        traceId,
+        name:      actionName,
+        input:     sanitizeTelemetryValue(input),
+        timestamp: Date.now(),
+        ...(islandHdr !== undefined ? { islandId: islandHdr } : {}),
+        ...(idempotencyKey != null && idempotencyKey !== ''
+          ? { idempotencyKey }
+          : {}),
+      },
+    });
+
     let result: unknown;
     let attempts = 0;
     const maxAttempts = 1 + (opts.retries ?? 0);
@@ -383,6 +435,17 @@ export async function handleActionRequest(request: Request): Promise<Response> {
     }
 
     const duration = Date.now() - startTime;
+
+    emitDevRadar({
+      type: 'action:result',
+      payload: {
+        id:       traceId,
+        name:     actionName,
+        output:   sanitizeTelemetryValue(result),
+        duration,
+        cached:   false,
+      },
+    });
 
     // Cache idempotent results
     if (idempotencyKey && opts.idempotent) {
@@ -419,9 +482,28 @@ export async function handleActionRequest(request: Request): Promise<Response> {
     }
 
     if (err instanceof ActionError) {
+      emitDevRadar({
+        type: 'action:error',
+        payload: {
+          id:       traceId,
+          name:     actionName,
+          error:    err.message,
+          duration: Date.now() - startTime,
+          ...(err.code !== undefined ? { code: err.code } : {}),
+        },
+      });
       return jsonResponse({ error: err.message, status: err.status, code: err.code }, err.status);
     }
 
+    emitDevRadar({
+      type: 'action:error',
+      payload: {
+        id:       traceId,
+        name:     actionName,
+        error:    err instanceof Error ? err.message : String(err),
+        duration: Date.now() - startTime,
+      },
+    });
     console.error(`[Nexus Action] "${actionName}" failed:`, err);
     return jsonResponse({ error: 'Internal Server Error', status: 500 }, 500);
   } finally {

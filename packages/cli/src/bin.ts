@@ -158,6 +158,9 @@ async function runDev(opts: { root: string; port: number }): Promise<void> {
   const req = createRequire(import.meta.url);
   const pkg = req('../package.json') as { version: string };
 
+  const { loadAppConfig } = await import('./load-app-config.js');
+  const cfg = loadAppConfig(opts.root);
+
   const { createNexusServer } = await import('@nexus_js/server');
   type RequestLogInfo = import('@nexus_js/server').RequestLogInfo;
 
@@ -165,6 +168,9 @@ async function runDev(opts: { root: string; port: number }): Promise<void> {
     root: opts.root,
     port: opts.port,
     dev: true,
+    ...(cfg.security !== undefined
+      ? { security: { hardened: cfg.security.hardened === true } }
+      : {}),
 
     onRequest(info: RequestLogInfo) {
       const mCol = info.method === 'GET' ? c.cyan : c.mag;
@@ -195,6 +201,26 @@ async function runDev(opts: { root: string; port: number }): Promise<void> {
   // Wait for the server to be bound before printing the banner
   await server.listen();
 
+  let devRadarUnsub: (() => void) | undefined;
+  const obs = cfg.observability;
+  const devRadarOn =
+    obs?.enabled !== false &&
+    process.env['NEXUS_DEVRADAR'] !== '0' &&
+    process.env['NEXUS_DEVRADAR'] !== 'false';
+  if (devRadarOn) {
+    try {
+      const { registerDevRadarSink, emitDevRadar } = await import('@nexus_js/server');
+      const { broadcast } = await import('./studio.js');
+      const { buildSecurityReport } = await import('./security-report.js');
+      devRadarUnsub = registerDevRadarSink((e) => {
+        broadcast(e as import('./studio.js').StudioEvent);
+      });
+      emitDevRadar({ type: 'security:report', payload: buildSecurityReport(cfg, opts.root) });
+    } catch {
+      /* optional */
+    }
+  }
+
   if (process.stdout.isTTY) console.clear();
 
   const elapsed = Date.now() - _start;
@@ -205,7 +231,9 @@ async function runDev(opts: { root: string; port: number }): Promise<void> {
     `\n  ${c.green}➜${c.reset}  ${c.bold}Local${c.reset}    ${c.cyan}http://localhost:${opts.port}/${c.reset}` +
     `\n  ${c.green}➜${c.reset}  ${c.bold}Studio${c.reset}   ${c.cyan}http://localhost:${STUDIO_DEFAULT_PORT}/${c.reset}` +
     `   ${c.dim}nexus studio${c.reset}` +
-    `\n\n  ${c.dim}Auto-reload:${c.reset}  ${c.dim}src/** · nexus.config.* · .env · .env.local${c.reset}` +
+    `\n\n  ${c.dim}Auto-reload:${c.reset}  ${c.dim}src/** · public/** · nexus.config.* · .env · .env.local${c.reset}` +
+    `\n  ${c.dim}Browser:${c.reset}       ${c.dim}tabs refresh via SSE when files change${c.reset}` +
+    `\n  ${c.dim}CSS:${c.reset}          ${c.dim}styles in .nx / layout are SSR — each save reloads the tab (not Vite HMR)${c.reset}` +
     `\n  ${c.dim}Tip:${c.reset}        ${c.dim}restart \`nexus dev\` after changing .env — Node only loads env at startup.${c.reset}` +
     `\n\n  ${c.dim}press Ctrl+C to stop${c.reset}\n`,
   );
@@ -288,6 +316,18 @@ async function runDev(opts: { root: string; port: number }): Promise<void> {
     scheduleReload(filename, event);
   });
 
+  const publicDir = join(opts.root, 'public');
+  if (existsSync(publicDir)) {
+    try {
+      watch(publicDir, { recursive: true }, (event, filename) => {
+        if (!filename) return;
+        scheduleReload(`public/${filename}`, event);
+      });
+    } catch {
+      /* EMFILE etc. */
+    }
+  }
+
   const rootWatchFiles = [
     'nexus.config.ts',
     'nexus.config.js',
@@ -308,6 +348,7 @@ async function runDev(opts: { root: string; port: number }): Promise<void> {
 
   // Graceful shutdown
   process.on('SIGINT', () => {
+    devRadarUnsub?.();
     console.log(`\n  ${c.dim}◆ Nexus stopped${c.reset}\n`);
     server.close();
     process.exit(0);
@@ -317,6 +358,9 @@ async function runDev(opts: { root: string; port: number }): Promise<void> {
 async function runBuild(opts: { root: string }): Promise<void> {
   const _start = Date.now();
   console.log(`\n  ${c.mag}${c.bold}◆ NEXUS${c.reset}  ${c.dim}building for production...${c.reset}\n`);
+
+  const { loadAppConfig } = await import('./load-app-config.js');
+  const cfg = loadAppConfig(opts.root);
 
   const { compile } = await import('@nexus_js/compiler');
   const { buildRouteManifest } = await import('@nexus_js/router');
@@ -332,6 +376,10 @@ async function runBuild(opts: { root: string }): Promise<void> {
 
   const manifest = await buildRouteManifest(routesDir);
 
+  const failOnIslandSecurity =
+    cfg.security?.hardened === true && cfg.security?.failOnIslandSecurity === true;
+  const islandSecurityFindings: { file: string; message: string }[] = [];
+
   let compiled = 0;
   for (const route of manifest.routes) {
     const source = await readFile(route.filepath, 'utf-8');
@@ -341,6 +389,14 @@ async function runBuild(opts: { root: string }): Promise<void> {
       emitIslandManifest: true,
       appRoot: opts.root,
     });
+
+    for (const w of result.warnings ?? []) {
+      if (w.message.includes('[security]')) {
+        islandSecurityFindings.push({ file: route.filepath, message: w.message });
+        console.error(`  ${c.red}✗${c.reset}  ${c.dim}${route.filepath}${c.reset}`);
+        console.error(`     ${c.red}${w.message}${c.reset}`);
+      }
+    }
 
     const outSeg = route.pattern === '/' ? 'index' : route.pattern.replace(/^\//, '');
     const outPath = join(outDir, outSeg) + '.js';
@@ -372,6 +428,14 @@ async function runBuild(opts: { root: string }): Promise<void> {
     compiled++;
   }
 
+  if (failOnIslandSecurity && islandSecurityFindings.length > 0) {
+    console.error(
+      `\n  ${c.red}Build failed:${c.reset} ${islandSecurityFindings.length} compiler security finding(s). ` +
+        `Fix island scripts/templates or set ${c.cyan}security.failOnIslandSecurity: false${c.reset}.\n`,
+    );
+    process.exit(1);
+  }
+
   // Write route manifest
   await writeFile(
     join(outDir, 'manifest.json'),
@@ -379,14 +443,81 @@ async function runBuild(opts: { root: string }): Promise<void> {
     'utf-8',
   );
 
-  const elapsed = Date.now() - _start;
-  console.log(`  ${c.green}✔${c.reset}  Compiled ${c.bold}${compiled} routes${c.reset}  ${c.dim}(${elapsed}ms)${c.reset}`);
+  const elapsedCompile = Date.now() - _start;
+  console.log(`  ${c.green}✔${c.reset}  Compiled ${c.bold}${compiled} routes${c.reset}  ${c.dim}(${elapsedCompile}ms)${c.reset}`);
   console.log(`  ${c.green}✔${c.reset}  Output → ${c.cyan}.nexus/output/${c.reset}\n`);
+
+  const runSecurityScan = cfg.security?.audit?.blockBuild === true || cfg.security?.hardened === true;
+  let auditScanRan = false;
+  let auditOk = true;
+  let auditVulnerableCount = 0;
+  if (runSecurityScan) {
+    const auditMod = await import('@nexus_js/audit');
+    const { scanProject, NexusSecurityError } = auditMod;
+    const block = cfg.security?.audit?.blockBuild === true;
+    try {
+      auditScanRan = true;
+      const scan = await scanProject({
+        root:            opts.root,
+        supplyChain:     true,
+        allowVulnerable: cfg.security?.allowVulnerable ?? {},
+        failOnCritical:  block,
+        minSeverity:     'high',
+      });
+      auditVulnerableCount = scan.vulnerable.length;
+      auditOk = scan.vulnerable.length === 0;
+      if (!block && scan.vulnerable.length > 0) {
+        console.log(
+          `  ${c.yellow}⚠${c.reset}  ${scan.vulnerable.length} package(s) with CVE findings (non-blocking). ` +
+            `Run ${c.cyan}nexus audit${c.reset} for details.\n`,
+        );
+      } else {
+        console.log(`  ${c.green}✔${c.reset}  ${c.dim}Nexus Security: dependency scan complete${c.reset}\n`);
+      }
+    } catch (e) {
+      if (e instanceof NexusSecurityError) {
+        console.error(`\n  ${c.red}${(e as Error).message}${c.reset}\n`);
+        process.exit(1);
+      }
+      auditOk = false;
+      console.warn(
+        `  ${c.yellow}⚠${c.reset}  Nexus Security scan skipped: ${(e as Error).message}\n`,
+      );
+    }
+  }
+
+  try {
+    await writeFile(
+      join(opts.root, '.nexus', 'last-build-security.json'),
+      JSON.stringify(
+        {
+          at:                     new Date().toISOString(),
+          islandSecurityWarnings: islandSecurityFindings.length,
+          auditScanRan,
+          auditOk,
+          auditVulnerableCount,
+          hardened:               cfg.security?.hardened === true,
+          failOnIslandSecurity:   cfg.security?.failOnIslandSecurity === true,
+        },
+        null,
+        2,
+      ),
+      'utf-8',
+    );
+  } catch {
+    /* ignore */
+  }
+
+  const elapsed = Date.now() - _start;
+  console.log(`  ${c.dim}Total ${elapsed}ms${c.reset}`);
   console.log(`  Run ${c.bold}nexus start${c.reset} to serve the production build.\n`);
 }
 
 async function runStart(opts: { root: string; port: number }): Promise<void> {
   const _start = Date.now();
+
+  const { loadAppConfig } = await import('./load-app-config.js');
+  const cfg = loadAppConfig(opts.root);
 
   const { createNexusServer } = await import('@nexus_js/server');
 
@@ -394,6 +525,9 @@ async function runStart(opts: { root: string; port: number }): Promise<void> {
     root: opts.root,
     port: opts.port,
     dev: false,
+    ...(cfg.security !== undefined
+      ? { security: { hardened: cfg.security.hardened === true } }
+      : {}),
   });
 
   await server.listen();

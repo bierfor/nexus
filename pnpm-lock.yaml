@@ -187,6 +187,9 @@ importers:
         specifier: ^6.2.2
         version: 6.2.2
     devDependencies:
+      '@nexus_js/audit':
+        specifier: workspace:^
+        version: link:../packages/audit
       '@nexus_js/cli':
         specifier: workspace:^
         version: link:../packages/cli
@@ -233,6 +236,9 @@ importers:
       '@nexus_js/server':
         specifier: workspace:*
         version: link:../server
+      jiti:
+        specifier: ^2.6.1
+        version: 2.6.1
     devDependencies:
       '@types/node':
         specifier: ^22.0.0
@@ -272,7 +278,7 @@ importers:
   packages/create-nexus:
     dependencies:
       '@nexus_js/cli':
-        specifier: ^0.7.2
+        specifier: ^0.7.4
         version: link:../cli
 
   packages/db:
@@ -935,6 +941,10 @@ packages:
   is-arrayish@0.3.4:
     resolution: {integrity: sha512-m6UrgzFVUYawGBh1dUsWR5M2Clqic9RVXC/9f8ceNlv2IcO9j9J/z8UoCLPqtsPBFNzEpfR3xftohbfqDx8EQA==}
 
+  jiti@2.6.1:
+    resolution: {integrity: sha512-ekilCSN1jwRvIbgeg/57YFh8qQDNbwDb9xT/qu2DAHbFFZUicIl4ygVaAvzveMhMVr3LnpSKTNnwt8PoOfmKhQ==}
+    hasBin: true
+
   jose@6.2.2:
     resolution: {integrity: sha512-d7kPDd34KO/YnzaDOlikGpOurfF0ByC2sEV4cANCtdqLlTfBlw2p14O/5d/zv40gJPbIQxfES3nSx1/oYNyuZQ==}
 
@@ -1441,6 +1451,8 @@ snapshots:
     optional: true
 
   is-arrayish@0.3.4: {}
+
+  jiti@2.6.1: {}
 
   jose@6.2.2: {}
 

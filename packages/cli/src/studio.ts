@@ -1,8 +1,8 @@
 /**
  * Nexus Studio — Real-time developer dashboard.
  *
- * Launched via `nexus studio` or automatically as a panel within `nexus dev`.
- * Runs a lightweight WebSocket server alongside the main dev server.
+ * Launched via `nexus studio`. Pair with `nexus dev`: the CLI registers the DevRadar
+ * sink so Server Actions + pretext profiling stream here over WebSocket.
  * The browser UI connects to ws://localhost:${STUDIO_PORT}/_nexus/studio
  *
  * Panels:
@@ -12,11 +12,13 @@
  *   4. JS Cost         — Bundle analysis for the current route (mirrors nexus analyze).
  *   5. Cache Inspector — Current cache entries, TTLs, hit/miss ratio.
  *   6. Store Viewer    — Live snapshot of the Global State Store.
+ *   7. Security Report — Snapshot from `nexus dev` (serialize, compiler scans, hardened mode, roadmap rows).
  */
 
 import { createServer as createHttpServer } from 'node:http';
 import { createServer as createNetServer } from 'node:net';
 import { STUDIO_DEFAULT_PORT } from '@nexus_js/server/constants';
+import type { SecurityReportPayload } from '@nexus_js/server';
 
 export const STUDIO_PORT = STUDIO_DEFAULT_PORT;
 export const STUDIO_WS_PATH = '/_nexus/studio';
@@ -31,6 +33,10 @@ export type StudioEvent =
   | { type: 'action:call'; payload: ActionCall }
   | { type: 'action:result'; payload: ActionResult }
   | { type: 'action:error'; payload: ActionError }
+  | { type: 'devtools:pretext'; payload: { pattern: string; durationMs: number; parallelCount: number } }
+  | { type: 'security:audit'; payload: { kind: string; message: string; action?: string } }
+  | { type: 'security:report'; payload: SecurityReportPayload }
+  | { type: 'rune:telemetry'; payload: { runeId: string; updatesPerSecond: number; label?: string } }
   | { type: 'cache:set'; payload: CacheEntry }
   | { type: 'cache:hit'; payload: { key: string } }
   | { type: 'cache:miss'; payload: { key: string } }
@@ -102,7 +108,13 @@ type WsLike = { send: (data: string) => void; readyState: number };
 const OPEN = 1;
 const clients = new Set<WsLike>();
 
+/** Last snapshot from `nexus dev` — replayed to new Studio tabs. */
+let lastSecurityReport: SecurityReportPayload | null = null;
+
 export function broadcast(event: StudioEvent): void {
+  if (event.type === 'security:report') {
+    lastSecurityReport = event.payload;
+  }
   const payload = JSON.stringify(event);
   for (const client of clients) {
     if (client.readyState === OPEN) {
@@ -155,6 +167,9 @@ function wsHandshake(req: import('http').IncomingMessage, socket: import('net').
 
   // Send a welcome snapshot so the client panel shows current state immediately
   ws.send(JSON.stringify({ type: 'studio:connected', timestamp: Date.now() }));
+  if (lastSecurityReport) {
+    ws.send(JSON.stringify({ type: 'security:report', payload: lastSecurityReport }));
+  }
 }
 
 // ── HTML Dashboard (single-file, no bundler needed) ───────────────────────────
@@ -443,6 +458,7 @@ function studioHtml(port: number): string {
 <body>
   <header>
     <span class="logo">Nexus Studio</span>
+    <span style="font-size:10px;color:var(--muted);margin-left:8px">DevRadar</span>
     <div class="status-dot" id="statusDot"></div>
     <span class="status-label" id="statusLabel">Connecting...</span>
     <nav>
@@ -451,6 +467,7 @@ function studioHtml(port: number): string {
       <button data-panel="actions">Actions</button>
       <button data-panel="cache">Cache</button>
       <button data-panel="store">Store</button>
+      <button data-panel="security">Security</button>
     </nav>
   </header>
 
@@ -485,6 +502,12 @@ function studioHtml(port: number): string {
       <div class="panel-content" id="actionLog">
         <div class="empty-state">No actions fired yet.</div>
       </div>
+      <div class="panel-header" style="border-top:1px solid var(--border)">
+        <span>DevRadar</span>
+      </div>
+      <div class="panel-content" id="devradarStrip" style="font-size:10px">
+        <div class="empty-state">Run <code>nexus dev</code> and open Studio — pretext + security stream here.</div>
+      </div>
     </div>
   </div>
 
@@ -497,6 +520,9 @@ function studioHtml(port: number): string {
       actions: [],
       cache: new Map(),
       store: new Map(),
+      pretextLast: null,
+      securityTail: [],
+      securityReport: null,
     };
 
     // ── WebSocket ────────────────────────────────────────────────────────────
@@ -571,6 +597,29 @@ function studioHtml(port: number): string {
           if (ae) { Object.assign(ae, event.payload, { status: 'error' }); renderActionLog(); }
           break;
 
+        case 'devtools:pretext':
+          state.pretextLast = event.payload;
+          renderOverview();
+          renderDevRadarStrip();
+          break;
+
+        case 'security:audit':
+          state.securityTail.unshift({ ...event.payload, t: Date.now() });
+          if (state.securityTail.length > 24) state.securityTail.pop();
+          renderDevRadarStrip();
+          break;
+
+        case 'security:report':
+          state.securityReport = event.payload;
+          if (document.querySelector('nav button.active')?.dataset.panel === 'security') {
+            renderSecurityPanel();
+          }
+          break;
+
+        case 'rune:telemetry':
+          renderDevRadarStrip();
+          break;
+
         case 'cache:set':
           state.cache.set(event.payload.key, event.payload);
           renderCachePanel();
@@ -640,7 +689,35 @@ function studioHtml(port: number): string {
           <span class="metric-label">Params</span>
           <span class="metric-value">\${Object.entries(r.params || {}).map(([k,v]) => k + '=' + v).join(', ') || '—'}</span>
         </div>
+        \${state.pretextLast ? \`
+        <div class="metric-row" style="margin-top:10px;border-top:1px solid var(--border);padding-top:8px">
+          <span class="metric-label">Pretext (nxPretext)</span>
+          <span class="metric-value good">\${state.pretextLast.durationMs}ms · \${state.pretextLast.parallelCount} parallel</span>
+        </div>
+        <div class="metric-row">
+          <span class="metric-label">Route pattern</span>
+          <span class="metric-value" style="font-size:10px;word-break:break-all">\${state.pretextLast.pattern}</span>
+        </div>\` : ''}
       \`;
+    }
+
+    function renderDevRadarStrip() {
+      const el = document.getElementById('devradarStrip');
+      if (!el) return;
+      const sec = state.securityTail.slice(0, 8);
+      el.innerHTML =
+        (state.pretextLast
+          ? '<div style="font-size:10px;color:var(--muted);margin-bottom:6px">Last pretext: <span style="color:var(--green)">' +
+            state.pretextLast.durationMs + 'ms</span> · ' + state.pretextLast.pattern + '</div>'
+          : '') +
+        (sec.length
+          ? '<div style="font-size:10px;color:var(--amber)">Security</div>' +
+            sec.map(s =>
+              '<div style="font-size:10px;margin:4px 0;padding:4px;background:var(--bg);border-radius:4px">' +
+              '<span style="color:var(--red)">' + (s.kind || '') + '</span> · ' +
+              (s.action ? s.action + ' — ' : '') + (s.message || '') + '</div>'
+            ).join('')
+          : '<div style="font-size:10px;color:var(--muted)">No security events yet.</div>');
     }
 
     function renderIslandPanel() {
@@ -723,6 +800,50 @@ function studioHtml(port: number): string {
       \`).join('');
     }
 
+    function statusIcon(st) {
+      if (st === 'pass') return '<span style="color:var(--green)">✓</span>';
+      if (st === 'warn') return '<span style="color:var(--amber)">⚠</span>';
+      return '<span style="color:var(--muted)">○</span>';
+    }
+
+    function renderSecurityPanel() {
+      const el = document.getElementById('centerContent');
+      const title = document.getElementById('centerPanelTitle');
+      if (document.querySelector('nav button.active')?.dataset.panel !== 'security') return;
+      title.textContent = 'Security report';
+
+      if (!state.securityReport) {
+        el.innerHTML =
+          '<div class="empty-state">No snapshot yet. Start <code>nexus dev</code> with Studio + DevRadar enabled.</div>';
+        return;
+      }
+
+      const r = state.securityReport;
+      const hardenedRow =
+        '<div class="metric-row"><span class="metric-label">Hardened Mode</span>' +
+        '<span class="metric-value ' + (r.hardened ? 'good' : 'warn') + '">' +
+        (r.hardened ? 'enabled' : 'off — enable security.hardened in nexus.config') +
+        '</span></div>';
+
+      const rows = (r.checks || []).map(function (c) {
+        return (
+          '<div class="metric-row" style="align-items:flex-start;gap:8px">' +
+          '<span style="min-width:1.2rem">' + statusIcon(c.status) + '</span>' +
+          '<span class="metric-value" style="font-size:11px;line-height:1.4">' + c.label + '</span>' +
+          '</div>'
+        );
+      }).join('');
+
+      el.innerHTML =
+        '<div class="route-path" style="margin-bottom:8px">Defense in depth</div>' +
+        '<p style="font-size:10px;color:var(--muted);margin:0 0 12px;line-height:1.45">' +
+        'Not a guarantee of total immunity — review compiler warnings on save and keep dependencies updated.' +
+        '</p>' +
+        hardenedRow +
+        '<div style="margin-top:12px;border-top:1px solid var(--border);padding-top:10px;font-size:10px;color:var(--muted)">Active checks</div>' +
+        rows;
+    }
+
     // ── Nav ───────────────────────────────────────────────────────────────────
     const panelRenderers = {
       overview: renderOverview,
@@ -730,6 +851,7 @@ function studioHtml(port: number): string {
       actions: () => {},
       cache: renderCachePanel,
       store: renderStorePanel,
+      security: renderSecurityPanel,
     };
 
     document.querySelectorAll('nav button').forEach(btn => {

@@ -21,6 +21,7 @@ import { serialize } from '@nexus_js/serialize';
 import { NotFoundSignal, RedirectSignal, type NexusContext } from './context.js';
 import { devErrorHtmlPage } from './dev-error-html.js';
 import { loadRouteModule } from './load-module.js';
+import { emitDevRadar } from './devradar.js';
 
 export interface RenderOptions {
   dev: boolean;
@@ -169,29 +170,41 @@ export async function mergeRoutePretext(
   ctx: NexusContext,
   opts: RenderOptions,
 ): Promise<Record<string, unknown>> {
+  const t0 = Date.now();
   const chain = [
     ...matched.layouts.map((l) => ({ filepath: l.filepath, pattern: l.pattern })),
     { filepath: matched.route.filepath, pattern: matched.route.pattern },
   ];
-  const mods = await Promise.all(
-    chain.map((c) =>
-      loadRouteModule(c.filepath, {
-        dev: opts.dev,
-        appRoot: opts.appRoot,
-        pattern: c.pattern,
+  try {
+    const mods = await Promise.all(
+      chain.map((c) =>
+        loadRouteModule(c.filepath, {
+          dev: opts.dev,
+          appRoot: opts.appRoot,
+          pattern: c.pattern,
+        }),
+      ),
+    );
+    const results = await Promise.all(
+      mods.map((mod) => {
+        const fn = (mod as Record<string, unknown>).nxPretext;
+        return typeof fn === 'function' ? (fn as (c: NexusContext) => Promise<unknown>)(ctx) : Promise.resolve({});
       }),
-    ),
-  );
-  const results = await Promise.all(
-    mods.map((mod) => {
-      const fn = (mod as Record<string, unknown>).nxPretext;
-      return typeof fn === 'function' ? (fn as (c: NexusContext) => Promise<unknown>)(ctx) : Promise.resolve({});
-    }),
-  );
-  const objects = results.map((r) =>
-    r && typeof r === 'object' && !Array.isArray(r) ? (r as Record<string, unknown>) : { value: r },
-  );
-  return Object.assign({}, ...objects);
+    );
+    const objects = results.map((r) =>
+      r && typeof r === 'object' && !Array.isArray(r) ? (r as Record<string, unknown>) : { value: r },
+    );
+    return Object.assign({}, ...objects);
+  } finally {
+    emitDevRadar({
+      type: 'devtools:pretext',
+      payload: {
+        pattern:        matched.route.pattern,
+        durationMs:     Date.now() - t0,
+        parallelCount:  chain.length,
+      },
+    });
+  }
 }
 
 export async function renderRoute(
@@ -395,9 +408,10 @@ nexus-island {
 }
 </script>`;
 
-  // HMR WebSocket: disabled until dev server exposes a matching WS endpoint (avoids console noise
-  // when nothing is listening on the old hard-coded port).
-  const hmrScript = '';
+  // Dev: SSE to /_nexus/dev/hot — server pushes `reload` after file watcher runs server.reload().
+  const hmrScript = opts.dev
+    ? `<script>(function(){if(typeof EventSource==='undefined')return;new EventSource('/_nexus/dev/hot').addEventListener('reload',function(){location.reload()})})();</script>`
+    : '';
 
   // Server→browser log bridge (dev only)
   const bridgeScript = opts.dev ? `<script>

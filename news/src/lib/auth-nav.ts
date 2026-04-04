@@ -7,7 +7,8 @@ export function escAttr(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/"/g, '&quot;');
 }
 
-function escHtml(s: string): string {
+/** Safe for text nodes and <title> (not inside attributes — use escAttr there). */
+export function escHtml(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
 }
 

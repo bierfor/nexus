@@ -17,6 +17,13 @@ export interface LoadRouteModuleOptions {
   pattern: string;
 }
 
+/** Incremented on each `server.reload()` in dev — appended to dynamic `import()` URLs so Node drops stale ESM (incl. layout CSS). */
+let devReloadGeneration = 0;
+
+export function bumpDevReloadGeneration(): void {
+  devReloadGeneration++;
+}
+
 /** Map manifest pattern to the same path segment used by `nexus build`. */
 function patternToOutputSegment(pattern: string): string {
   if (pattern === '/') return 'index';
@@ -215,7 +222,7 @@ export async function reimportDevActionSidecars(appRoot: string): Promise<void> 
   for (const p of files) {
     try {
       const st = await stat(p);
-      await import(`${pathToFileURL(p).href}?t=${st.mtimeMs}_${libM}`);
+      await import(`${pathToFileURL(p).href}?t=${st.mtimeMs}_${libM}_${devReloadGeneration}`);
     } catch (err) {
       console.error(`[Nexus] Failed to re-import actions (${p}):`, err);
     }
@@ -232,7 +239,7 @@ async function importActionsSidecar(serverOutPath: string, appRoot: string, dev:
   try {
     const st = await stat(p);
     const libM = dev ? await maxSrcLibMtime(appRoot) : 0;
-    const bust = dev ? `${st.mtimeMs}_${libM}` : `${st.mtimeMs}`;
+    const bust = dev ? `${st.mtimeMs}_${libM}_${devReloadGeneration}` : `${st.mtimeMs}`;
     await import(`${pathToFileURL(p).href}?t=${bust}`);
   } catch (err) {
     console.error(`[Nexus] Failed to import server actions sidecar (${p}):`, err);
@@ -250,7 +257,7 @@ export async function loadRouteModule(
     if (options.dev) {
       const st = await stat(filepath);
       const libM = await maxSrcLibMtime(options.appRoot);
-      const bust = `${st.mtimeMs}_${libM}`;
+      const bust = `${st.mtimeMs}_${libM}_${devReloadGeneration}`;
       return import(`${pathToFileURL(filepath).href}?t=${bust}`);
     }
     return import(pathToFileURL(filepath).href);
@@ -327,6 +334,6 @@ export async function loadRouteModule(
     cc !== null ? cc.mtimeMs : 0,
     libM,
   );
-  const url = `${pathToFileURL(outPath).href}?t=${cacheBust}`;
+  const url = `${pathToFileURL(outPath).href}?t=${cacheBust}_${devReloadGeneration}`;
   return import(url);
 }

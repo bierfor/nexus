@@ -62,10 +62,23 @@ export function pathWithLang(ctx: CtxLike, pathname: string): string {
 /** Fallback so layout nav labels never render as the string "undefined" (stale cache / bad locale). */
 const LAYOUT_DEFAULTS_EN = {
   appName: 'Puro Flusso',
-  metaDescription: 'Puro Flusso — less noise, more flow. Stories and wire from your CMS.',
+  metaDescription:
+    'Editorial stories and live wire — science, systems, and culture. Puro Flusso: clarity without noise.',
+  /** Home page document title — primary keyword + brand (keep concise for SERP). */
+  homeTitle: 'Puro Flusso — Editorial news & live wire | Less noise, more signal',
+  /** Meta description home — compelling, honest (≈150–160 chars). */
+  homeMetaDescription:
+    'Independent editorial: sharp analysis, live wire updates, and long-form stories. No clickbait — depth you can use. Read Puro Flusso today.',
+  /** Open Graph title (can match or shorten homeTitle). */
+  homeOgTitle: 'Puro Flusso — Editorial news & live wire',
+  ogSiteName: 'Puro Flusso',
   langAria: 'Language',
   footerTagline: 'Editorial · Puro Flusso',
   footerMade: 'Built with',
+  /** Document title + OG for `/flash` index (execution-intel positioning). */
+  flashIndexTitle: 'Wire — execution intel',
+  flashIndexMeta:
+    'Flash wire: models, APIs, prompts, and fixes — fast. High-intent, zero fluff. Puro Flusso.',
   navHome: 'Home',
   navFlash: 'Wire',
   navTags: 'Topics',
@@ -106,10 +119,19 @@ export function layoutCopy(locale: Locale) {
     en: { ...LAYOUT_DEFAULTS_EN },
     es: {
       appName: 'Puro Flusso',
-      metaDescription: 'Puro Flusso — menos ruido, más flujo. Artículos y cable desde tu CMS.',
+      metaDescription:
+        'Historias editoriales y cable en vivo — ciencia, sistemas y cultura. Puro Flusso: claridad sin ruido.',
+      homeTitle: 'Puro Flusso — Noticias editoriales y cable | Menos ruido, más señal',
+      homeMetaDescription:
+        'Editorial independiente: análisis, cable en vivo y reportajes largos. Sin clickbait — profundidad útil. Lee Puro Flusso.',
+      homeOgTitle: 'Puro Flusso — Noticias editoriales y cable',
+      ogSiteName: 'Puro Flusso',
       langAria: 'Idioma',
       footerTagline: 'Editorial · Puro Flusso',
       footerMade: 'Hecho con',
+      flashIndexTitle: 'Cable — intel de ejecución',
+      flashIndexMeta:
+        'Cable relámpago: modelos, APIs, prompts y arreglos — al grano. Alta intención, sin relleno. Puro Flusso.',
       navHome: 'Inicio',
       navFlash: 'Cable',
       navTags: 'Temas',
@@ -122,10 +144,19 @@ export function layoutCopy(locale: Locale) {
     },
     pt: {
       appName: 'Puro Flusso',
-      metaDescription: 'Puro Flusso — menos ruído, mais fluxo. Artigos e fio do seu CMS.',
+      metaDescription:
+        'Histórias editoriais e fio ao vivo — ciência, sistemas e cultura. Puro Flusso: clareza sem ruído.',
+      homeTitle: 'Puro Flusso — Notícias editoriais e fio | Menos ruído, mais sinal',
+      homeMetaDescription:
+        'Editorial independente: análises, fio ao vivo e reportagens. Sem clickbait — profundidade que você usa. Leia Puro Flusso.',
+      homeOgTitle: 'Puro Flusso — Notícias editoriais e fio',
+      ogSiteName: 'Puro Flusso',
       langAria: 'Idioma',
       footerTagline: 'Editorial · Puro Flusso',
       footerMade: 'Feito com',
+      flashIndexTitle: 'Fio — intel de execução',
+      flashIndexMeta:
+        'Fio relâmpago: modelos, APIs, prompts e correções — direto. Alta intenção, sem enrolação. Puro Flusso.',
       navHome: 'Início',
       navFlash: 'Fio',
       navTags: 'Temas',
@@ -174,11 +205,18 @@ export function newsPageCopy(locale: Locale) {
       emptyLead:
         'There are no published stories, or the GraphQL API is unreachable. Start mongo/backend and set NEXUS_GRAPHQL_URL in .env if needed.',
       wireFrom: 'Feed',
+      /** Ethical curiosity / clarity (no manipulation — honest editorial hook). */
+      homePsychLine: 'What you read next shapes how you think — start with the story that matters.',
+      homeTrustLine: 'Editorial · Fresh editions · Straight to the point',
+      mastSubTagline: 'Independent editorial · Live wire',
       heroCtaFallback: 'View stories',
       flashStripTitle: 'Wire',
       flashStripMore: 'All wire',
       explorerFlashTitle: 'Wire',
-      explorerFlashLead: 'Short signals from the CMS — science, habits, systems.',
+      explorerFlashLead:
+        'Execution intel, not hype: models, APIs, and workflows you can ship today — fast, blunt, useful.',
+      flashRelatedHead: 'More on the wire',
+      flashCtaNext: 'Next productivity hack →',
       explorerTagsTitle: 'Topics',
       explorerTagsLead: 'Browse the tag index from your GraphQL API.',
       explorerAuthorsTitle: 'Authors',
@@ -202,11 +240,18 @@ export function newsPageCopy(locale: Locale) {
       emptyLead:
         'No hay artículos publicados o el API GraphQL no responde. Arranca mongo/backend y revisa NEXUS_GRAPHQL_URL en .env.',
       wireFrom: 'Cable',
+      homePsychLine:
+        'Lo que lees después moldea cómo piensas — empieza por la historia que importa.',
+      homeTrustLine: 'Editorial · Ediciones al día · Sin rodeos',
+      mastSubTagline: 'Editorial independiente · Cable en vivo',
       heroCtaFallback: 'Ver historias',
       flashStripTitle: 'Cable',
       flashStripMore: 'Todo el cable',
       explorerFlashTitle: 'Cable',
-      explorerFlashLead: 'Señales breves desde el CMS — ciencia, hábitos, sistemas.',
+      explorerFlashLead:
+        'Intel de ejecución, no ruido: modelos, APIs y flujos que puedes desplegar hoy — rápido, directo, útil.',
+      flashRelatedHead: 'Más en el cable',
+      flashCtaNext: 'Dame otro hack de productividad →',
       explorerTagsTitle: 'Temas',
       explorerTagsLead: 'Índice de etiquetas vía GraphQL.',
       explorerAuthorsTitle: 'Autores',
@@ -230,11 +275,18 @@ export function newsPageCopy(locale: Locale) {
       emptyLead:
         'Não há artigos publicados ou o GraphQL não responde. Inicie mongo/backend e confira NEXUS_GRAPHQL_URL no .env.',
       wireFrom: 'Fio',
+      homePsychLine:
+        'O que você lê em seguida molda como pensa — comece pela história que importa.',
+      homeTrustLine: 'Editorial · Edições frescas · Direto ao ponto',
+      mastSubTagline: 'Editorial independente · Fio ao vivo',
       heroCtaFallback: 'Ver histórias',
       flashStripTitle: 'Fio',
       flashStripMore: 'Todo o fio',
       explorerFlashTitle: 'Fio',
-      explorerFlashLead: 'Sinais curtos do CMS — ciência, hábitos, sistemas.',
+      explorerFlashLead:
+        'Intel de execução, não hype: modelos, APIs e fluxos para colocar no ar hoje — rápido, direto, útil.',
+      flashRelatedHead: 'Mais no fio',
+      flashCtaNext: 'Próximo hack de produtividade →',
       explorerTagsTitle: 'Temas',
       explorerTagsLead: 'Índice de etiquetas via GraphQL.',
       explorerAuthorsTitle: 'Autores',

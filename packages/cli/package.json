@@ -1,6 +1,6 @@
 {
   "name": "@nexus_js/cli",
-  "version": "0.7.2",
+  "version": "0.7.4",
   "description": "Nexus CLI — create, develop and build Nexus applications",
   "type": "module",
   "bin": {
@@ -25,7 +25,8 @@
     "@nexus_js/audit": "workspace:*",
     "@nexus_js/compiler": "workspace:*",
     "@nexus_js/router": "workspace:*",
-    "@nexus_js/server": "workspace:*"
+    "@nexus_js/server": "workspace:*",
+    "jiti": "^2.6.1"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

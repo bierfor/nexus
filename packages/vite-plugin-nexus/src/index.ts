@@ -13,10 +13,10 @@
  */
 
 import type { Plugin, ViteDevServer, ModuleNode } from 'vite';
-import { compile } from '@nexus_js/compiler';
+import { compile, componentHash } from '@nexus_js/compiler';
 import { generateTypes } from '@nexus_js/types';
 import { readFile } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 
 export interface NexusPluginOptions {
   /** Root directory of the Nexus app (default: process.cwd()) */
@@ -29,6 +29,12 @@ export interface NexusPluginOptions {
   typeGen?: boolean;
   /** Island hydration default strategy */
   defaultHydration?: string;
+  /**
+   * Inject `virtual:nexus-style-bridge` into `index.html` so scoped `.nx` CSS can hot-patch
+   * via WebSocket without full reload (islands / runes stay warm).
+   * @default true
+   */
+  styleBridge?: boolean;
 }
 
 /** Virtual module IDs */
@@ -36,6 +42,10 @@ const VIRTUAL_SERVER = 'virtual:nexus-server/';
 const VIRTUAL_CLIENT = 'virtual:nexus-client/';
 const RESOLVED_SERVER = '\0' + VIRTUAL_SERVER;
 const RESOLVED_CLIENT = '\0' + VIRTUAL_CLIENT;
+
+/** Client HMR: applies `nexus:style-update` payloads to `<style data-nx-style-scope>`. */
+const VIRTUAL_STYLE_BRIDGE = 'virtual:nexus-style-bridge';
+const RESOLVED_STYLE_BRIDGE = '\0' + VIRTUAL_STYLE_BRIDGE;
 
 const NX_FILE_RE = /\.nx(\?.*)?$/;
 const ACTION_ROUTE_RE = /^\/_nexus\/action\//;
@@ -45,6 +55,7 @@ const SYNC_ROUTE_RE = /^\/_nexus\/sync\//;
 export function nexus(opts: NexusPluginOptions = {}): Plugin[] {
   const root = opts.root ?? process.cwd();
   const typeGen = opts.typeGen ?? true;
+  const styleBridgeEnabled = opts.styleBridge !== false;
 
   // Compiled cache: filepath → { serverCode, clientCode, css, manifest }
   const compiledCache = new Map<string, ReturnType<typeof compile>>();
@@ -113,12 +124,16 @@ export function nexus(opts: NexusPluginOptions = {}): Plugin[] {
     },
 
     resolveId(id) {
+      if (id === VIRTUAL_STYLE_BRIDGE) return RESOLVED_STYLE_BRIDGE;
       if (id.startsWith(VIRTUAL_SERVER)) return RESOLVED_SERVER + id.slice(VIRTUAL_SERVER.length);
       if (id.startsWith(VIRTUAL_CLIENT)) return RESOLVED_CLIENT + id.slice(VIRTUAL_CLIENT.length);
       return undefined;
     },
 
     async load(id) {
+      if (id === RESOLVED_STYLE_BRIDGE) {
+        return styleBridgeClientCode();
+      }
       if (id.startsWith(RESOLVED_SERVER)) {
         const filepath = id.slice(RESOLVED_SERVER.length);
         const compiled = compiledCache.get(filepath);
@@ -149,6 +164,12 @@ export function nexus(opts: NexusPluginOptions = {}): Plugin[] {
 
         compiledCache.set(filepath, result);
 
+        if (result.warnings?.length) {
+          for (const w of result.warnings) {
+            console.warn(`[nexus] ${w.message}`);
+          }
+        }
+
         // Inject island manifest as metadata
         if (result.islandManifest) {
           this.emitFile?.({
@@ -176,17 +197,55 @@ export function nexus(opts: NexusPluginOptions = {}): Plugin[] {
       }
     },
 
-    // ── HMR ─────────────────────────────────────────────────────────────────
-    handleHotUpdate({ file, server, modules }) {
+    // ── HMR — scoped CSS stream & inject (matches [data-nx="<hash>"] from compiler) ──
+    async handleHotUpdate({ file, server, modules }) {
       if (!NX_FILE_RE.test(file)) return;
 
       console.log(`  \x1b[33m[nexus HMR]\x1b[0m ${file.split('/').pop()}`);
 
-      // Invalidate the compiled cache for this file
+      let source: string;
+      try {
+        source = await readFile(file, 'utf-8');
+      } catch {
+        return;
+      }
+
+      let hotResult: ReturnType<typeof compile>;
+      try {
+        hotResult = compile(source, file, {
+          mode:       'server',
+          dev:        true,
+          ssr:        true,
+          emitIslandManifest: false,
+          target:     'node',
+        });
+      } catch (err) {
+        server.ws.send({
+          type:    'custom',
+          event:   'nexus:compile-error',
+          data:    {
+            file,
+            message: err instanceof Error ? err.message : String(err),
+          },
+        });
+        return;
+      }
+
+      if (hotResult.css) {
+        server.ws.send({
+          type:  'custom',
+          event: 'nexus:style-update',
+          data:  {
+            hash:     componentHash(file),
+            css:      hotResult.css,
+            filepath: file,
+          },
+        });
+      }
+
       compiledCache.delete(file);
       scheduleTypeGen();
 
-      // Find and invalidate affected modules
       const affected = new Set<ModuleNode>();
       for (const mod of modules) {
         affected.add(mod);
@@ -195,15 +254,13 @@ export function nexus(opts: NexusPluginOptions = {}): Plugin[] {
         }
       }
 
-      // Send HMR update payload
       server.ws.send({
-        type: 'custom',
+        type:  'custom',
         event: 'nexus:hmr',
-        data: {
+        data:  {
           file,
-          // Only reload the specific island, not the whole page
           islandUpdate: true,
-          timestamp: Date.now(),
+          timestamp:    Date.now(),
         },
       });
 
@@ -274,12 +331,64 @@ export function nexus(opts: NexusPluginOptions = {}): Plugin[] {
     },
   };
 
-  return [transformPlugin, cssPlugin, typesPlugin, manifestPlugin];
+  const styleBridgeHtmlPlugin: Plugin = {
+    name:   'nexus:style-bridge-html',
+    apply:  'serve',
+    transformIndexHtml(html) {
+      if (!styleBridgeEnabled) return html;
+      if (!html.includes('</head>')) return html;
+      if (html.includes('virtual:nexus-style-bridge') || html.includes('__x00__virtual:nexus-style-bridge')) {
+        return html;
+      }
+      return {
+        html,
+        tags: [
+          {
+            tag:      'script',
+            attrs:    { type: 'module', src: '/@id/__x00__virtual:nexus-style-bridge' },
+            injectTo: 'head',
+          },
+        ],
+      };
+    },
+  };
+
+  return [transformPlugin, cssPlugin, typesPlugin, manifestPlugin, styleBridgeHtmlPlugin];
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
 // ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Dev-only client: listens for `nexus:style-update` and patches `<style data-nx-style-scope>`.
+ * Hash matches `componentHash(filepath)` → same as `data-nx` on scoped templates.
+ */
+function styleBridgeClientCode(): string {
+  return `/* nexus style bridge — hot-patch scoped .nx CSS (hash = componentHash(filepath)) */
+if (import.meta.hot) {
+  import.meta.hot.on('nexus:style-update', (payload) => {
+    const o = payload && typeof payload === 'object' ? payload : {};
+    const h = 'hash' in o && o.hash != null ? String(o.hash) : '';
+    const css = 'css' in o && o.css != null ? String(o.css) : '';
+    if (!h || !css) return;
+    const sel = 'style[data-nx-style-scope="' + h + '"]';
+    let el = document.querySelector(sel);
+    if (el) {
+      el.textContent = css;
+    } else {
+      el = document.createElement('style');
+      el.setAttribute('data-nx-style-scope', h);
+      el.textContent = css;
+      document.head.appendChild(el);
+    }
+  });
+  import.meta.hot.on('nexus:compile-error', (payload) => {
+    console.error('[nexus] .nx compile error:', payload);
+  });
+}
+`;
+}
 
 function sanitizePath(p: string): string {
   return p.replace(/[^a-zA-Z0-9]/g, '_');

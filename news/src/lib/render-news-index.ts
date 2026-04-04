@@ -1,7 +1,14 @@
 import type { NexusContext } from '@nexus_js/server/context';
 import type { CmsArticleListItem } from './cms-api.ts';
 import { fetchFlashNews, fetchHero, fetchPublishedArticles } from './cms-api.ts';
-import { getLocaleFromCtx, localizeAppHref, newsPageCopy, pathWithLang } from './i18n.ts';
+import {
+  getLocaleFromCtx,
+  layoutCopy,
+  localizeAppHref,
+  newsPageCopy,
+  pathWithLang,
+} from './i18n.ts';
+import { websiteJsonLd } from './seo-jsonld.ts';
 import { heroMarkdownToParagraphs } from './rich-text.ts';
 
 function esc(s: string): string {
@@ -56,7 +63,16 @@ export async function renderNewsIndex(ctx: NexusContext) {
   ]);
   const locale = getLocaleFromCtx(ctx);
   const copy = newsPageCopy(locale);
+  const lc = layoutCopy(locale);
   const graphqlUrl = process.env.NEXUS_GRAPHQL_URL?.trim() || 'http://127.0.0.1:4000/graphql';
+  const siteUrl =
+    process.env.NEXUS_PUBLIC_SITE_URL?.trim()?.replace(/\/$/, '') || ctx.url.origin;
+  const jsonLd = `<script type="application/ld+json">${websiteJsonLd({
+    siteUrl,
+    name:        lc.ogSiteName,
+    description: lc.homeMetaDescription,
+    locale,
+  })}</script>`;
   const localeTag = locale === 'en' ? 'en-US' : locale === 'es' ? 'es-ES' : 'pt-BR';
 
   const [lead, ...rest] = articles;
@@ -185,32 +201,51 @@ export async function renderNewsIndex(ctx: NexusContext) {
     : '';
 
   const html = `<div class="np-front">
+${jsonLd}
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Newsreader:ital,opsz,wght@0,6..72,400..800;1,6..72,400..600&display=swap');
   .np-front {
     --np-paper: #ffffff;
     --np-ink: #0f172a;
     --np-muted: #64748b;
-    --np-rule: #e2e8f0;
-    --np-accent: #2563eb;
+    --np-rule: rgba(15, 23, 42, 0.09);
+    --np-accent: #0284c7;
+    --np-accent-warm: #d97706;
+    --np-glow: rgba(14, 165, 233, 0.08);
     --np-headline: "Newsreader", "Libre Baskerville", Georgia, serif;
     --np-body: "Libre Baskerville", Georgia, "Times New Roman", serif;
-    background: var(--np-paper);
+    position: relative;
+    background:
+      radial-gradient(ellipse 120% 80% at 50% -15%, var(--np-glow), transparent 58%),
+      linear-gradient(180deg, #ffffff 0%, #f8fafc 42%, #f1f5f9 100%);
     color: var(--np-ink);
     border: 1px solid var(--np-rule);
-    border-radius: 2px;
-    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 12px 40px rgba(15, 23, 42, 0.04);
+    border-radius: 14px;
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.9) inset,
+      0 20px 50px rgba(15, 23, 42, 0.06);
     padding: 1.75rem 1.25rem 2.25rem;
     max-width: 56rem;
     margin: 0 auto;
+    overflow: hidden;
   }
+  .np-front::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.018'/%3E%3C/svg%3E");
+    pointer-events: none;
+    border-radius: inherit;
+    z-index: 0;
+  }
+  .np-front > * { position: relative; z-index: 1; }
   @media (min-width: 640px) {
     .np-front { padding: 2rem 2rem 2.75rem; }
   }
   .np-masthead {
     text-align: center;
     border-bottom: 1px solid var(--np-rule);
-    padding-bottom: 1rem;
+    padding-bottom: 1.15rem;
     margin-bottom: 0.75rem;
   }
   .np-mast-title {
@@ -221,13 +256,33 @@ export async function renderNewsIndex(ctx: NexusContext) {
     letter-spacing: -0.03em;
     text-transform: none;
     line-height: 1.08;
+    background: linear-gradient(135deg, #0f172a 0%, #334155 38%, #0284c7 95%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .np-mast-psych {
+    margin: 0.85rem auto 0;
+    max-width: 36rem;
+    font-family: var(--np-body);
+    font-size: clamp(0.95rem, 2.2vw, 1.05rem);
+    line-height: 1.55;
+    color: #475569;
+    font-style: italic;
+    letter-spacing: 0.01em;
   }
   .np-mast-sub {
-    margin: 0.5rem 0 0;
+    margin: 0.65rem 0 0;
     font-family: var(--np-body);
-    font-size: 0.7rem;
-    letter-spacing: 0.35em;
+    font-size: 0.68rem;
+    letter-spacing: 0.28em;
     text-transform: uppercase;
+    color: var(--np-accent);
+  }
+  .np-mast-trust {
+    margin: 0.6rem 0 0;
+    font-size: 0.72rem;
+    letter-spacing: 0.06em;
     color: var(--np-muted);
   }
   .np-dateline {
@@ -237,6 +292,7 @@ export async function renderNewsIndex(ctx: NexusContext) {
     font-size: 0.8rem;
     color: var(--np-muted);
     font-style: italic;
+    opacity: 0.95;
   }
   .np-rule-thin {
     height: 1px;
@@ -259,7 +315,8 @@ export async function renderNewsIndex(ctx: NexusContext) {
     height: auto;
     display: block;
     border: 1px solid var(--np-rule);
-    border-radius: 2px;
+    border-radius: 10px;
+    box-shadow: 0 12px 32px rgba(15, 23, 42, 0.08);
   }
   .np-cap {
     margin: 0.35rem 0 0;
@@ -327,18 +384,18 @@ export async function renderNewsIndex(ctx: NexusContext) {
     text-decoration: none;
     color: inherit;
     border: 1px solid var(--np-rule);
-    background: #ffffff;
-    border-radius: 2px;
-    transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+    background: rgba(255, 255, 255, 0.92);
+    border-radius: 12px;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
   }
   .np-tile:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
-    border-color: #cbd5e1;
+    transform: translateY(-3px);
+    box-shadow: 0 16px 40px rgba(15, 23, 42, 0.1);
+    border-color: rgba(14, 165, 233, 0.28);
   }
-  .np-tile-fig { margin: 0; aspect-ratio: 16/10; overflow: hidden; background: #f1f5f9; }
+  .np-tile-fig { margin: 0; aspect-ratio: 16/10; overflow: hidden; background: #e2e8f0; border-radius: 11px 11px 0 0; }
   .np-tile-fig img { width: 100%; height: 100%; object-fit: cover; display: block; }
-  .np-tile-fallback { aspect-ratio: 16/10; background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%); }
+  .np-tile-fallback { aspect-ratio: 16/10; background: linear-gradient(135deg, #e2e8f0 0%, #cbd5e1 100%); border-radius: 11px 11px 0 0; }
   .np-tile-body { padding: 0.85rem 0.9rem 1rem; flex: 1; display: flex; flex-direction: column; }
   .np-tile-title {
     margin: 0 0 0.5rem;
@@ -348,7 +405,7 @@ export async function renderNewsIndex(ctx: NexusContext) {
     line-height: 1.25;
     letter-spacing: -0.01em;
   }
-  .np-tile:hover .np-tile-title { color: var(--np-accent); }
+  .np-tile:hover .np-tile-title { color: var(--np-accent-warm); }
   .np-tile-excerpt {
     margin: 0 0 0.65rem;
     font-family: var(--np-body);
@@ -387,9 +444,10 @@ export async function renderNewsIndex(ctx: NexusContext) {
     font-size: 0.72rem;
     word-break: break-all;
     padding: 0.2rem 0.45rem;
-    background: #f8fafc;
+    background: #f1f5f9;
     border: 1px solid var(--np-rule);
-    border-radius: 2px;
+    border-radius: 6px;
+    color: #475569;
   }
   .np-hero {
     margin: 0 0 2rem;
@@ -406,10 +464,10 @@ export async function renderNewsIndex(ctx: NexusContext) {
   }
   .np-hero__fig {
     margin: 0;
-    border-radius: 2px;
+    border-radius: 12px;
     overflow: hidden;
     border: 1px solid var(--np-rule);
-    background: #f8fafc;
+    background: #e2e8f0;
     min-height: 12rem;
   }
   .np-hero__fig img {
@@ -458,18 +516,19 @@ export async function renderNewsIndex(ctx: NexusContext) {
   .np-hero__cta {
     display: inline-flex;
     margin-top: 1.25rem;
-    padding: 0.55rem 1.1rem;
+    padding: 0.6rem 1.25rem;
     font-size: 0.78rem;
     font-weight: 600;
     letter-spacing: 0.08em;
     text-transform: uppercase;
     text-decoration: none;
-    color: #fff;
-    background: var(--np-ink);
-    border-radius: 2px;
-    transition: opacity 0.15s ease;
+    color: #ffffff;
+    background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 55%, #0369a1 100%);
+    border-radius: 999px;
+    box-shadow: 0 8px 24px rgba(14, 165, 233, 0.28);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
   }
-  .np-hero__cta:hover { opacity: 0.88; }
+  .np-hero__cta:hover { transform: translateY(-1px); box-shadow: 0 12px 32px rgba(14, 165, 233, 0.35); }
   .np-flash-strip {
     margin: 0 0 2rem;
     padding: 0 0 1.5rem;
@@ -514,15 +573,16 @@ export async function renderNewsIndex(ctx: NexusContext) {
     gap: 0.4rem;
     padding: 1rem 1.05rem;
     border: 1px solid var(--np-rule);
-    border-radius: 2px;
-    background: #fafbfc;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.95);
     text-decoration: none;
     color: inherit;
-    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
   }
   .np-flash-card:hover {
-    border-color: #cbd5e1;
-    box-shadow: 0 4px 16px rgba(15, 23, 42, 0.06);
+    border-color: rgba(14, 165, 233, 0.35);
+    box-shadow: 0 8px 28px rgba(15, 23, 42, 0.08);
+    transform: translateY(-2px);
   }
   .np-flash-card__t {
     font-family: var(--np-headline);
@@ -545,7 +605,9 @@ export async function renderNewsIndex(ctx: NexusContext) {
   ${flashStripHtml}
   <header class="np-masthead">
     <h1 class="np-mast-title">${esc(copy.masthead)}</h1>
-    <p class="np-mast-sub">${esc(copy.wireFrom)} · ${esc(graphqlUrl.replace(/^https?:\/\//, '').split('/')[0] || 'api')}</p>
+    <p class="np-mast-psych">${esc(copy.homePsychLine)}</p>
+    <p class="np-mast-sub">${esc(copy.mastSubTagline)}</p>
+    <p class="np-mast-trust">${esc(copy.homeTrustLine)}</p>
   </header>
   <p class="np-dateline">${esc(editionDate)}</p>
   <div class="np-rule-thin" aria-hidden="true"></div>

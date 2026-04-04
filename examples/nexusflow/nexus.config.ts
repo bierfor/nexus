@@ -19,9 +19,4 @@ export default {
       blockBuild: true,
     },
   },
-} as NexusConfig & {
-  security: {
-    hardened: boolean;
-    audit: { failOn: string[]; blockBuild: boolean };
-  };
-};
+} satisfies NexusConfig;

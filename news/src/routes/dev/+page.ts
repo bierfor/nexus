@@ -93,7 +93,18 @@ export async function render(ctx: NexusContext) {
   <h2>Commands (from repo root)</h2>
   <pre class="nx-dev-commands">pnpm --filter news check          # typecheck news app
 pnpm --filter news exec nexus check
+pnpm --filter news exec nexus audit
+pnpm --filter news exec nexus fix --dry-run
 cd mongo/backend && npm run dev    # API + GraphQL + /media/upload</pre>
+
+  <h2>Changelog verification (this app)</h2>
+  <ul>
+    <li><strong>v0.6</strong> — <code>@nexus_js/audit</code> (workspace): background CVE/supply hints after <code>nexus dev</code>; <code>nexus audit</code> / <code>nexus fix</code>; build runs <code>scanProject</code> when <code>security.hardened</code> or <code>security.audit.blockBuild</code> (see <code>nexus.config.ts</code>).</li>
+    <li><strong>v0.5</strong> — Hardened Mode: HTML responses should include <code>x-nexus-security: hardened</code> and related headers (check DevTools → Network → this document).</li>
+    <li><strong>v0.4+</strong> — Multi-tenant router, <code>@nexus_js/sync</code>, <code>@nexus_js/ui</code> (add deps if you use them).</li>
+    <li><strong>v0.3</strong> — Logger styling in terminal; <code>/_nexus/connect/:topic</code> SSE; Studio on default port.</li>
+    <li><strong>v0.2</strong> — HMR, <code>/_nexus</code> studio dashboard via <code>nexus studio</code>.</li>
+  </ul>
 </body></html>`;
 
   return { html };

@@ -18,6 +18,7 @@ import {
   extractDollarStateInitializers,
 } from './island-ssr-stubs.js';
 import { transformPretextExport } from './pretext-extract.js';
+import { scanIslandSecurity } from './client-security-scan.js';
 
 /** Generates a unique stable island ID from filepath + component name */
 function islandId(filepath: string, componentName: string): string {
@@ -65,7 +66,7 @@ export function generate(
   parsed: ParsedComponent,
   opts: CompileOptions,
 ): CompileResult {
-  const warnings: CompileWarning[] = [];
+  const warnings: CompileWarning[] = [...scanIslandSecurity(parsed)];
 
   // ── CSS (AOT hash scoping — zero runtime) ─────────────────────────────────
   // Computed first so it can be passed into generateServerModule

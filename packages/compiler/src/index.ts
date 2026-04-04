@@ -1,3 +1,5 @@
+export { componentHash, NEXUS_LAYER_DECLARATION } from './css-scope.js';
+export { scanIslandSecurity } from './client-security-scan.js';
 export { parse } from './parser.js';
 export { generate } from './codegen.js';
 export { extractServerActionsFromSource } from './server-actions-extract.js';
