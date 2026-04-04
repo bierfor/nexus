@@ -11,6 +11,20 @@ export type { SyncOp, SyncStatus, SyncCollectionOpts, ConflictInfo } from './eng
 export { $localSync } from './rune.js';
 export type { LocalSyncState, LocalSyncOpts } from './rune.js';
 
+/** Byte-Mirror — SQLite WASM in a worker (OPFS / memory fallback). */
+export {
+  ByteMirrorBridge,
+  resolveSqliteSyncWorkerUrl,
+} from './byte-mirror-bridge.js';
+export type {
+  ByteMirrorStorageMode,
+  FlowNodePayload,
+  FlowNodeRow,
+  OutboxRow,
+  SqliteSyncWorkerInboundMessage,
+  SqliteSyncWorkerOutboundMessage,
+} from './byte-mirror-protocol.js';
+
 /** Convenience: check if the browser is currently online. */
 export const isOnline = (): boolean =>
   typeof navigator !== 'undefined' ? navigator.onLine : true;

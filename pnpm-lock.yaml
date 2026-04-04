@@ -389,6 +389,10 @@ importers:
         version: 2.1.9(@types/node@22.19.17)
 
   packages/sync:
+    dependencies:
+      '@sqlite.org/sqlite-wasm':
+        specifier: 3.48.0-build1
+        version: 3.48.0-build1
     devDependencies:
       '@types/node':
         specifier: ^22.0.0
@@ -841,6 +845,10 @@ packages:
     resolution: {integrity: sha512-lWMnixq/QzxyhTV6NjQJ4SFo1J6PvOX8vUx5Wb4bBPsEb+8xZ89Bz6kOXpfXj9ak9AHTQVQzlgzBEc1SyM27xQ==}
     cpu: [x64]
     os: [win32]
+
+  '@sqlite.org/sqlite-wasm@3.48.0-build1':
+    resolution: {integrity: sha512-iRhDKMGVQ4P29W+fUnKV5TgX1fEsWyKzbiaHl/7b3EaCYFr7HUKO06eBz0fUYeFYBvyUiTd9SNDU7+mj2O0iWA==}
+    hasBin: true
 
   '@types/estree@1.0.8':
     resolution: {integrity: sha512-dWHzHa2WqEXI/O1E9OjrocMTKJl2mSrEolh1Iomrv6U+JuNwaHXsXx9bLu5gG7BUWFIN0skIQJQ/L1rIex4X6w==}
@@ -1334,6 +1342,8 @@ snapshots:
 
   '@rollup/rollup-win32-x64-msvc@4.60.1':
     optional: true
+
+  '@sqlite.org/sqlite-wasm@3.48.0-build1': {}
 
   '@types/estree@1.0.8': {}
 

@@ -1,7 +1,7 @@
 {
   "name": "@nexus_js/sync",
   "version": "0.7.4",
-  "description": "Nexus Local-First Sync Engine — IndexedDB-backed optimistic mutations with conflict resolution",
+  "description": "Nexus Local-First Sync — IndexedDB engine ($localSync) + Byte-Mirror prototype (SQLite WASM worker / OPFS)",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -9,7 +9,8 @@
     ".": {
       "import": "./dist/index.js",
       "types": "./dist/index.d.ts"
-    }
+    },
+    "./workers/sqlite-sync.worker.js": "./dist/workers/sqlite-sync.worker.js"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
@@ -51,5 +52,8 @@
   "publishConfig": {
     "access": "public",
     "registry": "https://registry.npmjs.org/"
+  },
+  "dependencies": {
+    "@sqlite.org/sqlite-wasm": "3.48.0-build1"
   }
 }
