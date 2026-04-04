@@ -13,6 +13,7 @@
  *   5. Cache Inspector — Current cache entries, TTLs, hit/miss ratio.
  *   6. Store Viewer    — Live snapshot of the Global State Store.
  *   7. Security Report — Snapshot from `nexus dev` (serialize, compiler scans, hardened mode, roadmap rows).
+ *   DevRadar also streams Nexus Brain (`$brain`) completions: model, ms, tokens, cache hit.
  */
 
 import { createServer as createHttpServer } from 'node:http';
@@ -37,6 +38,22 @@ export type StudioEvent =
   | { type: 'security:audit'; payload: { kind: string; message: string; action?: string } }
   | { type: 'security:report'; payload: SecurityReportPayload }
   | { type: 'rune:telemetry'; payload: { runeId: string; updatesPerSecond: number; label?: string } }
+  | {
+      type: 'brain:completion';
+      payload: {
+        id: string;
+        provider: string;
+        model: string;
+        durationMs: number;
+        cached: boolean;
+        ok: boolean;
+        promptPreview?: string;
+        promptChars: number;
+        contextChars: number;
+        usage?: { promptTokens?: number; completionTokens?: number; totalTokens?: number };
+        error?: string;
+      };
+    }
   | { type: 'cache:set'; payload: CacheEntry }
   | { type: 'cache:hit'; payload: { key: string } }
   | { type: 'cache:miss'; payload: { key: string } }
@@ -523,6 +540,7 @@ function studioHtml(port: number): string {
       pretextLast: null,
       securityTail: [],
       securityReport: null,
+      brainTail: [],
     };
 
     // ── WebSocket ────────────────────────────────────────────────────────────
@@ -620,6 +638,12 @@ function studioHtml(port: number): string {
           renderDevRadarStrip();
           break;
 
+        case 'brain:completion':
+          state.brainTail.unshift({ ...event.payload, t: Date.now() });
+          if (state.brainTail.length > 32) state.brainTail.pop();
+          renderDevRadarStrip();
+          break;
+
         case 'cache:set':
           state.cache.set(event.payload.key, event.payload);
           renderCachePanel();
@@ -705,19 +729,36 @@ function studioHtml(port: number): string {
       const el = document.getElementById('devradarStrip');
       if (!el) return;
       const sec = state.securityTail.slice(0, 8);
+      const brain = state.brainTail.slice(0, 8);
+      const brainHtml = brain.length
+        ? '<div style="font-size:10px;color:#a78bfa;margin:10px 0 4px">Nexus Brain</div>' +
+          brain.map(function (b) {
+            var u = b.usage || {};
+            var tok = (u.totalTokens != null ? u.totalTokens : (u.promptTokens || 0) + (u.completionTokens || 0));
+            var line = (b.ok ? '<span style="color:var(--green)">ok</span>' : '<span style="color:var(--red)">err</span>') +
+              ' · ' + (b.provider || '') + ' / ' + (b.model || '') +
+              ' · ' + (b.durationMs || 0) + 'ms' +
+              (b.cached ? ' · <span style="color:#38bdf8">cached</span>' : '') +
+              (tok ? ' · ' + tok + ' tok' : '');
+            var err = b.error ? '<div style="color:var(--red);font-size:9px;margin-top:2px">' + String(b.error).slice(0, 120) + '</div>' : '';
+            return '<div style="font-size:10px;margin:4px 0;padding:4px;background:var(--bg);border-radius:4px;border-left:2px solid #a78bfa">' +
+              line + err + '</div>';
+          }).join('')
+        : '<div style="font-size:10px;color:var(--muted)">No Brain completions yet — use <code>$brain.complete()</code> in a Server Action.</div>';
       el.innerHTML =
         (state.pretextLast
           ? '<div style="font-size:10px;color:var(--muted);margin-bottom:6px">Last pretext: <span style="color:var(--green)">' +
             state.pretextLast.durationMs + 'ms</span> · ' + state.pretextLast.pattern + '</div>'
           : '') +
+        brainHtml +
         (sec.length
-          ? '<div style="font-size:10px;color:var(--amber)">Security</div>' +
+          ? '<div style="font-size:10px;color:var(--amber);margin-top:10px">Security</div>' +
             sec.map(s =>
               '<div style="font-size:10px;margin:4px 0;padding:4px;background:var(--bg);border-radius:4px">' +
               '<span style="color:var(--red)">' + (s.kind || '') + '</span> · ' +
               (s.action ? s.action + ' — ' : '') + (s.message || '') + '</div>'
             ).join('')
-          : '<div style="font-size:10px;color:var(--muted)">No security events yet.</div>');
+          : '<div style="font-size:10px;color:var(--muted);margin-top:8px">No security events yet.</div>');
     }
 
     function renderIslandPanel() {

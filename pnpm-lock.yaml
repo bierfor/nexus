@@ -222,6 +222,19 @@ importers:
         specifier: ^5.5.0
         version: 5.9.3
 
+  packages/brain:
+    dependencies:
+      '@nexus_js/server':
+        specifier: workspace:*
+        version: link:../server
+    devDependencies:
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.19.17
+      typescript:
+        specifier: ^5.5.0
+        version: 5.9.3
+
   packages/cli:
     dependencies:
       '@nexus_js/audit':
