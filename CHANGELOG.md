@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.7.5] — 2026-04-05
+
+### Fixed — production deployment (Node-only / Docker / Hetzner)
+
+**`@nexus_js/compiler` — `$lib` resolves to `.ts` in production builds**
+
+- `resolveDollarLibFilePath` now checks `.nexus/lib/*.js` (pre-compiled output) **first** in production, then falls back to a JS-first extension order. Previously it always preferred `.ts`, causing `Unknown file extension ".ts"` crashes at runtime.
+- New `compileLib(appRoot)` utility transpiles `src/lib/**/*.ts` → `.nexus/lib/**/*.js` using TypeScript's `transpileModule` (no type-check, pure syntax pass — fast). Exported from `@nexus_js/compiler`.
+
+**`@nexus_js/compiler` — sidecar import broken for nested routes**
+
+- `actionsServerImportFilename` now returns `basename(segment).js` for production instead of the full path segment (`auth/login.js`). The sidecar is always adjacent to the server module, so the relative import must reference only the filename — e.g. `./login.js`, not `./auth/login.js`.
+
+**`@nexus_js/compiler` + `@nexus_js/server` — sidecar missing `$lib` imports**
+
+- `generateServerModule` now exports each `"use server"` action as `export async function __nexus_action_<name>(…)`, keeping the `$lib` imports in scope.
+- `generateActionsModule` (the sidecar) now imports **all** action handlers from the co-located server module (`__nexus_action_*` for inline actions, original name for `createAction`), then calls `registerAction`. No more duplicated bodies, no more missing `$lib` symbols.
+- Removed the hardcoded `actionsImportPreamble` hacks (`appendMessage`, `validateFlowPayload`, `appendVisit`) from `load-module.ts` and `bin.ts` — superseded by the correct export/import mechanism.
+
+**`@nexus_js/cli` — `nexus build` compiles `src/lib`**
+
+- `runBuild` calls `compileLib(root)` before writing route server modules so the `file://` URLs embedded in those modules resolve to plain JS at `nexus start` time.
+
+**`@nexus_js/vite-plugin-nexus` — `dev: true` hardcoded in production builds**
+
+- `configResolved` now sets `isDevMode = config.command === 'serve'`. The `transform` hook passes the correct `dev` flag to the compiler; previously production Vite builds always compiled with dev code-paths (timestamp cache-busting, TS-first `$lib` resolution).
+
+---
+
 ## [0.7.4] — 2026-04-05
 
 ### Added

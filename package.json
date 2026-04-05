@@ -1,6 +1,6 @@
 {
   "name": "nexus-workspace",
-  "version": "0.7.4",
+  "version": "0.7.5",
   "private": true,
   "description": "Nexus — full-stack framework: islands-first SSR, Svelte 5 runes, server actions, file-based routes",
   "workspaces": [

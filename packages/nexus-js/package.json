@@ -1,6 +1,6 @@
 {
   "name": "nexus-js",
-  "version": "0.7.4",
+  "version": "0.7.5",
   "description": "Nexus framework — install once, get the nexus & create-nexus CLIs (wraps @nexus_js/cli). Same as nexus_js; use whichever name you prefer on npm.",
   "type": "module",
   "bin": {

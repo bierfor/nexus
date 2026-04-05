@@ -1,6 +1,6 @@
 {
   "name": "@nexus_js/security",
-  "version": "0.7.4",
+  "version": "0.7.5",
   "description": "Nexus Hardened Core — Vault-lite (hot secrets) and Shield-lite (build manifest helpers)",
   "type": "module",
   "main": "./dist/index.js",

@@ -1,6 +1,6 @@
 {
   "name": "@nexus_js/cli",
-  "version": "0.7.4",
+  "version": "0.7.5",
   "description": "Nexus CLI — create, develop and build Nexus applications",
   "type": "module",
   "bin": {
