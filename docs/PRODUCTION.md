@@ -74,5 +74,5 @@ See **[`PUBLISHING.md`](./PUBLISHING.md)**. Prefer **`pnpm release:safe`** (buil
 
 ## Further reading
 
-- Site overview: [`docs/index.html`](./index.html) (sections **Production hardening**, **Security by Default**, **Changelog**).
+- **nexusjs.dev** (marketing / landing): deployed from **[github.com/bierfor/nexusjs-site](https://github.com/bierfor/nexusjs-site)**; mirror in this repo: [`docs/index.html`](./index.html) (sections **Production hardening**, **Security by Default**, **Changelog**).
 - Changelog: [`CHANGELOG.md`](../CHANGELOG.md).

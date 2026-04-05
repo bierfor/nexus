@@ -53,5 +53,5 @@ En el proyecto generado con **`npm create @nexus_js/nexus@latest`** (plantilla *
 
 ## Más documentación
 
-- Sitio: [nexusjs.dev](https://nexusjs.dev)
+- Sitio: [nexusjs.dev](https://nexusjs.dev) — repositorio del sitio estático: [github.com/bierfor/nexusjs-site](https://github.com/bierfor/nexusjs-site)
 - Islas de ejemplo: en un proyecto **full**, `src/routes/islands/+page.nx`

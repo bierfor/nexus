@@ -26,7 +26,7 @@
   <script type="application/ld+json">
   {"@context":"https://schema.org","@graph":[
     {"@type":"WebSite","@id":"https://nexusjs.dev/#website","name":"Nexus.js","url":"https://nexusjs.dev/","description":"Full-stack JavaScript framework: islands, Svelte 5 Runes, server actions, pretext, Hardened Mode.","inLanguage":["en","es","pt"],"publisher":{"@id":"https://nexusjs.dev/#org"}},
-    {"@type":"Organization","@id":"https://nexusjs.dev/#org","name":"Nexus.js","url":"https://nexusjs.dev/"},
+    {"@type":"Organization","@id":"https://nexusjs.dev/#org","name":"Nexus.js","url":"https://nexusjs.dev/","sameAs":["https://github.com/bierfor/nexus","https://github.com/bierfor/nexusjs-site"]},
     {"@type":"SoftwareApplication","name":"Nexus.js","applicationCategory":"DeveloperApplication","operatingSystem":"Cross-platform","license":"https://opensource.org/licenses/MIT","url":"https://github.com/bierfor/nexus","description":"Opinionated full-stack framework with islands architecture, Runes reactivity, and security-first compiler & audit tooling."}
   ]}
   </script>
@@ -1096,7 +1096,7 @@
     <p data-i18n="hero.subtitle">Zero JS by default. Progressive hydration where you need it. Server Actions that are type-safe, race-condition-safe, and edge-ready.</p>
     <div class="hero-actions">
       <a href="#quickstart" class="btn btn-primary" data-i18n="hero.cta1">Get Started →</a>
-      <a href="https://github.com/bierfor/nexus" class="btn btn-outline" target="_blank" data-i18n="hero.cta2">GitHub ↗</a>
+      <a href="https://github.com/bierfor/nexusjs-site" class="btn btn-outline" target="_blank" data-i18n="hero.cta2">GitHub ↗</a>
     </div>
     <div class="hero-stats">
       <div class="stat"><div class="stat-num">18</div><div class="stat-label" data-i18n="hero.stat1">Packages</div></div>
@@ -2237,7 +2237,7 @@ export default toCloudflareHandler(server.fetch);</code></pre>
         <li><strong style="color:var(--text)">Secrets &amp; errors</strong> — Set <code>NEXUS_SECRET</code> in production. Unhandled action errors are masked unless <code>NEXUS_EXPOSE_ERRORS=true</code> (responses include <code>errorId</code>; details in server logs).</li>
       </ul>
 
-      <p style="font-size:14px;color:var(--muted)">Full reference (CSRF tiers, rate limits, body limits, URL helpers): <a href="https://github.com/bierfor/nexus/blob/main/docs/PRODUCTION.md" style="color:var(--accent2)"><code>docs/PRODUCTION.md</code> on GitHub ↗</a></p>
+      <p style="font-size:14px;color:var(--muted)">Full reference (CSRF tiers, rate limits, body limits, URL helpers): <a href="https://github.com/bierfor/nexus/blob/main/docs/PRODUCTION.md" style="color:var(--accent2)"><code>docs/PRODUCTION.md</code> in the framework repo ↗</a> · This page is deployed from <a href="https://github.com/bierfor/nexusjs-site" style="color:var(--accent2)">nexusjs-site ↗</a></p>
     </section>
 
     <!-- ═══════════════════════════════════════════════════════════════════ -->
@@ -2839,7 +2839,7 @@ nexus fix --force        # Also fix medium + low severity</code></pre>
 
       <p style="text-align:center; color: var(--muted); font-size:13px; margin-top:32px">
         <strong style="color:var(--text)">Nexus</strong> — MIT License © 2026 Nexus Contributors ·
-        <a href="https://github.com/bierfor/nexus" style="color:var(--accent2); text-decoration:none">GitHub ↗</a>
+        <a href="https://github.com/bierfor/nexusjs-site" style="color:var(--accent2); text-decoration:none">GitHub ↗</a>
       </p>
     </section>
 
