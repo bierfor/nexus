@@ -54,6 +54,10 @@ sveltro-next.html
 .vercel
 .env*.local
 
+# Local helper scripts (personal, not part of the public repo)
+scripts/doctor-npm-publish.sh
+scripts/npm-release-local.sh
+
 # Local / product apps — not part of the open-source Nexus framework (keep on disk, do not commit)
 /fin-sh/
 /mongo/
