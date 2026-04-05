@@ -1566,6 +1566,8 @@ theme.value = 'dark';
       <h3>Defining a Server Action</h3>
       <div class="code-title"><span>src/routes/+page.nx</span><span class="code-lang">.nx</span></div>
       <pre><code class="language-html">---
+import { db } from '$lib/server/db';
+
 // Mark with "use server" — the compiler extracts this to a server module
 async function createPost(formData: FormData, ctx: NexusContext) {
   "use server";
@@ -1573,9 +1575,8 @@ async function createPost(formData: FormData, ctx: NexusContext) {
   const title = formData.get('title') as string;
   const body  = formData.get('body')  as string;
 
-  // ctx.db is your configured DB adapter
-  const post = await ctx.db.mutate('post', 'create', () =>
-    ctx.db.client.post.create({ data: { title, body } })
+  const post = await db.mutate('post', 'create', () =>
+    db.client.post.create({ data: { title, body } })
   );
 
   // Invalidates the 'post' cache tag everywhere
@@ -1635,8 +1636,11 @@ registerAction('checkout',   payFn,     { race: 'reject' });
 // 'ignore' — all run in parallel (analytics, logging)
 registerAction('trackEvent', trackFn,   { race: 'ignore' });
 
-// Idempotent — same idempotency key returns cached result
+// Idempotent — client sends x-nexus-idempotency; same key returns cached result
 registerAction('importData', importFn,  { idempotent: true, timeout: 120_000 });</code></pre>
+
+      <h3>Secure payments &amp; plan checks</h3>
+      <p style="color:var(--text-secondary);font-size:15px;margin-bottom:12px">Nexus does not include Stripe or a billing engine. For <strong>checkout-style</strong> actions use <code>race: 'reject'</code> (blocks concurrent double-submit → 409), <strong>Zod <code>schema</code></strong> for amounts and SKUs, <strong><code>rateLimit</code></strong>, and optional <code>idempotent: true</code> with the <code>x-nexus-idempotency</code> header for safe retries. For <strong>subscription / plan</strong> rules, load entitlements in <code>TenantConfig.resolve</code> or auth middleware into <code>tenant.meta</code> or <code>ctx.locals</code> and enforce them inside the action (403 if the plan disallows the feature). See <a href="https://nexusjs.dev/docs/PRODUCTION.md" style="color:var(--accent2)">PRODUCTION.md → Payments &amp; plan limits</a>.</p>
     </section>
 
     <section id="cache">

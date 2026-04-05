@@ -55,6 +55,31 @@ Public and SWR HTML responses include **`Vary: Accept, Accept-Encoding`** so sha
 
 **`/_nexus/dev/hot`** and **`/_nexus/dev/vault`** require **`Origin`** to be a **loopback** host (`localhost`, `127.x.x.x`, `::1`).
 
+## Payments, idempotency, and plan limits (what Nexus provides)
+
+Nexus does **not** ship Stripe, webhooks, or a billing “plan engine”. Those stay in **your app** and your PSP. The framework gives **building blocks** for safer money-related and entitlement-sensitive actions:
+
+| Mechanism | Use for |
+|-----------|---------|
+| **`race: 'reject'`** on `registerAction` / `createAction` | **Checkout-style flows** — only one in-flight execution per action name; concurrent duplicate requests get **409** (double-submit / double-tab). |
+| **`idempotent: true`** + header **`x-nexus-idempotency`** | **Safe retries** — same key within TTL returns the cached JSON result without running the handler again (pair with your PSP’s idempotency keys for real charges). |
+| **`schema` (Zod, etc.)** | **Validate price IDs, amounts, currency, quantity** on the server; never trust raw client JSON alone. |
+| **`rateLimit`** | Throttle abuse per IP or per-user (`keyFn`). |
+| **CSRF tiers** | Default **`x-nexus-action`** header + optional HMAC token (see above). |
+| **Production error masking** | Avoids leaking stack traces to the browser; use **`errorId`** in logs for support. |
+
+The bundled **`callAction()`** helper in **`@nexus_js/serialize`** today sends **`x-nexus-build-id`** and the action header; for **idempotent** actions you typically **`fetch('/_nexus/action/…', { headers: { 'x-nexus-idempotency': crypto.randomUUID(), … } })`** yourself (or wrap `callAction` in your app).
+
+### Validating “plans” or tiers
+
+There is **no** `nexus.config` field like `plans: [...]`. Recommended pattern:
+
+1. Resolve **tenant + subscription / plan row** in **`TenantConfig.resolve`** (from `@nexus_js/router`) or in **auth middleware**.
+2. Attach entitlements to **`tenant.meta`** or **`ctx.locals`** (e.g. `{ plan: 'pro', seats: 10 }`).
+3. At the start of each sensitive **`createAction`** / **`registerAction`** handler, **re-read or trust your server-side session + DB** and **return `ActionError` (403/402)** if the plan does not allow the operation.
+
+That keeps billing source-of-truth in **your database** and the PSP, not in the framework.
+
 ## Environment variables
 
 | Variable | Role |
