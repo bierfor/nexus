@@ -54,6 +54,29 @@ export type {
   RuneTelemetryPayload,
 } from './devradar.js';
 
+/**
+ * Returns true when an Origin header value is a loopback address (localhost,
+ * 127.x.x.x, ::1, 0.0.0.0) or the opaque "null" value.
+ * Used to protect dev-only endpoints from external network access.
+ * "null" is explicitly rejected here (unlike the action handler) because dev
+ * endpoints must never be reachable from sandboxed or opaque contexts.
+ */
+function isLoopbackOrigin(origin: string): boolean {
+  if (origin === 'null') return false; // opaque origin — never trusted
+  try {
+    const { hostname } = new URL(origin);
+    return (
+      hostname === 'localhost' ||
+      hostname === '127.0.0.1' ||
+      hostname === '::1' ||
+      hostname === '0.0.0.0' ||
+      /^127\.\d+\.\d+\.\d+$/.test(hostname)
+    );
+  } catch {
+    return false;
+  }
+}
+
 /** Merge ctx response headers (Set-Cookie, etc.) with redirect Location. */
 function redirectHeadersForWriteHead(err: RedirectSignal): Record<string, string | string[]> {
   const setCookies: string[] = [];
@@ -201,13 +224,29 @@ export async function createNexusServer(opts: NexusServerOptions) {
     }
 
     // ── Dev hot-reload (SSE) — browser listens and calls location.reload() ──
+    // Guard dev-only endpoints against external origin access. Browsers on the
+    // same machine will send no Origin (direct navigation) or a loopback Origin.
+    // An attacker on the network sending a cross-origin request is rejected.
+    // (Next.js: GHSA-3h52-269p-cp9r, GHSA-jcc7-9wpm-mj36 — dev info exposure)
     if (dev && method === 'GET' && url.pathname === '/_nexus/dev/hot') {
+      const devOrigin = req.headers['origin'];
+      if (devOrigin && !isLoopbackOrigin(devOrigin)) {
+        res.writeHead(403, { 'content-type': 'text/plain' });
+        res.end('Forbidden: dev endpoint requires loopback origin');
+        return;
+      }
       subscribeDevHotClient(req, res);
       return;
     }
 
     // ── Vault-lite (dev) — hot-reload secrets without restart ───────────────
     if (dev && method === 'POST' && url.pathname === '/_nexus/dev/vault') {
+      const devOrigin = req.headers['origin'];
+      if (devOrigin && !isLoopbackOrigin(devOrigin)) {
+        res.writeHead(403, { 'content-type': 'text/plain' });
+        res.end('Forbidden: dev endpoint requires loopback origin');
+        return;
+      }
       const request = await incomingMessageToWebRequest(req);
       const response = await handleDevVaultPost(request);
       await webToNodeResponse(response, res, sec);

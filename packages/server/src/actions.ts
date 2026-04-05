@@ -96,6 +96,12 @@ export interface ActionOptions {
   schema?: {
     parse: (data: unknown) => unknown;
   };
+  /**
+   * Maximum request body size in bytes. Default: 10 MB.
+   * Lower this for actions that only receive small form payloads (e.g. login forms).
+   * Set to 0 to disable the limit (not recommended).
+   */
+  maxBodyBytes?: number;
 }
 
 export interface ActionResult<T = unknown> {
@@ -282,7 +288,32 @@ export async function handleActionRequest(request: Request): Promise<Response> {
     });
   }
 
-  const actionName = url.pathname.slice(ACTION_PREFIX.length);
+  // ── Guard: opaque (null) Origin ────────────────────────────────────────────
+  // Sandboxed iframes (<iframe sandbox> without allow-same-origin) and data:
+  // URIs send the string "null" as the Origin header. This is never a
+  // legitimate same-origin action call and must be rejected before any CSRF
+  // header check, otherwise the custom-header tier can be bypassed.
+  // (Next.js: GHSA-mq59-m269-xvcx, GHSA-jcc7-9wpm-mj36)
+  const rawOrigin = request.headers.get('origin');
+  if (rawOrigin === 'null') {
+    emitDevRadar({
+      type: 'security:audit',
+      payload: { kind: 'csrf_blocked', message: 'Opaque (null) origin rejected', action: '?' },
+    });
+    return jsonResponse({ error: 'Forbidden: opaque origin', status: 403, code: 'OPAQUE_ORIGIN' }, 403);
+  }
+
+  // ── Guard: action name validation ──────────────────────────────────────────
+  // Ensure the action name extracted from the URL only contains characters that
+  // can appear in a valid registered action name. Rejects path-traversal
+  // sequences (../../ etc.) and injection attempts before any registry lookup.
+  // (Next.js: GHSA-ggv3-7p47-pfv8 — HTTP Request Smuggling via path confusion)
+  const rawActionName = url.pathname.slice(ACTION_PREFIX.length);
+  if (!/^[\w][\w.-]*$/.test(rawActionName) || rawActionName.includes('..')) {
+    return jsonResponse({ error: 'Invalid action name', status: 400, code: 'INVALID_ACTION_NAME' }, 400);
+  }
+
+  const actionName = rawActionName;
   const registered = actionRegistry.get(actionName);
 
   if (!registered) {
@@ -459,7 +490,7 @@ export async function handleActionRequest(request: Request): Promise<Response> {
 
   try {
     // Deserialize input using Nexus transport (preserves Date, Map, Set, etc.)
-    const input = await deserializeInput(request);
+    const input = await deserializeInput(request, opts.maxBodyBytes ?? MAX_ACTION_BODY_BYTES);
 
     emitDevRadar({
       type: 'action:call',
@@ -678,11 +709,29 @@ export function createActionGuard(
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-async function deserializeInput(request: Request): Promise<unknown> {
+/** Maximum request body for a single server action (10 MB). Override per-action via opts.maxBodyBytes. */
+const MAX_ACTION_BODY_BYTES = 10 * 1_024 * 1_024;
+
+async function deserializeInput(request: Request, maxBytes = MAX_ACTION_BODY_BYTES): Promise<unknown> {
+  // DoS protection: reject oversized bodies before reading any bytes.
+  // Covers the attack vector where a client streams a huge payload to exhaust
+  // server memory. (Next.js: GHSA-7m27-7ghc-44w9, GHSA-fq54-2j52-jc42)
+  const cl = parseInt(request.headers.get('content-length') ?? '0', 10);
+  if (Number.isFinite(cl) && cl > maxBytes) {
+    throw new ActionError(
+      `Request body too large (${cl} bytes, limit ${maxBytes})`,
+      413,
+      'PAYLOAD_TOO_LARGE',
+    );
+  }
+
   const contentType = request.headers.get('content-type') ?? '';
 
   if (contentType.includes('application/json')) {
     const text = await request.text();
+    if (text.length > maxBytes) {
+      throw new ActionError('Request body too large', 413, 'PAYLOAD_TOO_LARGE');
+    }
     try {
       return deserialize(text);
     } catch {
@@ -697,7 +746,11 @@ async function deserializeInput(request: Request): Promise<unknown> {
     return request.formData();
   }
 
-  return request.text();
+  const text = await request.text();
+  if (text.length > maxBytes) {
+    throw new ActionError('Request body too large', 413, 'PAYLOAD_TOO_LARGE');
+  }
+  return text;
 }
 
 function jsonResponse(body: unknown, status: number): Response {

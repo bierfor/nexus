@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.7.5] — 2026-04-05 (security patch — Next.js CVE parity)
+
+### Security — Next.js CVE parity hardening
+
+**`@nexus_js/server` — `Origin: null` bypasses CSRF header check (GHSA-mq59-m269-xvcx)**
+
+- Sandboxed iframes and `data:` URIs send the literal string `"null"` as the `Origin` header. Previously this value would pass the Tier 1 CSRF check because the custom-header guard did not inspect Origin. Now `handleActionRequest` explicitly rejects any request with `Origin: null` before reaching the CSRF tiers, returning `403 OPAQUE_ORIGIN`.
+
+**`@nexus_js/server` — action name path traversal / request smuggling (GHSA-ggv3-7p47-pfv8)**
+
+- The action name extracted from `/_nexus/action/<name>` was passed directly to the registry without format validation. An attacker could craft a URL like `/_nexus/action/../../secret` to probe unexposed paths. Added a strict allowlist regex (`^[\w][\w.-]*$`) that rejects any name containing `..` or unsafe characters before the registry lookup.
+
+**`@nexus_js/server` — DoS via unbounded action payload (GHSA-7m27-7ghc-44w9, GHSA-fq54-2j52-jc42)**
+
+- `deserializeInput` read the entire request body without a size limit. An attacker could stream a multi-GB payload to exhaust server memory. Added a `MAX_ACTION_BODY_BYTES` limit (10 MB default). The limit is checked via `Content-Length` before any bytes are read, and again after body materialisation for chunked-transfer requests. Configurable per-action via `opts.maxBodyBytes`.
+
+**`@nexus_js/server/renderer` — cache poisoning via missing `Vary` header (GHSA-gp8f-8m3g-qvj9, GHSA-r2fc-ccr8-96c4)**
+
+- Public and SWR-cached HTML responses did not include a `Vary` header. CDNs and shared proxies could serve a gzip-compressed response to a client that doesn't accept gzip, or poison the cache by keying only on the URL. All non-private responses now include `Vary: Accept, Accept-Encoding`.
+
+**`@nexus_js/server` — dev endpoints accessible from external origins (GHSA-3h52-269p-cp9r, GHSA-jcc7-9wpm-mj36)**
+
+- `/_nexus/dev/hot` (HMR SSE) and `/_nexus/dev/vault` (secret hot-reload) were accessible from any origin on the network. An attacker on the same LAN could subscribe to HMR events or write vault secrets. Both endpoints now reject requests whose `Origin` header is not a loopback address (`localhost`, `127.x.x.x`, `::1`). The opaque `null` origin is also rejected at this layer.
+
+---
+
 ## [0.7.5] — 2026-04-05 (security patch)
 
 ### Security

@@ -454,11 +454,22 @@ export async function renderRoute(
     fullHtml = DOCTYPE + '\n' + fullHtml;
   }
 
+  // Vary header for cache correctness:
+  //  - 'Accept-Encoding' — responses differ when the proxy applies gzip/br.
+  //  - 'Accept'          — clients negotiating content type get different payloads.
+  // Without Vary, shared caches (CDN, Varnish) can serve compressed responses to
+  // clients that don't support compression, or serve the wrong content type.
+  // (Next.js: GHSA-gp8f-8m3g-qvj9, GHSA-r2fc-ccr8-96c4 — cache poisoning via missing Vary)
+  const vary = cacheControl.strategy === 'private-no-store'
+    ? undefined              // private/no-store: Vary irrelevant, saves a header byte
+    : 'Accept, Accept-Encoding';
+
   return {
     html: fullHtml,
     headers: {
       'content-type': 'text/html; charset=utf-8',
       'cache-control': cacheControl.header,
+      ...(vary ? { vary } : {}),
       'x-nexus-cache-strategy': cacheControl.strategy,
       'x-nexus-island-count': String(islandCount),
       ...(opts.dev ? { 'x-nexus-ttl': String(ttl) } : {}),
