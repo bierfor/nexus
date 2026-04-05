@@ -434,9 +434,9 @@ function generateActionsModule(actions: ServerAction[], filepath: string, opts: 
   for (const action of actions) {
     lines.push(`/** @nexus-action "${action.name}" */`);
     if (action.createActionSource) {
-      lines.push(`registerAction(${JSON.stringify(action.name)}, ${action.name}, { csrf: false });`);
+      lines.push(`registerAction(${JSON.stringify(action.name)}, ${action.name});`);
     } else {
-      lines.push(`registerAction(${JSON.stringify(action.name)}, __nexus_action_${action.name}, { csrf: false });`);
+      lines.push(`registerAction(${JSON.stringify(action.name)}, __nexus_action_${action.name});`);
     }
     lines.push('');
   }

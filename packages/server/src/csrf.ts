@@ -24,11 +24,14 @@ import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 const ACTION_TOKEN_TTL_MS = 15 * 60 * 1_000;
 
 /**
- * In-memory set of consumed tokens. In a multi-process / serverless deployment
- * this should be backed by Redis or a distributed cache. For single-process
- * (Node.js server) this is sufficient.
+ * In-memory store of consumed tokens mapped to their expiry time.
+ * Map<token, expiresAtMs> — tokens are evicted when they expire so the
+ * store stays bounded without needing a count-based heuristic.
+ *
+ * In a multi-process / serverless deployment this should be backed by Redis
+ * or a distributed cache. For single-process (Node.js server) this is sufficient.
  */
-const USED_TOKENS = new Set<string>();
+const USED_TOKENS = new Map<string, number>();
 
 /** Request header name for the action token. */
 export const ACTION_TOKEN_HEADER = 'x-nexus-action-token';
@@ -122,8 +125,9 @@ export function validateActionToken(
     return { valid: false, reason: `Token expired (issued ${Math.round((Date.now() - issuedAt) / 60_000)}m ago)` };
   }
 
-  // 7. Consume (burn) the token — prevents replay
-  USED_TOKENS.add(token);
+  // 7. Consume (burn) the token — prevents replay.
+  // Store with expiry so pruning is time-based (no false eviction of valid tokens).
+  USED_TOKENS.set(token, Date.now() + ACTION_TOKEN_TTL_MS);
   pruneUsedTokens();
 
   return { valid: true };
@@ -144,18 +148,18 @@ function safeEqual(a: string, b: string): boolean {
 }
 
 /**
- * Prune the used-token set to prevent unbounded memory growth.
- * Tokens older than TTL are safe to forget — they'd fail the expiry check.
+ * Prune the used-token map by evicting expired entries.
+ * Only tokens within the TTL window can be replayed, so expired tokens are
+ * safe to remove — they'd fail the expiry check even if re-presented.
+ * This is called after every `validateActionToken` call (O(n) worst-case
+ * but amortized O(1) per request under normal traffic).
  */
 function pruneUsedTokens(): void {
-  if (USED_TOKENS.size < 50_000) return;
-  // Tokens are not stored with timestamps — simplest safe eviction is to
-  // clear the oldest ~10% (insertion-order Set).
-  const deleteCount = Math.floor(USED_TOKENS.size * 0.1);
-  const iter = USED_TOKENS.values();
-  for (let i = 0; i < deleteCount; i++) {
-    const v = iter.next().value;
-    if (v !== undefined) USED_TOKENS.delete(v);
+  const now = Date.now();
+  for (const [token, expiresAt] of USED_TOKENS) {
+    if (now >= expiresAt) {
+      USED_TOKENS.delete(token);
+    }
   }
 }
 

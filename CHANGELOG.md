@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.7.5] — 2026-04-05 (security patch)
+
+### Security
+
+**`@nexus_js/server` — CSRF protection was entirely bypassed for sidecar-registered actions**
+
+- `handleActionRequest` previously required **only** `x-nexus-action-token` (HMAC token) for CSRF validation, but the compiler always emitted `{ csrf: false }` in every generated sidecar, making the check unreachable. All actions had zero CSRF protection.
+- New **dual-tier CSRF system**:
+  - **Tier 1 (default):** Requires `x-nexus-action: 1` custom header. Browsers cannot send arbitrary custom headers cross-origin without a CORS preflight the server will reject — this blocks all form-based CSRF attacks without needing server-side token generation.
+  - **Tier 2 (opt-in / future):** When `x-nexus-action-token` is also present, validates the full HMAC-SHA256 signed, single-use, session-bound token via `validateActionToken`. Provides replay-attack prevention on top of Tier 1.
+- `validateRequest` (inner check used by `createAction` wrappers) now also validates `Origin` / `Referer` headers and rejects cross-origin requests that carry an explicit foreign origin.
+
+**`@nexus_js/compiler` — `{ csrf: false }` removed from all generated sidecars**
+
+- `generateActionsModule` no longer emits `{ csrf: false }` in `registerAction(...)` calls. Actions now inherit the default options, enabling the CSRF check in `handleActionRequest`.
+
+**`@nexus_js/server` — rate limiting was completely non-functional in `handleActionRequest`**
+
+- `handleActionRequest` was calling `createRateLimiter(opts.rateLimit)` on every request, creating a fresh in-memory limiter with an empty sliding-window state. Every check returned `allowed: true`, making the rate-limit effectively a no-op.
+- Fixed: the handler now calls `getLimiter(actionName)` to retrieve the **pre-registered** limiter instance (the one created at startup in `registerAction`) whose hit-log persists across requests.
+
+**`@nexus_js/server/csrf` — `USED_TOKENS` could grow unbounded and evict still-valid tokens**
+
+- `pruneUsedTokens` previously evicted tokens by insertion-order count (oldest 10% when > 50 000 entries). This could remove tokens that were consumed less than 15 minutes ago, allowing replay attacks during high-traffic bursts.
+- Changed `USED_TOKENS` from `Set<string>` → `Map<string, expiresAtMs>`. `pruneUsedTokens` now evicts only tokens past their TTL — safe to forget since they'd fail the expiry check anyway.
+
+**`@nexus_js/server` — no warning when `NEXUS_SECRET` defaults to the public dev value**
+
+- `createNexusServer().listen()` now logs a visible `[Nexus Security]` warning in production (`dev: false`) when `NEXUS_SECRET` is not set. Using the default secret allows any attacker who knows the framework source to forge valid CSRF tokens.
+
+---
+
 ## [0.7.5] — 2026-04-05
 
 ### Fixed — production deployment (Node-only / Docker / Hetzner)

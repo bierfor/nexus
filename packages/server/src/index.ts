@@ -396,6 +396,17 @@ export async function createNexusServer(opts: NexusServerOptions) {
     listen(): Promise<void> {
       return new Promise((resolve, reject) => {
         void (async () => {
+          // Security sanity check: warn loudly in production when the default
+          // HMAC secret is in use. Predictable secrets allow attackers to forge
+          // valid CSRF tokens, bypass replay protection, and impersonate sessions.
+          if (!dev && !process.env['NEXUS_SECRET']) {
+            console.warn(
+              '\x1b[33m[Nexus Security]\x1b[0m \x1b[1mNEXUS_SECRET is not set.\x1b[0m ' +
+              'Using the default dev secret in production allows CSRF token forgery. ' +
+              'Set NEXUS_SECRET to a random 32+ char secret in your environment.',
+            );
+          }
+
           try {
             nexusVault.seedFromProcessEnv();
             await preloadRegisteredServerActions(opts.root, dev);

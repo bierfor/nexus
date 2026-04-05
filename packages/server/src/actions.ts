@@ -39,6 +39,7 @@ import {
 import {
   createRateLimiter,
   registerLimiter,
+  getLimiter,
   RateLimitError,
   type RateLimitConfig,
 } from './rate-limit.js';
@@ -292,48 +293,72 @@ export async function handleActionRequest(request: Request): Promise<Response> {
   const race    = opts.race    ?? 'cancel';
   const timeout = opts.timeout ?? 30_000;
 
-  // ── CSRF token validation ──────────────────────────────────────────────────
+  // ── CSRF protection (dual-tier) ────────────────────────────────────────────
+  //
+  // Tier 1 — Custom header (default): Browsers cannot add arbitrary headers to
+  //   cross-origin requests without a CORS preflight the server will reject.
+  //   Requiring `x-nexus-action: 1` blocks all form-based CSRF attacks from
+  //   foreign origins without needing token generation on the server.
+  //
+  // Tier 2 — HMAC token (opt-in): When `x-nexus-action-token` is present the
+  //   server also validates the full HMAC-SHA256 signed, single-use, session-
+  //   bound token (generated via `generateActionToken`). This additionally
+  //   protects against same-origin XSS token theft.
+  //
+  // Flow:
+  //   token present  → Tier 2 full validation (strongest)
+  //   header present, no token → Tier 1 header check (standard)
+  //   neither present → 403 CSRF block
   if (opts.csrf !== false) {
-    const token     = request.headers.get(ACTION_TOKEN_HEADER);
-    const secret    = process.env['NEXUS_SECRET'] ?? 'nexus-dev-secret-change-me';
-    const sessionId = extractSessionId(request);
-    if (!token) {
+    const token       = request.headers.get(ACTION_TOKEN_HEADER);
+    const nexusHeader = request.headers.get('x-nexus-action');
+
+    if (token) {
+      // Tier 2: full HMAC validation
+      const secret    = process.env['NEXUS_SECRET'] ?? 'nexus-dev-secret-change-me';
+      const sessionId = extractSessionId(request);
+      const validation = validateActionToken(token, sessionId, actionName, secret);
+      if (!validation.valid) {
+        emitDevRadar({
+          type: 'security:audit',
+          payload: {
+            kind:    validation.replayed ? 'replay' : 'csrf_blocked',
+            message: validation.reason ?? 'Invalid action token',
+            action:  actionName,
+          },
+        });
+        return jsonResponse({
+          error:  validation.reason ?? 'Invalid action token',
+          status: 403,
+          code:   validation.replayed ? 'REPLAY_ATTACK' : 'INVALID_CSRF_TOKEN',
+        }, 403);
+      }
+    } else if (!nexusHeader) {
+      // Neither token nor custom header → CSRF attack or missing client header
       emitDevRadar({
         type: 'security:audit',
         payload: {
           kind:    'csrf_blocked',
-          message: 'Missing action token',
+          message: 'Missing x-nexus-action header — possible CSRF attack',
           action:  actionName,
         },
       });
       return jsonResponse({
-        error:  'Missing action token — possible CSRF attack',
+        error:  'Missing x-nexus-action header — possible CSRF attack',
         status: 403,
-        code:   'MISSING_CSRF_TOKEN',
+        code:   'MISSING_CSRF_HEADER',
       }, 403);
     }
-    const validation = validateActionToken(token, sessionId, actionName, secret);
-    if (!validation.valid) {
-      emitDevRadar({
-        type: 'security:audit',
-        payload: {
-          kind:    validation.replayed ? 'replay' : 'csrf_blocked',
-          message: validation.reason ?? 'Invalid action token',
-          action:  actionName,
-        },
-      });
-      return jsonResponse({
-        error:  validation.reason ?? 'Invalid action token',
-        status: 403,
-        code:   validation.replayed ? 'REPLAY_ATTACK' : 'INVALID_CSRF_TOKEN',
-      }, 403);
-    }
+    // Tier 1 satisfied: nexusHeader present, no token → header-based CSRF protection
   }
 
   // ── Rate limiting ──────────────────────────────────────────────────────────
-  if (opts.rateLimit) {
-    const limiter = createRateLimiter(opts.rateLimit);
-    const result  = limiter.check(request);
+  // Use the pre-registered limiter (created once at registerAction time).
+  // Previously, a new limiter instance was created per-request, which reset
+  // the sliding-window state and made rate limiting completely ineffective.
+  const limiter = getLimiter(actionName);
+  if (limiter) {
+    const result = limiter.check(request);
     if (!result.allowed) {
       emitDevRadar({
         type: 'security:audit',
@@ -565,13 +590,34 @@ export async function handleActionRequest(request: Request): Promise<Response> {
 }
 
 /**
- * Validates that a request comes from a trusted Nexus client.
- * Checks x-nexus-action header and CSRF token.
+ * Validates that a request comes from a trusted Nexus client (inner CSRF check
+ * used by `createAction` wrappers). Verifies:
+ *  1. `x-nexus-action` custom header — cross-origin requests cannot add this
+ *     without a CORS preflight the server will reject.
+ *  2. `Origin` / `Referer` header sanity check — additional signal against
+ *     misconfigured CORS or non-standard clients.
  */
 export async function validateRequest(ctx: NexusContext): Promise<void> {
   const nexusHeader = ctx.request.headers.get('x-nexus-action');
   if (!nexusHeader) {
-    throw new ActionError('Missing Nexus action header', 403, 'MISSING_HEADER');
+    throw new ActionError('Missing x-nexus-action header', 403, 'MISSING_HEADER');
+  }
+
+  // Origin / Referer check: block requests that carry an explicit foreign origin.
+  // Same-origin and same-site fetch() calls either omit Origin or match the host.
+  const origin  = ctx.request.headers.get('origin');
+  const referer = ctx.request.headers.get('referer');
+  const host    = ctx.request.headers.get('host') ?? '';
+
+  const suspectOrigin = origin && !origin.includes(host.split(':')[0] ?? host);
+  const suspectReferer = !origin && referer && !referer.includes(host.split(':')[0] ?? host);
+
+  if (suspectOrigin || suspectReferer) {
+    throw new ActionError(
+      `Cross-origin action request blocked (host: ${host})`,
+      403,
+      'CROSS_ORIGIN_BLOCKED',
+    );
   }
 }
 
