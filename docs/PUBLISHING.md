@@ -96,7 +96,7 @@ The **`...` suffix** (`@nexus_js/assets...`) means “this package and its works
 
 ## Prerequisites
 
-- **Node.js** ≥ 20 and **pnpm** ≥ 9 (see root `package.json` → `engines`).
+- **Node.js** ≥ 22 and **pnpm** ≥ 9 (see root `package.json` → `engines` and **`.nvmrc`**).
 - An npm account with permission to publish:
   - the **`@nexus_js` scope** (create an [npm org](https://www.npmjs.com/org/create) whose scope matches **`@nexus_js`** on npm), and
   - the unscoped package **`vite-plugin-nexus`** (if that name is available on npm).
@@ -225,12 +225,10 @@ jobs:
       - uses: actions/checkout@v4
 
       - uses: pnpm/action-setup@v4
-        with:
-          version: 9
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: 'pnpm'
           registry-url: 'https://registry.npmjs.org'
 

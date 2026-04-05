@@ -9,7 +9,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-7c3aed.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.4-3178c6.svg)](https://www.typescriptlang.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-9-f69220.svg)](https://pnpm.io/)
-[![Node](https://img.shields.io/badge/Node-≥20-5fa04e.svg)](https://nodejs.org/)
+[![Node](https://img.shields.io/badge/Node-≥22-5fa04e.svg)](https://nodejs.org/)
 
 [Website — nexusjs.dev](https://nexusjs.dev) · [Docs in this repo](./docs/README.md) · [Contributing](./CONTRIBUTING.md) · [Changelog](./CHANGELOG.md)
 
@@ -27,7 +27,7 @@ End-user documentation and tutorials live on **[nexusjs.dev](https://nexusjs.dev
 
 ## Quick start
 
-**Requirements:** Node.js **≥ 20**, **pnpm ≥ 9** (this monorepo uses `workspace:` links; use `pnpm install` at the root).
+**Requirements:** Node.js **≥ 22**, **pnpm ≥ 9** (use **`.nvmrc`** with `nvm use` / `fnm use`; this monorepo uses `workspace:` links — run **`pnpm install`** at the root).
 
 **New application** (published CLI):
 
@@ -45,6 +45,7 @@ Other entrypoints (e.g. `pnpm create @nexus_js/nexus`, global installs) are desc
 ```bash
 git clone https://github.com/<org>/nexus.git
 cd nexus
+nvm use   # Node 22 — see .nvmrc (or fnm use / mise use)
 pnpm install
 pnpm build
 pnpm test

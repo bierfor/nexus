@@ -5,8 +5,9 @@ This monorepo is intended to contain **only what ships or supports the Nexus fra
 ## Before you push
 
 1. **Secrets:** Never commit `.env`, `.env.local`, or API keys. They are listed in `.gitignore`.
-2. **Install and verify:**
+2. **Install and verify** (Node **22+**, see **`.nvmrc`**):
    ```bash
+   nvm use   # or fnm use
    pnpm install
    pnpm build
    pnpm test

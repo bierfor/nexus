@@ -2,7 +2,7 @@
  * Nexus Middleware — Web-standard request pipeline.
  *
  * 100% based on `Request` / `Response` — runs identically on:
- *   - Node.js 20+
+ *   - Node.js 22+
  *   - Bun
  *   - Deno
  *   - Cloudflare Workers

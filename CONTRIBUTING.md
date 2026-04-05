@@ -41,6 +41,7 @@ This monorepo should only track **framework-related** sources (`packages/`, `exa
 ```bash
 git clone https://github.com/<your-username>/nexus.git
 cd nexus
+nvm use   # or fnm use — picks Node 22 from .nvmrc
 pnpm install
 git checkout -b feat/your-feature-name
 ```
@@ -53,7 +54,7 @@ git checkout -b feat/your-feature-name
 
 | Tool | Version |
 |---|---|
-| Node.js | ≥ 20.0.0 |
+| Node.js | ≥ 22.0.0 (see repo **`.nvmrc`**) |
 | pnpm | ≥ 9.0.0 |
 | TypeScript | ≥ 5.4 (installed automatically) |
 
@@ -100,6 +101,7 @@ pnpm --filter @nexus_js/compiler dev
 
 ```
 nexus/
+├── .nvmrc                 # Node 22 — use with nvm / fnm / mise
 ├── packages/
 │   ├── compiler/          # .nx → JS transform (parser, codegen, CSS scoping)
 │   ├── runtime/           # Client-side: runes, islands, store, navigation

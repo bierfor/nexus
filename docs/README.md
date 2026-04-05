@@ -1,6 +1,6 @@
 # Nexus — documentation in this repository
 
-This folder complements the official site **[nexusjs.dev](https://nexusjs.dev)**. Use it for contributor-focused and version-controlled reference.
+This folder complements the official site **[nexusjs.dev](https://nexusjs.dev)**. Use it for contributor-focused and version-controlled reference. Local preview of **`index.html`**: use **Node.js ≥ 22** (repo **`.nvmrc`**) and serve the `docs` folder as you prefer.
 
 | Document | Purpose |
 |----------|---------|
