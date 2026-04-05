@@ -15,6 +15,12 @@ export interface LoadRouteModuleOptions {
   appRoot: string;
   /** Route pattern from manifest, e.g. `/`, `/editor`, `/blog/:slug` */
   pattern: string;
+  /**
+   * Whether this module is a layout (`+layout.nx`) rather than a page (`+page.nx`).
+   * In production, layouts are written to `{seg}._layout.js` so they never
+   * collide with pages that share the same pattern (e.g. `/`).
+   */
+  isLayout?: boolean;
 }
 
 /** Incremented on each `server.reload()` in dev — appended to dynamic `import()` URLs so Node drops stale ESM (incl. layout CSS). */
@@ -24,15 +30,15 @@ export function bumpDevReloadGeneration(): void {
   devReloadGeneration++;
 }
 
-/** Map manifest pattern to the same path segment used by `nexus build`. */
-function patternToOutputSegment(pattern: string): string {
-  if (pattern === '/') return 'index';
-  return pattern.replace(/^\//, '');
+/** Map manifest pattern + isLayout flag to the same path segment used by `nexus build`. */
+function patternToOutputSegment(pattern: string, isLayout = false): string {
+  const base = pattern === '/' ? 'index' : pattern.replace(/^\//, '');
+  return isLayout ? `${base}._layout` : base;
 }
 
-function compiledServerPath(appRoot: string, pattern: string): string {
+function compiledServerPath(appRoot: string, pattern: string, isLayout = false): string {
   const outDir = join(appRoot, '.nexus', 'output');
-  return join(outDir, patternToOutputSegment(pattern)) + '.js';
+  return join(outDir, patternToOutputSegment(pattern, isLayout)) + '.js';
 }
 
 /**
@@ -180,7 +186,12 @@ export async function preloadRegisteredServerActions(appRoot: string, dev: boole
       if (seen.has(route.filepath)) continue;
       seen.add(route.filepath);
       try {
-        await loadRouteModule(route.filepath, { dev: true, appRoot, pattern: route.pattern });
+        await loadRouteModule(route.filepath, {
+          dev: true,
+          appRoot,
+          pattern: route.pattern,
+          isLayout: route.isLayout,
+        });
       } catch (err) {
         console.error(`[Nexus] Failed to preload server actions for ${route.filepath}:`, err);
       }
@@ -268,7 +279,7 @@ export async function loadRouteModule(
   const { dev, appRoot, pattern } = options;
 
   if (!dev) {
-    const outFile = compiledServerPath(appRoot, pattern);
+    const outFile = compiledServerPath(appRoot, pattern, options.isLayout);
     try {
       await stat(outFile);
     } catch {

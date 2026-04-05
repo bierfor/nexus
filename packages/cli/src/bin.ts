@@ -417,7 +417,12 @@ async function runBuild(opts: { root: string }): Promise<void> {
       }
     }
 
-    const outSeg = route.pattern === '/' ? 'index' : route.pattern.replace(/^\//, '');
+    // Layouts and pages that share the same route pattern (e.g. both `/`) must
+    // land in different output files, otherwise the second write silently
+    // overwrites the first and the server loads the wrong module.
+    // Convention: pages → `{seg}.js`, layouts → `{seg}._layout.js`.
+    const baseSeg = route.pattern === '/' ? 'index' : route.pattern.replace(/^\//, '');
+    const outSeg  = route.isLayout ? `${baseSeg}._layout` : baseSeg;
     const outPath = join(outDir, outSeg) + '.js';
     await mkdir(join(outPath, '..'), { recursive: true });
     await writeFile(outPath, result.serverCode, 'utf-8');

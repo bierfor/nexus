@@ -179,8 +179,8 @@ export async function mergeRoutePretext(
 ): Promise<Record<string, unknown>> {
   const t0 = Date.now();
   const chain = [
-    ...matched.layouts.map((l) => ({ filepath: l.filepath, pattern: l.pattern })),
-    { filepath: matched.route.filepath, pattern: matched.route.pattern },
+    ...matched.layouts.map((l) => ({ filepath: l.filepath, pattern: l.pattern, isLayout: true  as const })),
+    { filepath: matched.route.filepath, pattern: matched.route.pattern, isLayout: false as const },
   ];
   try {
     const mods = await Promise.all(
@@ -189,6 +189,7 @@ export async function mergeRoutePretext(
           dev: opts.dev,
           appRoot: opts.appRoot,
           pattern: c.pattern,
+          isLayout: c.isLayout,
         }),
       ),
     );
@@ -234,6 +235,7 @@ export async function runLayoutsAndPage(
         dev: opts.dev,
         appRoot: opts.appRoot,
         pattern: layout.pattern,
+        isLayout: true,
       });
       if (typeof mod.render === 'function') {
         const result = await mod.render(ctx);
@@ -250,6 +252,7 @@ export async function runLayoutsAndPage(
       dev: opts.dev,
       appRoot: opts.appRoot,
       pattern: matched.route.pattern,
+      isLayout: false,
     });
     if (typeof pageMod.render === 'function') {
       const result = await pageMod.render(ctx);
