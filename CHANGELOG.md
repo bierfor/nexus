@@ -7,6 +7,106 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.7.4] — 2026-04-05
+
+### Added
+
+**`@nexus_js/cli` & toolchain**
+
+- **`load-app-config`** via **jiti** for reliable `nexus.config` loading in dev and build.
+- **`failOnIslandSecurity`** on production build — failed island security checks stop the build.
+- **`last-build-security.json`** snapshot for Studio / reporting.
+
+**`@nexus_js/server` — DevRadar & dev ergonomics**
+
+- **DevRadar** and dev hot-path instrumentation; inspector / handler splits for clearer debugging.
+
+**`@nexus_js/compiler`**
+
+- **Client island security scan** integrated with the hardened build pipeline.
+
+**`@nexus_js/serialize`**
+
+- **Escape / serialization hardening** for safer cross-boundary payloads.
+
+**Nexus Studio**
+
+- Security report reads the **last build security snapshot**; **observability** defaults tuned for local development.
+
+### Fixed
+
+**`@nexus_js/compiler` — `.nx` control flow for SSR and islands**
+
+- **`{#if …}`, `{:else if …}`, `{#each …}` headers** — Headers are parsed with **`findBlockTagExprEnd`**, which tracks nested `()`, `[]`, and `{}`, so expressions such as `.filter((x) => …)` or objects with `}` no longer truncate the condition, leak `{#if` into generated JavaScript as `${#if`, or trigger invalid private-field / syntax errors in SSR bundles.
+- **Nested `{#each}`** — When resolving `{/each}`, inner `{#each` / `{/each}` pairs are skipped so the outer block closes at the correct boundary.
+- **SSR pipeline** (`templateToSSR`) — **`expandIfBlocks`** runs before **`expandEachBlocks`**, which runs before **`interpolateExpressionsForSSR`**, so server-rendered HTML follows the same control-flow structure as the source template.
+- **Client islands** — The same if/each expansion ordering applies before `{expression}` interpolation so hydrated islands do not mis-handle or strip control-flow output.
+
+### Changed
+
+- All **`@nexus_js/*`** and **`vite-plugin-nexus`** package versions aligned to **0.7.4**.
+- Sample **`news`** app (when present in the workspace): SEO helpers, i18n/auth tweaks, **`failOnIslandSecurity`** and observability options in **`nexus.config`**.
+
+**Documentation & public monorepo (2026-04-05)**
+
+- Root **README** streamlined (overview, quick start, monorepo map, links to [nexusjs.dev](https://nexusjs.dev) and in-repo docs).
+- **`docs/README.md`** — Index of contributor docs (`PRETEXT`, `ISLANDS`, `PUBLISHING`, `REPOSITORY`).
+- **`docs/REPOSITORY.md`** — How to publish a clean GitHub remote and what belongs in the public monorepo.
+- **`docs/assets/nexus-logo.svg`** — Logo used in the README.
+- **`CONTRIBUTING.md`** — Section linking to `docs/REPOSITORY.md`; discussions URL described generically for any fork/org.
+- **`docs/PUBLISHING.md`** — Source URL wording aligned with maintainer-owned GitHub repos.
+- **`docs/ISLANDS.md`** — i18n / islands examples reference the **full** `create-nexus` template instead of a removed in-tree app path.
+- **`pnpm-workspace.yaml`** / root **`package.json`** workspaces — Only **`packages/*`** and **`examples/*`**; private product trees **gitignored** at the repo root (`fin-sh/`, `mongo/`, `news/`, `my-nexus-app/`).
+- Removed from version control: root **`vercel.json`**, **`Dockerfile.news`**, **`sveltro-next.html`**.
+- **`packages/cli/scripts/sync-scaffold-nx.mjs`** — Clear error when **`my-nexus-app/`** is missing (local-only scaffold source).
+
+---
+
+## [0.7.3] — 2026-04-04
+
+### Added
+
+**Reference stack in the workspace (sample / integration — not published as `@nexus_js/*`)**
+
+- **`mongo/`** — Express **GraphQL** API with **Prisma** + MongoDB, auth helpers, Cloudinary media hooks, flash-news HTTP integration, deploy notes (`DEPLOY.md`, Docker, Vercel-oriented docs).
+- **`mongo/frontend/`** — **Next.js** editorial frontend wired to the same API (admin, articles, SEO surfaces).
+- **`news/`** Nexus app — **admin CMS** (articles, heroes, flashes), GraphQL client utilities, **media uploads**, **`/dev`** QA checklist and **`test:smoke`** script.
+
+*These trees were later removed from the public GitHub monorepo and are intended to stay local or live in separate repositories; they do not ship on npm as framework packages.*
+
+---
+
+## [0.7.2] — 2026-04-04
+
+### Added
+
+**Contributor documentation**
+
+- **`docs/ISLANDS.md`** — Islands architecture, `client:*` directives, component layout.
+- **`docs/PRETEXT.md`** — Route **`// nexus:pretext`**, merged **`pretext`**, and **`$pretext()`** on the client.
+- **`docs/PUBLISHING.md`** — Expanded maintainer guide for **`pnpm release`** and version alignment.
+- **`docs/index.html`** — Static multilingual landing refresh.
+
+### Changed
+
+- Root **README** updates (links and onboarding).
+- **`create-nexus`** / **`my-nexus-app`** scaffold alignment for the full starter shape.
+- **`.npmrc`** and root **`.gitignore`** tweaks for the expanded workspace.
+
+---
+
+## [0.7.1] — 2026-04-04
+
+### Changed
+
+**`@nexus_js/cli` & runtime DX**
+
+- **Env reload hints** during dev when configuration changes.
+- **Dev error pages** with clearer context.
+- **Prefetch / navigation** improvements for smoother route transitions.
+
+---
+
 ## [0.7.0] — 2026-04-04
 
 ### Changed
