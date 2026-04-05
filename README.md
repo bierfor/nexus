@@ -71,10 +71,19 @@ npm install
 npm run dev
 ```
 
+**Unscoped meta packages** (same CLIs: `nexus`, `create-nexus` — pick the spelling you like):
+
+```bash
+npm install -g nexus-js
+# or: npm install -g nexus_js
+create-nexus my-app
+```
+
 With pnpm:
 
 ```bash
 pnpm dlx --package=@nexus_js/cli@latest create-nexus my-app
+# or globally: pnpm add -g nexus-js
 ```
 
 Or install the CLI globally: `npm install -g @nexus_js/cli` and run `create-nexus my-app`.

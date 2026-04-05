@@ -2,6 +2,8 @@
 
 Meta package for the [Nexus](https://nexusjs.dev) framework: it depends on `@nexus_js/cli` and exposes the same `nexus` and `create-nexus` binaries.
 
+**Hyphenated alias on npm:** [`nexus-js`](https://www.npmjs.com/package/nexus-js) — same package idea; use `npm install nexus-js` if you prefer that spelling.
+
 ## Install
 
 ```bash

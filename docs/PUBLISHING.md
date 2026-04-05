@@ -2,6 +2,8 @@
 
 This document is for **maintainers** who publish the `@nexus_js/*` packages (including **`@nexus_js/create-nexus`**, which powers **`npm create @nexus_js/nexus`**) and **`vite-plugin-nexus`**, to the public npm registry.
 
+**Unscoped CLI aliases** on npm — **`nexus-js`** and **`nexus_js`** — are thin meta packages (under `packages/nexus-js` and `packages/nexus_js`); they depend on `@nexus_js/cli` and are published together with `pnpm release` so users can run `npm install -g nexus-js` or `npm install -g nexus_js`.
+
 **Where the framework lives:** the installable framework is **only** under [`packages/`](../packages/). Folders like `examples/` and `docs/` are sample apps and marketing content — they are **not** published to npm. Release commands only touch **`packages/*`**.
 
 **npm organization:** scoped packages use the **`@nexus_js`** scope, which belongs to the **`nexus_js`** org on npm. Maintainers can see and manage published packages here: **[npmjs.com/settings/nexus_js/packages](https://www.npmjs.com/settings/nexus_js/packages)**. (The unscoped **`vite-plugin-nexus`** package appears under your account or team that owns it, not inside that org’s scoped list.)
