@@ -4,7 +4,7 @@
 
 import { compile } from '@nexus_js/compiler';
 import { buildRouteManifest } from '@nexus_js/router';
-import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { mkdir, readdir, readFile, stat, unlink, writeFile } from 'node:fs/promises';
 import { basename, dirname, join, relative } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -82,32 +82,6 @@ function actionsSidecarPath(serverPath: string): string {
   return serverPath.replace(/\.mjs$/u, '.actions.mjs').replace(/\.js$/u, '.actions.js');
 }
 
-/** Auto-import app `$lib` helpers used inside generated action bodies (sidecar has no imports from .nx). */
-function actionsImportPreamble(appRoot: string, actionsCode: string): string {
-  const rules: Array<{ needle: string; rel: string; name: string }> = [
-    { needle: 'appendMessage', rel: 'src/lib/chat-room.js', name: 'appendMessage' },
-    { needle: 'validateFlowPayload', rel: 'src/lib/validate-flow.js', name: 'validateFlowPayload' },
-    { needle: 'appendVisit', rel: 'src/lib/visit-log.ts', name: 'appendVisit' },
-  ];
-  const byFile = new Map<string, Set<string>>();
-  for (const { needle, rel, name } of rules) {
-    if (!actionsCode.includes(needle)) continue;
-    const abs = join(appRoot, rel);
-    if (!existsSync(abs)) continue;
-    let set = byFile.get(abs);
-    if (!set) {
-      set = new Set();
-      byFile.set(abs, set);
-    }
-    set.add(name);
-  }
-  const lines: string[] = [];
-  for (const [abs, set] of byFile) {
-    const names = [...set].sort().join(', ');
-    lines.push(`import { ${names} } from ${JSON.stringify(pathToFileURL(abs).href)};\n`);
-  }
-  return lines.join('');
-}
 
 /**
  * Sidecar does `import { … } from "./_page.nx.mjs"` — bare relative URL is a single ESM cache key.
@@ -130,14 +104,14 @@ function bustActionsImportFromServerBundle(
 }
 
 async function writeActionsSidecar(
-  appRoot: string,
   serverOutPath: string,
   actionsModule: string,
 ): Promise<void> {
   const p = actionsSidecarPath(serverOutPath);
   const st = await stat(serverOutPath);
-  let code = actionsImportPreamble(appRoot, actionsModule) + actionsModule;
-  code = bustActionsImportFromServerBundle(code, serverOutPath, st.mtimeMs);
+  // The sidecar imports all action handlers from the co-located server module
+  // (which has $lib in scope), so no app-specific import preamble is needed.
+  const code = bustActionsImportFromServerBundle(actionsModule, serverOutPath, st.mtimeMs);
   await writeFile(p, code, 'utf-8');
 }
 
@@ -340,7 +314,7 @@ export async function loadRouteModule(
     await writeFile(outPath, result.serverCode, 'utf-8');
     const ap = actionsSidecarPath(outPath);
     if (result.actionsModule) {
-      await writeActionsSidecar(appRoot, outPath, result.actionsModule);
+      await writeActionsSidecar(outPath, result.actionsModule);
     } else {
       try {
         await unlink(ap);

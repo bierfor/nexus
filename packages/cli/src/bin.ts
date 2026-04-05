@@ -375,17 +375,22 @@ async function runBuild(opts: { root: string }): Promise<void> {
   const { loadAppConfig } = await import('./load-app-config.js');
   const cfg = loadAppConfig(opts.root);
 
-  const { compile } = await import('@nexus_js/compiler');
+  const { compile, compileLib } = await import('@nexus_js/compiler');
   const { buildRouteManifest } = await import('@nexus_js/router');
-  const { existsSync } = await import('node:fs');
   const { readFile, writeFile, mkdir } = await import('node:fs/promises');
   const { join } = await import('node:path');
-  const { pathToFileURL } = await import('node:url');
 
   const routesDir = join(opts.root, 'src', 'routes');
   const outDir = join(opts.root, '.nexus', 'output');
 
   await mkdir(outDir, { recursive: true });
+
+  // Compile src/lib/**/*.ts → .nexus/lib/**/*.js so server modules can import
+  // them at runtime without a TypeScript loader (fixes "Unknown file extension .ts").
+  const libResult = await compileLib(opts.root);
+  if (libResult.files > 0) {
+    console.log(`  ${c.green}✔${c.reset}  Compiled ${c.bold}${libResult.files} lib files${c.reset}  ${c.dim}→ .nexus/lib/${c.reset}`);
+  }
 
   const manifest = await buildRouteManifest(routesDir);
 
@@ -423,20 +428,9 @@ async function runBuild(opts: { root: string }): Promise<void> {
 
     if (result.actionsModule) {
       const actionsPath = outPath.replace(/\.js$/u, '.actions.js');
-      let code = result.actionsModule;
-      const preambleLines: string[] = [];
-      const store = join(opts.root, 'src/lib/chat-room.js');
-      if (code.includes('appendMessage') && existsSync(store)) {
-        preambleLines.push(`import { appendMessage } from ${JSON.stringify(pathToFileURL(store).href)};`);
-      }
-      const flowVal = join(opts.root, 'src/lib/validate-flow.js');
-      if (code.includes('validateFlowPayload') && existsSync(flowVal)) {
-        preambleLines.push(`import { validateFlowPayload } from ${JSON.stringify(pathToFileURL(flowVal).href)};`);
-      }
-      if (preambleLines.length > 0) {
-        code = `${preambleLines.join('\n')}\n${code}`;
-      }
-      await writeFile(actionsPath, code, 'utf-8');
+      // The sidecar imports all action handlers from the adjacent server module
+      // (which has $lib imports in scope) — no app-specific preamble needed.
+      await writeFile(actionsPath, result.actionsModule, 'utf-8');
     }
 
     compiled++;

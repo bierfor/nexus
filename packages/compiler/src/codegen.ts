@@ -27,7 +27,9 @@ function islandId(filepath: string, componentName: string): string {
   return `island_${base}_${componentName}`.toLowerCase();
 }
 
-const LIB_IMPORT_EXT_ORDER = ['.ts', '.tsx', '.mts', '.js', '.mjs', '.cjs'] as const;
+/** Extension preference for dev (source-first) and prod (compiled-first). */
+const LIB_IMPORT_EXT_DEV  = ['.ts', '.tsx', '.mts', '.js', '.mjs', '.cjs'] as const;
+const LIB_IMPORT_EXT_PROD = ['.js', '.mjs', '.cjs', '.ts', '.tsx', '.mts'] as const;
 
 function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -64,22 +66,49 @@ function actionsServerImportFilename(opts: CompileOptions, filepath: string): st
   }
   const p = opts.routePattern ?? '';
   const seg = p === '/' ? 'index' : p.replace(/^\//u, '');
-  const base = seg || basename(filepath).replace(/\.nx$/u, '');
-  return `${base}.js`;
+  const full = seg || basename(filepath).replace(/\.nx$/u, '');
+  // The sidecar is ADJACENT to the server module, so use only the last path segment.
+  // e.g. pattern "/auth/login" → server: ".nexus/output/auth/login.js"
+  //                             → sidecar: ".nexus/output/auth/login.actions.js"
+  //                             → import:  "./login.js"  (not "./auth/login.js")
+  return `${basename(full)}.js`;
 }
 
-/** Resolve `$lib/…` to an on-disk path so Node ESM can load it (extension required). */
-function resolveDollarLibFilePath(appRoot: string, rel: string): string {
+/**
+ * Resolve `$lib/…` to an on-disk path so Node ESM can load it.
+ *
+ * Production (`!dev`): checks `.nexus/lib/` (compiled JS output) first so Node
+ * never tries to execute raw `.ts` source files.  Falls back to `src/lib/` with
+ * JS-first extension order for apps that ship pre-compiled lib files.
+ *
+ * Dev: prefers the TypeScript source (works with tsx / Node --experimental-strip-types).
+ */
+function resolveDollarLibFilePath(appRoot: string, rel: string, dev: boolean): string {
   const root = normalize(appRoot);
+  const hasKnownExt = /\.(ts|tsx|mts|js|mjs|cjs)$/u.test(rel);
+
+  // Production: prefer the pre-compiled .nexus/lib/ output emitted by `nexus build`.
+  if (!dev) {
+    const nexusLibBase = join(root, '.nexus', 'lib', rel);
+    // Check with .ts → .js substitution first.
+    const nexusLibJs = hasKnownExt
+      ? nexusLibBase.replace(/\.(ts|tsx|mts)$/u, '.js')
+      : nexusLibBase + '.js';
+    if (existsSync(nexusLibJs)) return nexusLibJs;
+    if (existsSync(nexusLibBase)) return nexusLibBase;
+  }
+
   const abs = join(root, 'src/lib', rel);
   if (existsSync(abs)) return abs;
-  const hasKnownExt = /\.(ts|tsx|mts|js|mjs|cjs)$/u.test(rel);
   if (hasKnownExt) return abs;
-  for (const ext of LIB_IMPORT_EXT_ORDER) {
+
+  const order = dev ? LIB_IMPORT_EXT_DEV : LIB_IMPORT_EXT_PROD;
+  for (const ext of order) {
     const candidate = abs + ext;
     if (existsSync(candidate)) return candidate;
   }
-  return abs + '.ts';
+  // Fallback: .ts in dev (needs tsx), .js in prod (will warn at runtime if missing).
+  return abs + (dev ? '.ts' : '.js');
 }
 
 /** Resolve `$lib/…` in server frontmatter to absolute file URLs for Node ESM. */
@@ -95,7 +124,7 @@ function rewriteDollarLibImports(code: string, opts: CompileOptions): string {
       ? `?t=${Math.floor(opts.libDepsMtime)}`
       : '';
   return code.replace(/from\s*['"]\$lib\/([^'"]+)['"]/gu, (_, rel: string) => {
-    const abs = resolveDollarLibFilePath(root, rel);
+    const abs = resolveDollarLibFilePath(root, rel, !!opts.dev);
     const href = pathToFileURL(abs).href + libBust;
     return `from ${JSON.stringify(href)}`;
   });
@@ -211,6 +240,23 @@ function generateServerModule(
         opts,
       ),
     );
+    lines.push('');
+  }
+
+  // ── "use server" action exports ────────────────────────────────────────────
+  // Export each inline action as a named function so the sidecar can import it.
+  // This keeps the $lib imports in scope (they live in the same module) and
+  // avoids duplicating imports or inlining bodies into the sidecar.
+  const inlineActions = parsed.serverActions.filter((a) => !a.createActionSource);
+  for (const action of inlineActions) {
+    lines.push(`// ── Server Action export: ${action.name} ──`);
+    lines.push(`export async function __nexus_action_${action.name}(${action.params.join(', ')}) {`);
+    for (const line of action.body.split('\n')) {
+      const t = line.trim();
+      if (!t) continue;
+      lines.push(`  ${t}`);
+    }
+    lines.push('}');
     lines.push('');
   }
 
@@ -352,8 +398,20 @@ function generateClientIsland(parsed: ParsedComponent, _opts: CompileOptions, is
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Server Actions module: type-safe RPC stubs
+// Server Actions module: imports handlers from server module + registers them
 // ─────────────────────────────────────────────────────────────────────────────
+/**
+ * Generates the sidecar `*.actions.{mjs,js}` file.
+ *
+ * All action implementations are imported from the co-located server module
+ * (which has the $lib imports in scope):
+ *   - `createAction` bindings → imported by their original name
+ *   - `"use server"` functions → imported as `__nexus_action_<name>` (exported
+ *     by the server module via `generateServerModule`)
+ *
+ * This design means the sidecar never needs its own $lib imports — the server
+ * module already has everything in scope, and the handler runs there.
+ */
 function generateActionsModule(actions: ServerAction[], filepath: string, opts: CompileOptions): string {
   const lines: string[] = [];
 
@@ -363,28 +421,22 @@ function generateActionsModule(actions: ServerAction[], filepath: string, opts: 
   lines.push("import { registerAction } from '@nexus_js/server/actions';");
   lines.push('');
 
-  const createActionImports = actions.filter((a) => a.createActionSource);
-  if (createActionImports.length > 0) {
-    const names = createActionImports.map((a) => a.name).join(', ');
-    const serverFile = actionsServerImportFilename(opts, filepath);
-    lines.push(`import { ${names} } from ${JSON.stringify('./' + serverFile)};`);
-    lines.push('');
+  // Build the import specifier list: createAction → original name, "use server" → __nexus_action_*
+  const importSpecifiers: string[] = [];
+  for (const action of actions) {
+    importSpecifiers.push(action.createActionSource ? action.name : `__nexus_action_${action.name}`);
   }
+
+  const serverFile = actionsServerImportFilename(opts, filepath);
+  lines.push(`import { ${importSpecifiers.join(', ')} } from ${JSON.stringify('./' + serverFile)};`);
+  lines.push('');
 
   for (const action of actions) {
     lines.push(`/** @nexus-action "${action.name}" */`);
     if (action.createActionSource) {
       lines.push(`registerAction(${JSON.stringify(action.name)}, ${action.name}, { csrf: false });`);
     } else {
-      lines.push(
-        `registerAction(${JSON.stringify(action.name)}, async (${action.params.join(', ')}) => {`,
-      );
-      for (const line of action.body.split('\n')) {
-        const t = line.trim();
-        if (!t) continue;
-        lines.push(`  ${t}`);
-      }
-      lines.push(`}, { csrf: false });`);
+      lines.push(`registerAction(${JSON.stringify(action.name)}, __nexus_action_${action.name}, { csrf: false });`);
     }
     lines.push('');
   }

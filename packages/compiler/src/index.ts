@@ -4,6 +4,7 @@ export { parse } from './parser.js';
 export { generate } from './codegen.js';
 export { extractServerActionsFromSource } from './server-actions-extract.js';
 export { splitPretext, transformPretextExport } from './pretext-extract.js';
+export { compileLib } from './compile-lib.js';
 export type {
   ParsedComponent,
   CompileOptions,
