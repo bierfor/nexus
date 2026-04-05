@@ -24,6 +24,15 @@ import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 const ACTION_TOKEN_TTL_MS = 15 * 60 * 1_000;
 
 /**
+ * Maximum clock difference tolerated between nodes in a multi-server cluster.
+ * A token whose `issuedAt` timestamp is this far in the future relative to the
+ * validating node's clock is rejected — it either comes from a node with a
+ * severely skewed clock or is a crafted replay attempt with a future timestamp.
+ * 5 seconds accommodates normal NTP drift without opening a meaningful window.
+ */
+const CLOCK_SKEW_GRACE_MS = 5_000;
+
+/**
  * In-memory store of consumed tokens mapped to their expiry time.
  * Map<token, expiresAtMs> — tokens are evicted when they expire so the
  * store stays bounded without needing a count-based heuristic.
@@ -119,10 +128,21 @@ export function validateActionToken(
     return { valid: false, reason: `Action mismatch — expected "${actionName}", got "${tokenAction}"` };
   }
 
-  // 6. Check expiry
+  // 6. Check timestamp validity (expiry + future-token / clock-skew guard)
   const issuedAt = parseInt(tsBase36, 36);
-  if (Date.now() - issuedAt > ACTION_TOKEN_TTL_MS) {
-    return { valid: false, reason: `Token expired (issued ${Math.round((Date.now() - issuedAt) / 60_000)}m ago)` };
+  const now      = Date.now();
+  // 6a. Expiry: token must not be older than TTL.
+  if (now - issuedAt > ACTION_TOKEN_TTL_MS) {
+    return { valid: false, reason: `Token expired (issued ${Math.round((now - issuedAt) / 60_000)}m ago)` };
+  }
+  // 6b. Future-token guard: reject tokens issued more than CLOCK_SKEW_GRACE_MS
+  //     in the future. Protects multi-node clusters where clocks can drift; also
+  //     blocks replay payloads that embed a far-future issuedAt to extend TTL.
+  if (issuedAt - now > CLOCK_SKEW_GRACE_MS) {
+    return {
+      valid:  false,
+      reason: `Token issued in the future (${Math.round((issuedAt - now) / 1_000)}s ahead) — clock skew or replay attempt`,
+    };
   }
 
   // 7. Consume (burn) the token — prevents replay.

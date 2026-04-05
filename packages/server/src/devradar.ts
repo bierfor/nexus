@@ -67,6 +67,7 @@ export interface SecurityAuditPayload {
     | 'ghost_wall'
     | 'shield_action'
     | 'vault_updated'
+    | 'build_mismatch'
     | 'custom';
   message: string;
   action?: string;

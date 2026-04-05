@@ -381,9 +381,28 @@ async function runBuild(opts: { root: string }): Promise<void> {
   const { join } = await import('node:path');
 
   const routesDir = join(opts.root, 'src', 'routes');
-  const outDir = join(opts.root, '.nexus', 'output');
+  const nexusDir = join(opts.root, '.nexus');
+  const outDir = join(nexusDir, 'output');
 
   await mkdir(outDir, { recursive: true });
+
+  // Build ID — shared by server + browser for stale-tab detection (412 on mismatch).
+  const { createHash, randomBytes } = await import('node:crypto');
+  const envBuild = process.env['NEXUS_BUILD_ID']?.trim();
+  const buildId =
+    envBuild && envBuild.length > 0
+      ? envBuild
+      : createHash('sha256')
+        .update(String(Date.now()))
+        .update(randomBytes(16))
+        .digest('hex')
+        .slice(0, 16);
+  await writeFile(
+    join(nexusDir, 'build-id.json'),
+    JSON.stringify({ buildId, generatedAt: new Date().toISOString() }, null, 2) + '\n',
+    'utf-8',
+  );
+  console.log(`  ${c.green}✔${c.reset}  Build ID ${c.bold}${buildId}${c.reset}  ${c.dim}→ .nexus/build-id.json${c.reset}`);
 
   // Compile src/lib/**/*.ts → .nexus/lib/**/*.js so server modules can import
   // them at runtime without a TypeScript loader (fixes "Unknown file extension .ts").

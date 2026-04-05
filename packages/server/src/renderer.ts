@@ -29,6 +29,11 @@ export interface RenderOptions {
   dev: boolean;
   /** Required for loading `.nx` routes (dev compile + prod build path). */
   appRoot: string;
+  /**
+   * From `.nexus/build-id.json` after `nexus build`. Injected into the document
+   * as `window.__NEXUS_BUILD_ID__` so `callAction` can send `x-nexus-build-id`.
+   */
+  buildId?: string;
   assets: AssetManifest;
   /**
    * Extra `<script type="importmap">` `imports` entries (merged over Nexus defaults).
@@ -544,6 +549,11 @@ function wrapWithDocument(
       ? `<script type="application/json" id="__NEXUS_PRETEXT__">${escapeJsonForScriptPayload(pretextWire)}</script>`
       : '';
 
+  const buildIdScript =
+    opts.buildId !== undefined && opts.buildId !== ''
+      ? `<script>window.__NEXUS_BUILD_ID__=${JSON.stringify(opts.buildId)};</script>`
+      : '';
+
   const styleLinks = opts.assets.styles
     .map((href) => `<link rel="stylesheet" href="${href}">`)
     .join('\n    ');
@@ -583,6 +593,7 @@ window.__NEXUS_BUILD_INFO__ = {
 </script>${nexusClientDevScript}` : '';
 
   const headInjection = `
+    ${buildIdScript}
     ${pretextScript}
     ${nexusIslandHostCSS}
     ${styleLinks}

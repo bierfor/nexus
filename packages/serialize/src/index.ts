@@ -227,18 +227,34 @@ export async function callAction<TInput, TOutput>(
 ): Promise<{ data: TOutput; error: null } | { data: null; error: string }> {
   const body = serialize(input);
 
+  const g = globalThis as { __NEXUS_BUILD_ID__?: string };
+  const buildHeaders: Record<string, string> =
+    typeof g.__NEXUS_BUILD_ID__ === 'string' && g.__NEXUS_BUILD_ID__.length > 0
+      ? { 'x-nexus-build-id': g.__NEXUS_BUILD_ID__ }
+      : {};
+
   try {
     const res = await fetch(`/_nexus/action/${actionName}`, {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
         'x-nexus-action': actionName,
+        ...buildHeaders,
       },
       body,
     });
 
+    if (res.status === 412) {
+      if (typeof globalThis.location !== 'undefined') {
+        queueMicrotask(() => {
+          globalThis.location.reload();
+        });
+      }
+      return { data: null, error: 'Application was updated — reloading…' };
+    }
+
     const json = await res.text();
-    const result = deserialize<{ data?: TOutput; error?: string }>(json);
+    const result = deserialize<{ data?: TOutput; error?: string; errorId?: string }>(json);
 
     if (result.error) return { data: null, error: result.error };
     return { data: result.data as TOutput, error: null };

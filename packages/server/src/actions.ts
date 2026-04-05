@@ -43,7 +43,9 @@ import {
   RateLimitError,
   type RateLimitConfig,
 } from './rate-limit.js';
+import { randomUUID } from 'node:crypto';
 import { emitDevRadar, newTraceId, sanitizeTelemetryValue } from './devradar.js';
+import { getExpectedNexusBuildId } from './build-id.js';
 
 export type ActionFn<TInput = FormData, TOutput = void> = (
   input: TInput,
@@ -316,6 +318,33 @@ export async function handleActionRequest(request: Request): Promise<Response> {
 
   if (!registered) {
     return jsonResponse({ error: `Action "${actionName}" not found`, status: 404 }, 404);
+  }
+
+  // ── Build ID (client–server contract) ─────────────────────────────────────
+  // When `.nexus/build-id.json` exists (after `nexus build`), every action call
+  // must carry `x-nexus-build-id` matching that file. Stale tabs from a prior
+  // deploy get 412 so the runtime can reload and pick up new action signatures.
+  const expectedBuildId = getExpectedNexusBuildId();
+  if (expectedBuildId !== null) {
+    const sent = request.headers.get('x-nexus-build-id') ?? '';
+    if (sent !== expectedBuildId) {
+      emitDevRadar({
+        type: 'security:audit',
+        payload: {
+          kind:    'build_mismatch',
+          message: 'x-nexus-build-id does not match deployed build',
+          action:  actionName,
+        },
+      });
+      return jsonResponse(
+        {
+          error:  'Application was updated. Please reload the page.',
+          status: 412,
+          code:   'BUILD_MISMATCH',
+        },
+        412,
+      );
+    }
   }
 
   const { fn, opts } = registered;
@@ -600,17 +629,38 @@ export async function handleActionRequest(request: Request): Promise<Response> {
       return jsonResponse({ error: err.message, status: err.status, code: err.code }, err.status);
     }
 
+    const errorId = randomUUID();
+    const mask =
+      process.env['NEXUS_EXPOSE_ERRORS'] !== 'true' &&
+      process.env['NODE_ENV'] === 'production';
+    console.error(`[Nexus Action ${errorId}] "${actionName}" failed:`, err);
     emitDevRadar({
       type: 'action:error',
       payload: {
         id:       traceId,
         name:     actionName,
-        error:    err instanceof Error ? err.message : String(err),
+        error:    mask ? 'Internal Server Error' : (err instanceof Error ? err.message : String(err)),
         duration: Date.now() - startTime,
+        ...(mask ? { errorId } : {}),
       },
     });
-    console.error(`[Nexus Action] "${actionName}" failed:`, err);
-    return jsonResponse({ error: 'Internal Server Error', status: 500 }, 500);
+    if (mask) {
+      return jsonResponse(
+        {
+          error:   'Internal Server Error',
+          status:  500,
+          errorId,
+        },
+        500,
+      );
+    }
+    return jsonResponse(
+      {
+        error:  err instanceof Error ? err.message : String(err),
+        status: 500,
+      },
+      500,
+    );
   } finally {
     clearTimeout(timeoutId);
     inFlightActions.delete(raceKey);
@@ -654,6 +704,61 @@ export async function validateRequest(ctx: NexusContext): Promise<void> {
 export { generateActionToken, validateActionToken, extractSessionId, generateSessionId } from './csrf.js';
 export { createRateLimiter, RateLimitError, parseWindow } from './rate-limit.js';
 export type { RateLimitConfig, RateLimitResult, RateLimiter } from './rate-limit.js';
+
+/**
+ * Returns `true` when `url` is a safe **public** `http:` / `https:` target for
+ * server-side `fetch` (not loopback, RFC1918, link-local, metadata IPs, etc.).
+ * Use before `fetch(userUrl)` to reduce blind SSRF risk.
+ */
+export function isSafeUrl(url: string): boolean {
+  try {
+    const u = new URL(url);
+    if (u.protocol !== 'http:' && u.protocol !== 'https:') return false;
+  } catch {
+    return false;
+  }
+  return !isInternalUrl(url);
+}
+
+/**
+ * Returns `true` when a URL resolves to a private, loopback, or link-local
+ * address. Inverse of {@link isSafeUrl} for `http:` / `https:`.
+ */
+export function isInternalUrl(url: string): boolean {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return false; // unparseable URLs are not our SSRF concern — let the caller decide
+  }
+
+  // Only http/https are fetched in typical web actions; block everything else
+  // (file://, ftp://, etc.) as they access local resources.
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return true;
+
+  const h = parsed.hostname.toLowerCase();
+
+  // Loopback
+  if (h === 'localhost' || h === '127.0.0.1' || h === '::1') return true;
+  if (/^127\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(h)) return true;
+
+  // Link-local (AWS/GCP/Azure metadata service lives at 169.254.169.254)
+  if (h.startsWith('169.254.')) return true;
+  if (h === 'fe80::1' || h.startsWith('fe80:')) return true;
+
+  // RFC 1918 private ranges
+  if (h.startsWith('10.')) return true;
+  if (/^172\.(1[6-9]|2\d|3[01])\./.test(h)) return true;
+  if (h.startsWith('192.168.')) return true;
+
+  // Unique local IPv6
+  if (/^fd[0-9a-f]{2}:/i.test(h) || h.startsWith('fc')) return true;
+
+  // Unspecified / broadcast
+  if (h === '0.0.0.0' || h === '255.255.255.255') return true;
+
+  return false;
+}
 
 // ── Client-side race guard ────────────────────────────────────────────────────
 
@@ -710,6 +815,53 @@ export function createActionGuard(
 /** Maximum request body for a single server action (10 MB). Override per-action via opts.maxBodyBytes. */
 const MAX_ACTION_BODY_BYTES = 10 * 1_024 * 1_024;
 
+/** Maximum JSON object nesting depth. Prevents CPU DoS via pathological `{"a":{"b":{…}}}` inputs. */
+const MAX_JSON_DEPTH = 10;
+
+/** Maximum number of JSON object keys across all nesting levels. Prevents key-explosion attacks. */
+const MAX_JSON_KEYS = 1_000;
+
+/**
+ * Walks the raw JSON text character-by-character (O(n)) tracking nesting depth and
+ * key count WITHOUT running the full parser. Throws ActionError before `JSON.parse`
+ * touches the data — prevents CPU DoS from deeply nested or key-explosion payloads
+ * that fit within MAX_ACTION_BODY_BYTES but would block the event loop for seconds.
+ */
+function assertJsonComplexity(text: string): void {
+  let depth = 0;
+  let keys  = 0;
+  let inStr = false;
+  let esc   = false;
+
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i]!;
+    if (esc)             { esc = false; continue; }
+    if (ch === '\\' && inStr) { esc = true;  continue; }
+    if (ch === '"')      { inStr = !inStr; continue; }
+    if (inStr)           { continue; }
+
+    if (ch === '{' || ch === '[') {
+      if (++depth > MAX_JSON_DEPTH) {
+        throw new ActionError(
+          `JSON nesting too deep (limit ${MAX_JSON_DEPTH} levels)`,
+          400,
+          'JSON_TOO_DEEP',
+        );
+      }
+    } else if (ch === '}' || ch === ']') {
+      depth--;
+    } else if (ch === ':') {
+      if (++keys > MAX_JSON_KEYS) {
+        throw new ActionError(
+          `JSON too complex (limit ${MAX_JSON_KEYS} keys)`,
+          400,
+          'JSON_TOO_COMPLEX',
+        );
+      }
+    }
+  }
+}
+
 async function deserializeInput(request: Request, maxBytes = MAX_ACTION_BODY_BYTES): Promise<unknown> {
   // DoS protection: reject oversized bodies before reading any bytes.
   // Prevents memory exhaustion from clients that stream arbitrarily large payloads.
@@ -729,6 +881,9 @@ async function deserializeInput(request: Request, maxBytes = MAX_ACTION_BODY_BYT
     if (text.length > maxBytes) {
       throw new ActionError('Request body too large', 413, 'PAYLOAD_TOO_LARGE');
     }
+    // Complexity guard: run BEFORE the parser so pathological payloads (deeply
+    // nested or key-explosion) are rejected without blocking the event loop.
+    assertJsonComplexity(text);
     try {
       return deserialize(text);
     } catch {

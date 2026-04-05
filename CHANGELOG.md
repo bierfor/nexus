@@ -7,6 +7,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.8.0] — 2026-04-06
+
+### Added — build consistency
+
+**`@nexus_js/cli` — `.nexus/build-id.json` on every `nexus build`**
+
+- Writes `{ buildId, generatedAt }` before compiling routes. If `NEXUS_BUILD_ID` is set (CI/CD), that value is used; otherwise a short SHA-256 digest from timestamp + random bytes.
+- Ensures the same identifier is available to the server and to HTML injection (no runtime-only env drift).
+
+**`@nexus_js/server` — build ID contract for server actions**
+
+- On startup, reads and caches `.nexus/build-id.json` via `loadAndCacheNexusBuildId(appRoot)`.
+- When a build ID is present, `handleActionRequest` requires `x-nexus-build-id` to match; otherwise responds with **412** and code `BUILD_MISMATCH`.
+- `RenderOptions.buildId` injects `window.__NEXUS_BUILD_ID__` in the document `<head>`.
+
+**`@nexus_js/serialize` — `callAction` sends build ID and handles 412**
+
+- Adds `x-nexus-build-id` when `window.__NEXUS_BUILD_ID__` is set.
+- On **412**, queues `location.reload()` so stale tabs pick up the new bundle.
+
+Exports: `loadAndCacheNexusBuildId`, `getExpectedNexusBuildId` from `@nexus_js/server`.
+
+### Security
+
+**`@nexus_js/server/csrf` — clock skew / future-token guard**
+
+- `validateActionToken` rejects tokens whose issued time is more than **5 seconds** ahead of the server clock (multi-node drift and crafted far-future `iat`).
+
+**`@nexus_js/server` — JSON complexity guard (CPU DoS)**
+
+- Before parsing JSON action bodies, a linear scan enforces **max nesting depth 10** and **max 1000 object keys** (colon count in object property positions).
+
+**`@nexus_js/server` — `isSafeUrl(url)`**
+
+- Returns `true` only for `http:` / `https:` URLs that are **not** internal (RFC1918, localhost, link-local, metadata ranges, etc.). Complements `isInternalUrl` for SSRF-safe `fetch` wrappers.
+
+**`@nexus_js/server` — production error masking for unhandled action failures**
+
+- When `NODE_ENV === 'production'` and `NEXUS_EXPOSE_ERRORS` is not `true`, non-`ActionError` exceptions return a generic message, a unique **`errorId`** (UUID) in the JSON body, and full details only in server logs (`[Nexus Action <errorId>] …`). Set `NEXUS_EXPOSE_ERRORS=true` to restore verbose responses (e.g. staging).
+
+### Fixed
+
+**`@nexus_js/cli` + `@nexus_js/server` — root layout and root page both wrote `index.js`**
+
+- `+layout.nx` and `+page.nx` at `/` shared the same output path; the page overwrote the layout. Layouts now emit `{segment}._layout.js` (e.g. `index._layout.js`); pages keep `{segment}.js`. `loadRouteModule` accepts `isLayout` so production resolves the correct file.
+
+---
+
 ## [0.7.5] — 2026-04-05
 
 ### Security

@@ -32,10 +32,19 @@ import {
   isActionBlockedByShield,
   setShieldLite,
 } from './shield-runtime.js';
+import { loadAndCacheNexusBuildId } from './build-id.js';
 import { emitDevRadar } from './devradar.js';
 
 export { STUDIO_DEFAULT_PORT } from './constants.js';
-export { createAction, registerAction, ActionError, getRegisteredActionNames } from './actions.js';
+export {
+  createAction,
+  registerAction,
+  ActionError,
+  getRegisteredActionNames,
+  isInternalUrl,
+  isSafeUrl,
+} from './actions.js';
+export { loadAndCacheNexusBuildId, getExpectedNexusBuildId } from './build-id.js';
 export { createContext } from './context.js';
 export { nexusVault } from '@nexus_js/security';
 export type { NexusContext, CookieOptions } from './context.js';
@@ -186,9 +195,12 @@ export async function createNexusServer(opts: NexusServerOptions) {
 
   let manifest: RouteManifest = await buildRouteManifest(routesDir);
 
+  const nexusBuildId = loadAndCacheNexusBuildId(opts.root);
+
   const renderOpts: RenderOptions = {
     dev,
     appRoot: opts.root,
+    ...(nexusBuildId ? { buildId: nexusBuildId } : {}),
     ...(opts.browserImportMap ? { browserImportMap: opts.browserImportMap } : {}),
     assets: {
       /** ESM entry + chunks served from @nexus_js/runtime/dist via /_nexus/rt/* */
