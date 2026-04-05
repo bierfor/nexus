@@ -7,33 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [0.7.5] — 2026-04-05 (security patch — Next.js CVE parity)
-
-### Security — Next.js CVE parity hardening
-
-**`@nexus_js/server` — `Origin: null` bypasses CSRF header check (GHSA-mq59-m269-xvcx)**
-
-- Sandboxed iframes and `data:` URIs send the literal string `"null"` as the `Origin` header. Previously this value would pass the Tier 1 CSRF check because the custom-header guard did not inspect Origin. Now `handleActionRequest` explicitly rejects any request with `Origin: null` before reaching the CSRF tiers, returning `403 OPAQUE_ORIGIN`.
-
-**`@nexus_js/server` — action name path traversal / request smuggling (GHSA-ggv3-7p47-pfv8)**
-
-- The action name extracted from `/_nexus/action/<name>` was passed directly to the registry without format validation. An attacker could craft a URL like `/_nexus/action/../../secret` to probe unexposed paths. Added a strict allowlist regex (`^[\w][\w.-]*$`) that rejects any name containing `..` or unsafe characters before the registry lookup.
-
-**`@nexus_js/server` — DoS via unbounded action payload (GHSA-7m27-7ghc-44w9, GHSA-fq54-2j52-jc42)**
-
-- `deserializeInput` read the entire request body without a size limit. An attacker could stream a multi-GB payload to exhaust server memory. Added a `MAX_ACTION_BODY_BYTES` limit (10 MB default). The limit is checked via `Content-Length` before any bytes are read, and again after body materialisation for chunked-transfer requests. Configurable per-action via `opts.maxBodyBytes`.
-
-**`@nexus_js/server/renderer` — cache poisoning via missing `Vary` header (GHSA-gp8f-8m3g-qvj9, GHSA-r2fc-ccr8-96c4)**
-
-- Public and SWR-cached HTML responses did not include a `Vary` header. CDNs and shared proxies could serve a gzip-compressed response to a client that doesn't accept gzip, or poison the cache by keying only on the URL. All non-private responses now include `Vary: Accept, Accept-Encoding`.
-
-**`@nexus_js/server` — dev endpoints accessible from external origins (GHSA-3h52-269p-cp9r, GHSA-jcc7-9wpm-mj36)**
-
-- `/_nexus/dev/hot` (HMR SSE) and `/_nexus/dev/vault` (secret hot-reload) were accessible from any origin on the network. An attacker on the same LAN could subscribe to HMR events or write vault secrets. Both endpoints now reject requests whose `Origin` header is not a loopback address (`localhost`, `127.x.x.x`, `::1`). The opaque `null` origin is also rejected at this layer.
-
----
-
-## [0.7.5] — 2026-04-05 (security patch)
+## [0.7.5] — 2026-04-05
 
 ### Security
 
@@ -59,13 +33,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `pruneUsedTokens` previously evicted tokens by insertion-order count (oldest 10% when > 50 000 entries). This could remove tokens that were consumed less than 15 minutes ago, allowing replay attacks during high-traffic bursts.
 - Changed `USED_TOKENS` from `Set<string>` → `Map<string, expiresAtMs>`. `pruneUsedTokens` now evicts only tokens past their TTL — safe to forget since they'd fail the expiry check anyway.
 
-**`@nexus_js/server` — no warning when `NEXUS_SECRET` defaults to the public dev value**
+**`@nexus_js/server` — `NEXUS_SECRET` not set produces no warning in production**
 
-- `createNexusServer().listen()` now logs a visible `[Nexus Security]` warning in production (`dev: false`) when `NEXUS_SECRET` is not set. Using the default secret allows any attacker who knows the framework source to forge valid CSRF tokens.
+- `createNexusServer().listen()` now logs a visible `[Nexus Security]` warning in production (`dev: false`) when `NEXUS_SECRET` is not set. Using the default secret allows forged CSRF tokens.
 
----
+**`@nexus_js/server` — opaque `Origin: null` could bypass the CSRF custom-header check**
 
-## [0.7.5] — 2026-04-05
+- Sandboxed iframes and `data:` URIs send the literal string `"null"` as the `Origin` header. This value passed the Tier 1 custom-header check. `handleActionRequest` now rejects any request with `Origin: null` before reaching the CSRF tiers (`403 OPAQUE_ORIGIN`).
+
+**`@nexus_js/server` — action name not validated, allowing path-traversal probing**
+
+- The action name from `/_nexus/action/<name>` was passed directly to the registry without format checks. Added a strict allowlist regex (`^[\w][\w.-]*$`) that rejects `..` and unsafe characters before any registry lookup.
+
+**`@nexus_js/server` — server actions accepted unbounded request bodies**
+
+- `deserializeInput` read the entire body with no size limit, making the endpoint vulnerable to memory-exhaustion via oversized payloads. Added `MAX_ACTION_BODY_BYTES` (10 MB default), checked via `Content-Length` before reading and after body materialisation for chunked transfers. Configurable per-action via `ActionOptions.maxBodyBytes`.
+
+**`@nexus_js/server/renderer` — public responses missing `Vary` header**
+
+- Public and SWR-cached HTML responses did not include a `Vary` header. Shared proxies and CDNs could serve incorrect cached variants. All non-private responses now emit `Vary: Accept, Accept-Encoding`.
+
+**`@nexus_js/server` — dev-only endpoints accessible from external network origins**
+
+- `/_nexus/dev/hot` (HMR SSE) and `/_nexus/dev/vault` (secret hot-reload) had no origin restriction. Both endpoints now require the `Origin` header to be a loopback address (`localhost`, `127.x.x.x`, `::1`); opaque and external origins are rejected.
 
 ### Fixed — production deployment (Node-only / Docker / Hetzner)
 

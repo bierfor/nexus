@@ -227,7 +227,6 @@ export async function createNexusServer(opts: NexusServerOptions) {
     // Guard dev-only endpoints against external origin access. Browsers on the
     // same machine will send no Origin (direct navigation) or a loopback Origin.
     // An attacker on the network sending a cross-origin request is rejected.
-    // (Next.js: GHSA-3h52-269p-cp9r, GHSA-jcc7-9wpm-mj36 — dev info exposure)
     if (dev && method === 'GET' && url.pathname === '/_nexus/dev/hot') {
       const devOrigin = req.headers['origin'];
       if (devOrigin && !isLoopbackOrigin(devOrigin)) {

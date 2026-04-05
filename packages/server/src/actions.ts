@@ -292,8 +292,7 @@ export async function handleActionRequest(request: Request): Promise<Response> {
   // Sandboxed iframes (<iframe sandbox> without allow-same-origin) and data:
   // URIs send the string "null" as the Origin header. This is never a
   // legitimate same-origin action call and must be rejected before any CSRF
-  // header check, otherwise the custom-header tier can be bypassed.
-  // (Next.js: GHSA-mq59-m269-xvcx, GHSA-jcc7-9wpm-mj36)
+  // header check — otherwise the custom-header tier can be bypassed.
   const rawOrigin = request.headers.get('origin');
   if (rawOrigin === 'null') {
     emitDevRadar({
@@ -307,7 +306,6 @@ export async function handleActionRequest(request: Request): Promise<Response> {
   // Ensure the action name extracted from the URL only contains characters that
   // can appear in a valid registered action name. Rejects path-traversal
   // sequences (../../ etc.) and injection attempts before any registry lookup.
-  // (Next.js: GHSA-ggv3-7p47-pfv8 — HTTP Request Smuggling via path confusion)
   const rawActionName = url.pathname.slice(ACTION_PREFIX.length);
   if (!/^[\w][\w.-]*$/.test(rawActionName) || rawActionName.includes('..')) {
     return jsonResponse({ error: 'Invalid action name', status: 400, code: 'INVALID_ACTION_NAME' }, 400);
@@ -714,8 +712,7 @@ const MAX_ACTION_BODY_BYTES = 10 * 1_024 * 1_024;
 
 async function deserializeInput(request: Request, maxBytes = MAX_ACTION_BODY_BYTES): Promise<unknown> {
   // DoS protection: reject oversized bodies before reading any bytes.
-  // Covers the attack vector where a client streams a huge payload to exhaust
-  // server memory. (Next.js: GHSA-7m27-7ghc-44w9, GHSA-fq54-2j52-jc42)
+  // Prevents memory exhaustion from clients that stream arbitrarily large payloads.
   const cl = parseInt(request.headers.get('content-length') ?? '0', 10);
   if (Number.isFinite(cl) && cl > maxBytes) {
     throw new ActionError(
