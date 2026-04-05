@@ -1096,8 +1096,14 @@
     <p data-i18n="hero.subtitle">Zero JS by default. Progressive hydration where you need it. Server Actions that are type-safe, race-condition-safe, and edge-ready.</p>
     <div class="hero-actions">
       <a href="#quickstart" class="btn btn-primary" data-i18n="hero.cta1">Get Started →</a>
-      <a href="https://github.com/bierfor/nexusjs-site" class="btn btn-outline" target="_blank" data-i18n="hero.cta2">GitHub ↗</a>
+      <a href="https://github.com/bierfor/nexus" class="btn btn-outline" target="_blank" rel="noopener noreferrer" data-i18n="hero.cta2">Framework on GitHub ↗</a>
     </div>
+    <p class="hero-repo-note" style="margin-top:14px;font-size:13px;line-height:1.6;color:var(--muted);max-width:520px">
+      <span data-i18n="hero.siteExplainer">This page at nexusjs.dev is the marketing site; the product you install is the open-source framework</span>
+      <a href="https://github.com/bierfor/nexus" target="_blank" rel="noopener noreferrer" style="color:var(--accent2)">bierfor/nexus ↗</a>.
+      <span data-i18n="hero.siteRepoLabel">Source for this website:</span>
+      <a href="https://github.com/bierfor/nexusjs-site" target="_blank" rel="noopener noreferrer" style="color:var(--accent2)">bierfor/nexusjs-site ↗</a>.
+    </p>
     <div class="hero-stats">
       <div class="stat"><div class="stat-num">18</div><div class="stat-label" data-i18n="hero.stat1">Packages</div></div>
       <div class="stat"><div class="stat-num">0kb</div><div class="stat-label" data-i18n="hero.stat2">JS by Default</div></div>
@@ -1181,8 +1187,8 @@
         </div>
         <div class="enterprise-card">
           <div class="ec-icon">↗</div>
-          <h4 data-i18n="ent.c4t">Typed <code>ctx.tenant</code></h4>
-          <p data-i18n="ent.c4d">Resolve branding, plan limits, and feature flags in <code>resolveMeta()</code> once; consume <code>tenant.meta</code> in every server block without parsing headers by hand.</p>
+          <h4 data-i18n="ent.c4t">Typed tenant info</h4>
+          <p data-i18n="ent.c4d">Use <code>extractTenant()</code> from <code>@nexus_js/router</code> and attach the result to your context (e.g. <code>ctx.locals.tenant</code>). Resolve branding and plan data in <code>resolve()</code> once; read <code>tenant.meta</code> in server blocks.</p>
         </div>
       </div>
 
@@ -1203,7 +1209,7 @@
     <section id="install">
       <div class="section-label">Getting Started</div>
       <h2 data-i18n="install.title">Installation</h2>
-      <p class="lead" data-i18n="install.lead">Nexus requires Node.js ≥ 20 and pnpm ≥ 9. It works on any OS.</p>
+      <p class="lead" data-i18n="install.lead">Nexus requires Node.js ≥ 22 and pnpm ≥ 9. It works on any OS.</p>
 
       <h3 data-i18n="install.prereq">Prerequisites</h3>
       <div class="code-title"><span>terminal</span><span class="code-lang">bash</span></div>
@@ -1678,17 +1684,15 @@ const cart = await cache(() => getCart(userId), { ttl: 0 });
       <h2 data-i18n="db.title">Database — Bring Your Own</h2>
       <p class="lead" data-i18n="db.lead">Nexus doesn't bundle an ORM. It wraps your client with caching, invalidation, and Edge awareness.</p>
 
-      <h3>Setup (nexus.config.ts)</h3>
-      <div class="code-title"><span>nexus.config.ts</span><span class="code-lang">typescript</span></div>
-      <pre><code class="language-typescript">import { defineNexus } from '@nexus_js/cli';
-import { defineDB } from '@nexus_js/db';
+      <h3>Setup (shared DB module)</h3>
+      <p style="color:var(--text-secondary);font-size:15px;margin-bottom:12px"><code>NexusConfig</code> in <code>@nexus_js/cli</code> does not yet wire <code>db</code> into <code>NexusContext</code> automatically. Create a provider with <code>@nexus_js/db</code> and import it from your server blocks and actions (or attach it to <code>ctx.locals</code> in your own middleware).</p>
+      <div class="code-title"><span>src/server/db.ts</span><span class="code-lang">typescript</span></div>
+      <pre><code class="language-typescript">import { defineDB } from '@nexus_js/db';
 import { PrismaClient } from '@prisma/client';
 
-export default defineNexus({
-  db: defineDB(new PrismaClient(), {
-    defaultTtl: 60,              // Cache every query for 60s by default
-    tags: (table) => [table],   // Auto-tag by table name
-  }),
+export const db = defineDB(new PrismaClient(), {
+  defaultTtl: 60,
+  tags: (table) => [table],
 });</code></pre>
 
       <h3>Prisma Adapter</h3>
@@ -1717,17 +1721,17 @@ const db = libsqlAdapter(createClient({
 }));</code></pre>
 
       <h3>Using the DB in Server Actions</h3>
-      <pre><code class="language-typescript">// In any .nx server block or Server Action
-// ctx.db is fully typed from your defineNexus() config
+      <pre><code class="language-typescript">// In any .nx server block or Server Action — import your provider
+import { db } from '$lib/server/db';
 
-// Cached query — result stored for defaultTtl seconds
-const posts = await ctx.db.query('post', 'findMany', () =>
-  ctx.db.client.post.findMany({ where: { published: true } })
+// Cached query — result stored for defaultTtl when &gt; 0
+const posts = await db.query('post', 'findMany', () =>
+  db.client.post.findMany({ where: { published: true } })
 );
 
-// Mutation — auto-invalidates 'post' cache tag
-const post = await ctx.db.mutate('post', 'create', () =>
-  ctx.db.client.post.create({ data: { title, body } })
+// Mutation — auto-invalidates table tags via revalidate()
+const post = await db.mutate('post', 'create', () =>
+  db.client.post.create({ data: { title, body } })
 );</code></pre>
     </section>
 
@@ -1975,23 +1979,13 @@ const heroImg = renderImage('/hero.jpg', {
   --&gt;
 &lt;/template&gt;</code></pre>
 
-      <h3>Font Optimization</h3>
-      <pre><code class="language-typescript">// nexus.config.ts
-import { defineNexus } from '@nexus_js/cli';
-
-export default defineNexus({
-  assets: {
-    fonts: [
-      {
-        family: 'Inter',
-        src: 'https://fonts.googleapis.com/css2?family=Inter',
-        display: 'swap',
-        preload: true,   // Adds &lt;link rel="preload"&gt; in &lt;head&gt;
-        inline: false,   // true → inlines CSS in &lt;style&gt; for zero FOUT
-      },
-    ],
-  },
-});</code></pre>
+      <h3>Fonts</h3>
+      <p style="color:var(--text-secondary);font-size:15px;margin-bottom:12px">Use regular <code>&lt;link&gt;</code> tags in your root <code>+layout.nx</code> (see the default scaffold from <code>create-nexus</code>). Image formats and responsive sizes are configured on <code>NexusConfig</code> via <code>images</code> — not a separate <code>assets.fonts</code> block.</p>
+      <div class="code-title"><span>src/routes/+layout.nx (excerpt)</span><span class="code-lang">html</span></div>
+      <pre><code class="language-html">&lt;head&gt;
+  &lt;link rel="preconnect" href="https://fonts.googleapis.com"&gt;
+  &lt;link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&amp;display=swap" rel="stylesheet"&gt;
+&lt;/head&gt;</code></pre>
     </section>
 
     <!-- ═══════════════════════════════════════════════════════════════════ -->
@@ -2026,57 +2020,50 @@ export default defineNexus({
       </table>
 
       <h3>nexus.config.ts</h3>
+      <p style="color:var(--text-secondary);font-size:15px;margin-bottom:12px">Scaffolded apps export a plain object typed with <code>satisfies NexusConfig</code> (see <code>create-nexus</code>). The shape below matches what <code>@nexus_js/cli</code> actually loads today — extra keys are ignored unless the runtime reads them.</p>
       <div class="code-title"><span>nexus.config.ts</span><span class="code-lang">typescript</span></div>
-      <pre><code class="language-typescript">import { defineNexus } from '@nexus_js/cli';
+      <pre><code class="language-typescript">import type { NexusConfig } from '@nexus_js/cli';
 
-export default defineNexus({
-  // Dev server
+export default {
+  defaultHydration: 'client:visible',
+
+  images: {
+    formats: ['avif', 'webp'],
+    sizes: [640, 1280, 1920],
+    quality: 85,
+  },
+
   server: {
     port: 3000,
     host: 'localhost',
+    streamingPretext: false,
   },
 
-  // Database adapter
-  db: defineDB(new PrismaClient()),
-
-  // Asset pipeline
-  assets: {
-    images: { formats: ['avif', 'webp'], quality: 85 },
-    fonts: [{ family: 'Inter', src: '...', display: 'swap' }],
+  build: {
+    outDir: '.nexus/output',
+    sourcemap: true,
+    adapter: 'node',
   },
 
-  // Internationalisation
   i18n: {
     defaultLocale: 'en',
     locales: ['en', 'es', 'pt'],
+    translationsDir: './src/locales',
   },
 
-  // Vite plugins (fully compatible)
   plugins: [
-    myVitePlugin(),
+    { name: 'my-transform', transform(src, path) { return src; } },
   ],
 
-  // Bundle budget (kb gzip)
-  build: {
-    budget: 50,
+  browser: {
+    importMap: { /* optional: island import map entries */ },
   },
 
-  // Multi-Tenant support (v0.4)
-  tenant: {
-    mode: 'subdomain',
-    baseDomain: 'app.com',
-  },
-
-  // AI predictive prefetch (v0.3)
-  ai: {
-    prefetch: 'smart',    // 'aggressive' | 'smart' | 'off'
-    budget: '500kb',
-    wifiOnly: true,
-  },
-
-  // Security (v0.5 / v0.6)
   security: {
     hardened: true,
+    failOnIslandSecurity: true,
+    shieldLite: false,
+    audit: { failOn: ['critical', 'high'], blockBuild: true },
     allowVulnerable: {
       'some-pdf-lib': {
         cve: 'CVE-2025-1234',
@@ -2085,7 +2072,22 @@ export default defineNexus({
       },
     },
   },
-});</code></pre>
+
+  observability: {
+    enabled: true,
+    traceActions: true,
+  },
+} satisfies NexusConfig;</code></pre>
+
+      <h3>vite.config.ts (Vite integration)</h3>
+      <p style="color:var(--text-secondary);font-size:15px;margin-bottom:12px">For Vite, use <code>defineNexusConfig</code> from <code>vite-plugin-nexus</code> — that helper merges the Nexus plugin into a normal Vite config (it is <strong>not</strong> the same file as <code>nexus.config.ts</code>).</p>
+      <div class="code-title"><span>vite.config.ts</span><span class="code-lang">typescript</span></div>
+      <pre><code class="language-typescript">import { defineConfig } from 'vite';
+import { defineNexusConfig } from 'vite-plugin-nexus';
+
+export default defineConfig(defineNexusConfig({
+  // standard Vite options + Nexus plugin
+}));</code></pre>
     </section>
 
     <section id="studio">
@@ -2258,7 +2260,7 @@ export default toCloudflareHandler(server.fetch);</code></pre>
         <thead><tr><th><code>tenant.mode</code></th><th>Use case</th><th>Example</th></tr></thead>
         <tbody>
           <tr><td><code>'subdomain'</code></td><td>Wildcard SaaS — one app, many tenants on <code>*.baseDomain</code></td><td><code>acme.app.com</code> → tenant <code>acme</code></td></tr>
-          <tr><td><code>'domain'</code></td><td>Bring-your-own-domain — customer CNAMEs to your edge</td><td><code>portal.customer.com</code> → resolved tenant row</td></tr>
+          <tr><td><code>'custom-domain'</code></td><td>Bring-your-own-domain — customer CNAMEs to your edge</td><td><code>portal.customer.com</code> → resolved tenant row</td></tr>
           <tr><td><code>'path'</code></td><td>Single host, tenant in URL (admin consoles, docs)</td><td><code>app.com/t/acme/dashboard</code></td></tr>
         </tbody>
       </table>
@@ -2274,31 +2276,30 @@ export default toCloudflareHandler(server.fetch);</code></pre>
         <li><strong style="color:var(--text)">Staging</strong> — separate <code>*.staging.app.com</code> or path-based tenants to avoid polluting production metadata.</li>
       </ol>
 
-      <div class="code-title"><span>packages/router/src/tenant.ts — key API</span><span class="code-lang">typescript</span></div>
+      <p style="color:var(--text-secondary);font-size:15px;margin-bottom:12px">Tenant detection lives in <code>@nexus_js/router</code> (<code>extractTenant</code>). Call it from your server bootstrap or middleware and attach the result to <code>ctx.locals</code> (or your own context type) — it is not yet a top-level field on <code>NexusConfig</code>.</p>
+      <div class="code-title"><span>Server bootstrap (conceptual)</span><span class="code-lang">typescript</span></div>
       <pre><code class="language-typescript">import { extractTenant } from '@nexus_js/router';
+import type { TenantConfig } from '@nexus_js/router';
 
-// nexus.config.ts
-export default defineNexusConfig({
-  tenant: {
-    mode: 'subdomain',           // 'subdomain' | 'domain' | 'path'
-    baseDomain: 'app.com',
-    async resolveMeta(tenantId) {
-      return await db.tenants.findUnique({ where: { id: tenantId } });
-    },
+const tenantConfig: TenantConfig = {
+  mode: 'subdomain',              // 'subdomain' | 'custom-domain' | 'path' | 'disabled'
+  baseDomain: 'app.com',
+  async resolve(tenantId, _req) {
+    return (await db.tenants.findUnique({ where: { id: tenantId } })) ?? null;
   },
-});
+};
 
-// In any server block — tenant is injected automatically
-const { tenant } = ctx;
-// tenant.id, tenant.domain, tenant.isCustomDomain, tenant.meta</code></pre>
+// const tenant = await extractTenant(request, tenantConfig);
+// then merge into your handler context (e.g. ctx.locals.tenant = tenant)</code></pre>
 
       <h3>Route files</h3>
       <div class="code-title"><span>src/routes/[tenant]/+page.nx</span><span class="code-lang">html</span></div>
       <pre><code class="language-html">---
-// tenant is already extracted — no manual parsing
-const { tenant } = ctx;
+// After you attach extractTenant() to context (e.g. ctx.locals.tenant)
+const tenant = ctx.locals.tenant as { id: string };
+if (!tenant) return ctx.redirect('/', 302);
 const data = await db.products.findMany({
-  where: { tenantId: tenant.id },   // RLS enforced at the framework layer
+  where: { tenantId: tenant.id },   // always scope by tenant in your queries
 });
 ---
 &lt;template&gt;
@@ -2316,7 +2317,7 @@ const data = await db.products.findMany({
           <tr><td>Cookies</td><td>Scoped per tenant domain / subdomain by the browser</td></tr>
           <tr><td>DB queries</td><td><code>@nexus_js/db</code> adapter warns if <code>tenantId</code> filter is missing</td></tr>
           <tr><td>Vary headers</td><td>Automatic <code>Vary: Host</code> on tenant-aware responses where applicable</td></tr>
-          <tr><td>Server Actions</td><td>Action tokens are bound to the same session + host as the page that rendered the island — avoids cross-subdomain replay</td></tr>
+          <tr><td>Server Actions</td><td>CSRF tiers bind requests to the app origin; combine with per-tenant scoping in your own auth layer</td></tr>
         </tbody>
       </table>
     </section>
@@ -2478,28 +2479,27 @@ await validateActionToken(token, sessionId, secretKey);
       <p style="color:var(--text-secondary);font-size:15px;margin-bottom:12px">Limiters are registered once per action and reused across requests (sliding window state persists — not recreated per hit).</p>
       <div class="code-title"><span>src/actions/capture.ts</span><span class="code-lang">typescript</span></div>
       <pre><code class="language-typescript">export const captureAction = createAction({
-  rateLimit: { window: '1m', max: 3 },   // sliding-window per user IP
+  rateLimit: { window: '1m', max: 3 },   // sliding-window (default: per IP via request)
   schema: z.object({ pokemonId: z.number().int().positive() }),
   async handler({ pokemonId }, ctx) {
-    return await db.captures.create({ data: { pokemonId, userId: ctx.user.id } });
+    const userId = ctx.locals.userId as string | undefined; // set in your auth middleware
+    if (!userId) throw new Error('Unauthorized');
+    return await capturesRepo.create({ pokemonId, userId });
   },
 });
 // 429 response with Retry-After header is automatic on limit breach</code></pre>
 
       <h3>5 — Hardened Mode (Security Headers)</h3>
+      <p style="color:var(--text-secondary);font-size:15px;margin-bottom:12px">With <code>security.hardened: true</code>, the server adds baseline headers (X-Frame-Options, nosniff, Referrer-Policy, Permissions-Policy, HSTS in production). There is no per-field <code>security.headers</code> map on <code>NexusConfig</code> yet — add extra headers in your host or middleware if you need a custom CSP.</p>
       <div class="code-title"><span>nexus.config.ts</span><span class="code-lang">typescript</span></div>
-      <pre><code class="language-typescript">export default defineNexusConfig({
+      <pre><code class="language-typescript">import type { NexusConfig } from '@nexus_js/cli';
+
+export default {
   security: {
-    hardened: true,   // enables all headers below
-    headers: {
-      'Content-Security-Policy': "default-src 'self'; script-src 'self' 'nonce-{nonce}'",
-      'X-Frame-Options': 'DENY',
-      'X-Content-Type-Options': 'nosniff',
-      'Referrer-Policy': 'strict-origin-when-cross-origin',
-      'Permissions-Policy': 'camera=(), microphone=()',
-    },
+    hardened: true,
+    shieldLite: false,
   },
-});</code></pre>
+} satisfies NexusConfig;</code></pre>
     </section>
 
     <!-- ═══════════════════════════════════════════════════════════════════ -->
@@ -2533,19 +2533,20 @@ nexus audit --json       # Machine-readable output</code></pre>
       <h3>Override policy</h3>
       <p>Acknowledge a known CVE with a mandatory <code>reason</code> and an <code>expires</code> date. After the expiry, the build fails again automatically.</p>
       <div class="code-title"><span>nexus.config.ts</span><span class="code-lang">typescript</span></div>
-      <pre><code class="language-typescript">export default defineNexusConfig({
+      <pre><code class="language-typescript">import type { NexusConfig } from '@nexus_js/cli';
+
+export default {
   security: {
-    hardened: {
-      allowVulnerable: {
-        'some-pdf-lib': {
-          cve: 'CVE-2025-1234',
-          reason: 'Used only at build-time; never ships to the browser.',
-          expires: '2026-06-01',   // build fails again after this date
-        },
+    hardened: true,
+    allowVulnerable: {
+      'some-pdf-lib': {
+        cve: 'CVE-2025-1234',
+        reason: 'Used only at build-time; never ships to the browser.',
+        expires: '2026-06-01',
       },
     },
   },
-});</code></pre>
+} satisfies NexusConfig;</code></pre>
     </section>
 
     <!-- ═══════════════════════════════════════════════════════════════════ -->
@@ -2837,9 +2838,10 @@ nexus fix --force        # Also fix medium + low severity</code></pre>
 
       <hr>
 
-      <p style="text-align:center; color: var(--muted); font-size:13px; margin-top:32px">
-        <strong style="color:var(--text)">Nexus</strong> — MIT License © 2026 Nexus Contributors ·
-        <a href="https://github.com/bierfor/nexusjs-site" style="color:var(--accent2); text-decoration:none">GitHub ↗</a>
+      <p style="text-align:center; color: var(--muted); font-size:13px; margin-top:32px;line-height:1.7">
+        <strong style="color:var(--text)">Nexus</strong> — MIT License © 2026 Nexus Contributors<br>
+        <a href="https://github.com/bierfor/nexus" style="color:var(--accent2); text-decoration:none">Framework (nexus) ↗</a>
+        · <a href="https://github.com/bierfor/nexusjs-site" style="color:var(--accent2); text-decoration:none">This site (nexusjs-site) ↗</a>
       </p>
     </section>
 
@@ -2879,11 +2881,13 @@ const translations = {
     'hero.badge': 'Islands Architecture + Svelte 5 Runes + Server Actions',
     'hero.title': 'The Definitive<br>Full-Stack Framework',
     'hero.subtitle': 'Zero JS by default. Progressive hydration where you need it. Server Actions that are type-safe, race-condition-safe, and edge-ready.',
-    'hero.cta1': 'Get Started →', 'hero.cta2': 'GitHub ↗',
+    'hero.cta1': 'Get Started →', 'hero.cta2': 'Framework on GitHub ↗',
+    'hero.siteExplainer': 'This page at nexusjs.dev is the marketing site; the product you install is the open-source framework',
+    'hero.siteRepoLabel': 'Source for this website:',
     'hero.stat1': 'Packages', 'hero.stat2': 'JS by Default', 'hero.stat3': 'TypeScript', 'hero.stat4': 'Latest',
     'nav.gettingStarted': 'Getting Started', 'nav.core': 'Core Concepts', 'nav.data': 'Data & Server',
     'nav.advanced': 'Advanced', 'nav.tooling': 'Tooling', 'nav.reference': 'Reference',
-    'install.title': 'Installation', 'install.lead': 'Nexus requires Node.js ≥ 20 and pnpm ≥ 9.',
+    'install.title': 'Installation', 'install.lead': 'Nexus requires Node.js ≥ 22 and pnpm ≥ 9.',
     'install.prereq': 'Prerequisites',
     'qs.title': 'Quick Start', 'qs.lead': 'Create a new Nexus project in seconds.',
     'qs.step1': 'Scaffold a new project', 'qs.step2': 'Install dependencies', 'qs.step3': 'Start the dev server',
@@ -2938,8 +2942,8 @@ const translations = {
     'ent.c2d': 'Map customer-owned DNS (CNAME) to your edge. <code>tenant.isCustomDomain</code> distinguishes branded URLs from shared subdomains for analytics and billing.',
     'ent.c3t': 'Isolation by default',
     'ent.c3d': 'Cache keys are prefixed per tenant, responses can carry <code>Vary: Host</code>, and the DB adapter warns when queries omit <code>tenantId</code> — reducing cross-tenant mistakes in production.',
-    'ent.c4t': 'Typed <code>ctx.tenant</code>',
-    'ent.c4d': 'Resolve branding, plan limits, and feature flags in <code>resolveMeta()</code> once; consume <code>tenant.meta</code> in every server block without parsing headers by hand.',
+    'ent.c4t': 'Typed tenant info',
+    'ent.c4d': 'Use <code>extractTenant()</code> from <code>@nexus_js/router</code> and attach the result to your context (e.g. <code>ctx.locals.tenant</code>). Resolve branding and plan data in <code>resolve()</code> once; read <code>tenant.meta</code> in server blocks.',
     'ent.calloutTitle': 'Typical rollout',
     'ent.calloutBody': 'Wildcard DNS <code>*.app.com</code> → your load balancer → Nexus with <code>tenant.mode: \'subdomain\'</code>. For enterprise customers, add a row in your DB and point their domain with a CNAME to your edge — same codebase, isolated context.',
     'ent.link': 'Full multi-tenant API & configuration →',
@@ -2948,11 +2952,13 @@ const translations = {
     'hero.badge': 'Arquitectura de Islas + Svelte 5 Runes + Server Actions',
     'hero.title': 'El Framework Full-Stack<br>Definitivo',
     'hero.subtitle': 'Cero JS por defecto. Hidratación progresiva donde la necesitas. Server Actions type-safe, sin race conditions, y listas para Edge.',
-    'hero.cta1': 'Empezar →', 'hero.cta2': 'GitHub ↗',
+    'hero.cta1': 'Empezar →', 'hero.cta2': 'Framework en GitHub ↗',
+    'hero.siteExplainer': 'nexusjs.dev es el sitio de marketing; lo que instalas es el framework open source',
+    'hero.siteRepoLabel': 'Código de esta web:',
     'hero.stat1': 'Paquetes', 'hero.stat2': 'JS por Defecto', 'hero.stat3': 'TypeScript', 'hero.stat4': 'Último',
     'nav.gettingStarted': 'Primeros pasos', 'nav.core': 'Conceptos Core', 'nav.data': 'Datos y Servidor',
     'nav.advanced': 'Avanzado', 'nav.tooling': 'Herramientas', 'nav.reference': 'Referencia',
-    'install.title': 'Instalación', 'install.lead': 'Nexus requiere Node.js ≥ 20 y pnpm ≥ 9.',
+    'install.title': 'Instalación', 'install.lead': 'Nexus requiere Node.js ≥ 22 y pnpm ≥ 9.',
     'install.prereq': 'Requisitos previos',
     'qs.title': 'Inicio rápido', 'qs.lead': 'Crea un proyecto Nexus en segundos.',
     'qs.step1': 'Genera un nuevo proyecto', 'qs.step2': 'Instala las dependencias', 'qs.step3': 'Inicia el servidor de desarrollo',
@@ -3007,8 +3013,8 @@ const translations = {
     'ent.c2d': 'Asocia DNS del cliente (CNAME) a tu edge. <code>tenant.isCustomDomain</code> separa URLs de marca de los subdominios compartidos.',
     'ent.c3t': 'Aislamiento por defecto',
     'ent.c3d': 'Claves de caché por tenant, <code>Vary: Host</code> donde aplica, y avisos en el adaptador de BD si falta <code>tenantId</code>.',
-    'ent.c4t': '<code>ctx.tenant</code> tipado',
-    'ent.c4d': 'Resuelve branding y límites de plan en <code>resolveMeta()</code> una vez; usa <code>tenant.meta</code> en cada bloque servidor.',
+    'ent.c4t': 'Información de tenant tipada',
+    'ent.c4d': 'Usa <code>extractTenant()</code> de <code>@nexus_js/router</code> y enlázalo al contexto (p. ej. <code>ctx.locals.tenant</code>). Resuelve branding y plan en <code>resolve()</code>; lee <code>tenant.meta</code> en bloques servidor.',
     'ent.calloutTitle': 'Despliegue típico',
     'ent.calloutBody': 'DNS comodín <code>*.app.com</code> → balanceador → Nexus con <code>tenant.mode: \'subdomain\'</code>. Para clientes enterprise, fila en BD y CNAME a tu edge — mismo código, contexto aislado.',
     'ent.link': 'API multi-tenant y configuración completa →',
@@ -3017,11 +3023,13 @@ const translations = {
     'hero.badge': 'Arquitetura de Ilhas + Svelte 5 Runes + Server Actions',
     'hero.title': 'O Framework Full-Stack<br>Definitivo',
     'hero.subtitle': 'Zero JS por padrão. Hidratação progressiva onde você precisa. Server Actions com segurança de tipos, sem race conditions, prontas para Edge.',
-    'hero.cta1': 'Começar →', 'hero.cta2': 'GitHub ↗',
+    'hero.cta1': 'Começar →', 'hero.cta2': 'Framework no GitHub ↗',
+    'hero.siteExplainer': 'nexusjs.dev é o site de marketing; o que você instala é o framework open source',
+    'hero.siteRepoLabel': 'Código deste site:',
     'hero.stat1': 'Pacotes', 'hero.stat2': 'JS por Padrão', 'hero.stat3': 'TypeScript', 'hero.stat4': 'Último',
     'nav.gettingStarted': 'Primeiros passos', 'nav.core': 'Conceitos Core', 'nav.data': 'Dados e Servidor',
     'nav.advanced': 'Avançado', 'nav.tooling': 'Ferramentas', 'nav.reference': 'Referência',
-    'install.title': 'Instalação', 'install.lead': 'Nexus requer Node.js ≥ 20 e pnpm ≥ 9.',
+    'install.title': 'Instalação', 'install.lead': 'Nexus requer Node.js ≥ 22 e pnpm ≥ 9.',
     'install.prereq': 'Pré-requisitos',
     'qs.title': 'Início rápido', 'qs.lead': 'Crie um projeto Nexus em segundos.',
     'qs.step1': 'Gere um novo projeto', 'qs.step2': 'Instale as dependências', 'qs.step3': 'Inicie o servidor de desenvolvimento',
@@ -3076,8 +3084,8 @@ const translations = {
     'ent.c2d': 'DNS do cliente (CNAME) para o edge. <code>tenant.isCustomDomain</code> separa URLs de marca.',
     'ent.c3t': 'Isolamento por padrão',
     'ent.c3d': 'Chaves de cache por tenant, <code>Vary: Host</code> onde aplicável, avisos no DB se faltar <code>tenantId</code>.',
-    'ent.c4t': '<code>ctx.tenant</code> tipado',
-    'ent.c4d': 'Branding e planos em <code>resolveMeta()</code>; use <code>tenant.meta</code> em todo server block.',
+    'ent.c4t': 'Informação de tenant tipada',
+    'ent.c4d': 'Use <code>extractTenant()</code> de <code>@nexus_js/router</code> e anexe ao contexto (ex. <code>ctx.locals.tenant</code>). Resolva branding e plano em <code>resolve()</code>; leia <code>tenant.meta</code> nos blocos servidor.',
     'ent.calloutTitle': 'Rollout típico',
     'ent.calloutBody': 'DNS curinga <code>*.app.com</code> → load balancer → Nexus com <code>tenant.mode: \'subdomain\'</code>. Clientes enterprise: linha na BD e CNAME para o edge.',
     'ent.link': 'API multi-tenant e configuração completa →',

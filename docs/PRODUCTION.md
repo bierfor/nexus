@@ -1,6 +1,8 @@
 # Production deployment and hardening
 
-This document describes what **`nexus build`** produces, how **server actions** are secured in current releases (0.7.5+), and which **environment variables** matter in production. For the full version history, see **[CHANGELOG.md](https://github.com/bierfor/nexus/blob/main/CHANGELOG.md)** in the framework monorepo.
+This document is **framework documentation** (for apps built with Nexus). The **nexusjs.dev** site is only the entry point that points users to this monorepo and npm packages.
+
+It describes what **`nexus build`** produces, how **server actions** are secured in current releases (0.7.5+), and which **environment variables** matter in production. For the full version history, see **[CHANGELOG.md](https://github.com/bierfor/nexus/blob/main/CHANGELOG.md)** in the framework monorepo.
 
 ## Build output (`.nexus/`)
 

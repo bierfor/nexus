@@ -44,7 +44,7 @@ Other entrypoints (e.g. `pnpm create @nexus_js/nexus`, global installs) are desc
 **Clone this repo** (framework development):
 
 ```bash
-git clone https://github.com/<org>/nexus.git
+git clone https://github.com/bierfor/nexus.git
 cd nexus
 nvm use   # Node 22 — see .nvmrc (or fnm use / mise use)
 pnpm install

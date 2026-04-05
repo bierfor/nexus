@@ -17,21 +17,19 @@
  *   - Any custom   →  defineDB<TClient>() directly
  *
  * USAGE:
- *   // nexus.config.ts
+ *   // src/server/db.ts — export a shared provider
  *   import { defineDB } from '@nexus_js/db';
  *   import { PrismaClient } from '@prisma/client';
  *
- *   export default defineNexus({
- *     db: defineDB(new PrismaClient(), {
- *       tags: (table) => [table],
- *     }),
- *   });
+ *   export const db = defineDB(new PrismaClient(), { tags: (table) => [table] });
  *
- *   // In a Server Action or frontmatter
+ *   // In a Server Action or frontmatter — import `db` (or attach to ctx.locals in middleware)
+ *   import { db } from '$lib/server/db';
  *   export async function createPost(input: FormData, ctx: NexusContext) {
  *     "use server";
- *     const post = await ctx.db.post.create({ data: { ... } });
- *     await revalidate({ tags: ['post'] });
+ *     const post = await db.mutate('post', 'create', () =>
+ *       db.client.post.create({ data: { ... } })
+ *     );
  *     return post;
  *   }
  */

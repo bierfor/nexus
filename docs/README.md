@@ -1,6 +1,6 @@
 # Nexus — documentation in this repository
 
-The **live marketing site** at **[nexusjs.dev](https://nexusjs.dev)** is built from **[github.com/bierfor/nexusjs-site](https://github.com/bierfor/nexusjs-site)** (Cloudflare Pages). This folder in the **framework monorepo** mirrors or extends that content for contributors — keep them in sync when you change the landing page.
+**Relationship:** **[nexusjs.dev](https://nexusjs.dev)** is the public marketing site; its repo is **[github.com/bierfor/nexusjs-site](https://github.com/bierfor/nexusjs-site)**. That site **documents and links to** the framework, which lives here: **[github.com/bierfor/nexus](https://github.com/bierfor/nexus)** (`packages/`, CLI, runtime). When you change the landing copy, update **`docs/index.html`** in this monorepo and copy it to **nexusjs-site** for deployment.
 
 **Not on npm:** nothing under **`docs/`** is published to the npm registry. End users get the framework from **`@nexus_js/*`** packages (built from [`packages/`](../packages/)); framework source is **[github.com/bierfor/nexus](https://github.com/bierfor/nexus)**. See [`PUBLISHING.md`](./PUBLISHING.md) — `pnpm release` only publishes **`packages/*`**.
 

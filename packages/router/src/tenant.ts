@@ -10,11 +10,9 @@
  *   'custom-domain' → empresa-b.com       → tenant.id resolved by resolver fn
  *   'path'          → nexus.app/t/empresa-a/dashboard → tenant.id = 'empresa-a'
  *
- * The router automatically:
- *   - Isolates Cache-Control per tenant (x-nexus-tenant-id header)
- *   - Scopes Shield Cache keys: `${tenantId}:${routeKey}`
- *   - Passes tenant to every Server Action via ctx.tenant
- *   - Prevents cross-tenant data leaks by design
+ * Consumers call `extractTenant(request, config)` and merge the result into their own
+ * request context (for example `ctx.locals.tenant`). Higher-level wiring into
+ * `NexusContext` is app-specific.
  */
 
 export type TenantMode = 'subdomain' | 'custom-domain' | 'path' | 'disabled';

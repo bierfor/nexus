@@ -177,7 +177,7 @@ function patchRegisteredActionStringCoercion(fn: ActionFn<unknown, unknown>, nam
  * and ready to be called by the client.
  *
  * Security layers applied (in order):
- *   1. CSRF token validation (x-nexus-action-token header)
+ *   1. CSRF: custom header `x-nexus-action: 1` (Tier 1) + optional HMAC token (Tier 2)
  *   2. Rate limiting (sliding window, per-IP or per-user)
  *   3. Input schema validation (Zod or any .parse() compatible schema)
  *   4. AbortController (client disconnect + timeout)
