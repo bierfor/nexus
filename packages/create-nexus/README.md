@@ -53,7 +53,7 @@ npx @nexus_js/create-nexus@latest ci-app --yes --template minimal
 | Template | Flag | What you get |
 |----------|------|----------------|
 | **Minimal** | `--template minimal` or `-t minimal` | One landing `+page.nx`, simple `+layout.nx`, no i18n, no example blog or `/islands` route — closest to a blank slate. |
-| **Full** | `--template full` or `-t full` (default when non-interactive) | i18n (en/es/pt), islands presentation page, blog examples — same shape as the `my-nexus-app` reference in the repo. |
+| **Full** | `--template full` or `-t full` (default when non-interactive) | i18n (en/es/pt), islands presentation page, blog examples. |
 
 ```bash
 npm create @nexus_js/nexus@latest my-app -- --template minimal

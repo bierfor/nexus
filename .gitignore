@@ -46,7 +46,16 @@ coverage/
 *.temp
 .cache/
 
+# Scratch / experiments at repo root
+sveltro-next.html
+
 # Nexus Studio profiles
 ~/.cursor/browser-logs/
 .vercel
 .env*.local
+
+# Local / product apps — not part of the open-source Nexus framework (keep on disk, do not commit)
+/fin-sh/
+/mongo/
+/news/
+/my-nexus-app/

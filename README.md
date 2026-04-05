@@ -1,68 +1,35 @@
 <div align="center">
 
-<img src="docs/assets/nexus-logo.svg" width="80" height="80" alt="Nexus" />
+<img src="docs/assets/nexus-logo.svg" width="80" height="80" alt="Nexus logo" />
 
 # Nexus
 
-**The Definitive Full-Stack Framework**
-
-Islands Architecture · Svelte 5 Runes · Server Actions · Edge-First · Zero-JS by Default
+**Full-stack framework** — islands-first HTML, **Svelte 5** runes on the client, **server actions**, file-based routes, and streaming SSR.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-7c3aed.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.4-3178c6.svg)](https://www.typescriptlang.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-9-f69220.svg)](https://pnpm.io/)
 [![Node](https://img.shields.io/badge/Node-≥20-5fa04e.svg)](https://nodejs.org/)
 
-**[Documentation — nexusjs.dev](https://nexusjs.dev)** · [Examples](./examples/) · [Contributing](./CONTRIBUTING.md) · [Changelog](./CHANGELOG.md) · [Publishing to npm](./docs/PUBLISHING.md)
+[Website — nexusjs.dev](https://nexusjs.dev) · [Docs in this repo](./docs/README.md) · [Contributing](./CONTRIBUTING.md) · [Changelog](./CHANGELOG.md)
 
 </div>
 
 ---
 
-## What is Nexus?
+## Overview
 
-Nexus is a full-stack web framework that fuses the best architectural ideas of three generations of tools:
+Nexus targets **minimal JavaScript by default**: most of the page is static HTML from the server; only subtrees marked with **`client:*`** hydrate in the browser. Interactive regions use **Svelte 5 runes** (`$state`, `$derived`, `$effect`, …). Server-side logic uses a **`---`** frontmatter block in `.nx` files, plus typed **server actions** and optional **pretext** loaders for route data.
 
-- **From Astro** — Islands Architecture: zero JavaScript by default, ship HTML first
-- **From Svelte 5** — Runes: the finest reactive primitive system in the JavaScript ecosystem
-- **From Next.js** — Full-stack power: Server Actions, file-based routing, Edge runtime, PPR
-
-The result is a framework where the 90% of your page that doesn't need interactivity costs **zero bytes of JS**, while the 10% that does is progressively hydrated with surgical precision.
-
-```
-Traditional SPA:    ████████████████████ 400kb JS for a blog post
-Nexus:              ▓                     18kb JS (only the like button)
-```
+End-user documentation and tutorials live on **[nexusjs.dev](https://nexusjs.dev)**. This repository holds the **implementation** (`packages/`), **examples**, and **contributor docs** under [`docs/`](./docs/README.md).
 
 ---
 
-## Features at a Glance
+## Quick start
 
-| Feature | Nexus | Next.js | Astro | SvelteKit |
-|---|:---:|:---:|:---:|:---:|
-| Islands Architecture | ✅ | ❌ | ✅ | ❌ |
-| Svelte 5 Runes | ✅ | ❌ | ❌ | ✅ |
-| Server Actions | ✅ | ✅ | ❌ | ✅ |
-| SPA Navigation (Morphing) | ✅ | ✅ | ⚠️ | ✅ |
-| Streaming SSR | ✅ | ✅ | ❌ | ❌ |
-| Edge-Cache Auto-Headers | ✅ | ❌ | ❌ | ❌ |
-| Global State Store | ✅ | ❌ | ❌ | ❌ |
-| E2E Type Safety | ✅ | ⚠️ | ❌ | ⚠️ |
-| Bundle Budget Analyzer | ✅ | ❌ | ❌ | ❌ |
-| Zero config | ✅ | ⚠️ | ✅ | ⚠️ |
+**Requirements:** Node.js **≥ 20**, **pnpm ≥ 9** (this monorepo uses `workspace:` links; use `pnpm install` at the root).
 
----
-
-## Getting Started
-
-### Prerequisites
-
-- Node.js ≥ 20
-- pnpm ≥ 9 (install from the **repository root** with **`pnpm install` only** — `npm install` / `yarn` at the root are blocked by `preinstall` because this monorepo relies on `pnpm-workspace.yaml` and `workspace:` links)
-
-### Create a new project
-
-**Always works** (uses the published `@nexus_js/cli` package, which ships the `create-nexus` binary):
+**New application** (published CLI):
 
 ```bash
 npm exec --package=@nexus_js/cli@latest -- create-nexus my-app
@@ -71,368 +38,82 @@ npm install
 npm run dev
 ```
 
-**Unscoped meta packages** (same CLIs: `nexus`, `create-nexus` — pick the spelling you like):
+Other entrypoints (e.g. `pnpm create @nexus_js/nexus`, global installs) are described in [`packages/create-nexus/README.md`](./packages/create-nexus/README.md).
+
+**Clone this repo** (framework development):
 
 ```bash
-npm install -g nexus-js
-# or: npm install -g nexus_js
-create-nexus my-app
+git clone https://github.com/<org>/nexus.git
+cd nexus
+pnpm install
+pnpm build
+pnpm test
 ```
 
-With pnpm:
-
-```bash
-pnpm dlx --package=@nexus_js/cli@latest create-nexus my-app
-# or globally: pnpm add -g nexus-js
-```
-
-Or install the CLI globally: `npm install -g @nexus_js/cli` and run `create-nexus my-app`.
-
-**Shorthand** `pnpm create @nexus_js/nexus` / `npm create @nexus_js/nexus@latest` requires the separate package **`@nexus_js/create-nexus`** to exist on npm (it is published from this repo with `pnpm release`). If you see **404**, that package is not published yet — use the commands above until then.
-
-Official guides and API docs: **[nexusjs.dev](https://nexusjs.dev)**.
-
-### Manual setup
-
-```bash
-pnpm add @nexus_js/server @nexus_js/runtime @nexus_js/router
-```
-
-**Maintainers:** publishing all packages to npm is documented in [docs/PUBLISHING.md](./docs/PUBLISHING.md) — use **`pnpm release`** after aligning versions with **`pnpm version:framework -- <semver>`**.
+Run the minimal example: `pnpm example` (starts the `basic` example). Other examples: `pnpm dev:pokedex`, `pnpm dev:nexusflow`, etc.
 
 ---
 
-## The `.nx` Component Format
+## Monorepo layout
 
-Nexus components use the `.nx` extension, a superset of HTML with three sections: a server frontmatter block, a reactive script block, and a template.
-
-```html
----
-// Server block — runs ONLY on the server, never in the browser
-import { cache } from '@nexus_js/runtime';
-import { defineHead } from '@nexus_js/head';
-
-const posts = await cache('posts', () => fetch('/api/posts').then(r => r.json()), {
-  ttl: 60,
-  tags: ['post'],
-});
-
-defineHead({
-  title: 'My Blog',
-  description: 'Latest articles',
-});
----
-
-<script>
-  // Island block — reactive, runs in the browser
-  // Uses Svelte 5 Rune syntax
-  let { initialCount = 0 } = $props();
-  let count = $state(initialCount);
-  let doubled = $derived(count * 2);
-
-  $effect(() => {
-    document.title = `Count: ${count}`;
-  });
-</script>
-
-<template>
-  <!-- Static HTML (zero JS cost) -->
-  <ul>
-    {#each posts as post}
-      <li><a href="/blog/{post.slug}">{post.title}</a></li>
-    {/each}
-  </ul>
-
-  <!-- Interactive island — hydrated lazily when visible -->
-  <Counter client:visible initialCount={42} />
-</template>
-
-<style>
-  /* Automatically scoped to this component via AOT hash */
-  li { padding: 8px 0; }
-</style>
-```
-
----
-
-## Island Hydration Directives
-
-| Directive | When | Use Case |
-|---|---|---|
-| `client:load` | Immediately on page load | Critical UI (nav, modals) |
-| `client:idle` | After `requestIdleCallback` | Non-critical widgets |
-| `client:visible` | When entering the viewport | Below-the-fold content |
-| `client:media="(min-width: 768px)"` | When media query matches | Responsive islands |
-| `server:only` | Never (server render only) | Charts, complex SSR |
-
-```html
-<HeavyMap client:visible />
-<Analytics server:only />
-<Chatbot client:idle />
-```
-
----
-
-## File-Based Routing
-
-```
-src/routes/
-├── +layout.nx          # Root layout (wraps all pages)
-├── +page.nx            # → /
-├── blog/
-│   ├── +layout.nx      # Blog layout
-│   ├── +page.nx        # → /blog
-│   └── [slug]/
-│       ├── +page.nx    # → /blog/:slug
-│       └── +server.nx  # → GET/POST /blog/:slug (API)
-├── (auth)/             # Route group (no URL segment)
-│   ├── +layout.nx      # Auth layout
-│   ├── login/+page.nx  # → /login
-│   └── signup/+page.nx # → /signup
-└── error.nx            # Error boundary
-```
-
-### Pretext (route data before render)
-
-Parallel **pretext** blocks merge into `ctx.pretext` and hydrate the client as **`$pretext()`** (no extra fetch). Author with `// nexus:pretext` in frontmatter; full details: **[docs/PRETEXT.md](./docs/PRETEXT.md)**.
-
----
-
-## Server Actions
-
-Server Actions are typed, race-condition-safe, and use `@nexus_js/serialize` for transparent transport of complex types.
-
-```typescript
-// src/routes/blog/[slug]/+page.nx
----
-async function publishPost(formData: FormData, ctx: NexusContext) {
-  "use server";
-
-  const post = await ctx.db.mutate('post', 'update', () =>
-    ctx.db.client.post.update({
-      where: { slug: ctx.params.slug },
-      data: { published: true, publishedAt: new Date() },
-    })
-  );
-
-  return post; // Date objects serialize automatically ✓
-}
----
-```
-
-**Race condition strategies:**
-```typescript
-registerAction('save', saveFn, { race: 'cancel' });   // Cancel previous
-registerAction('pay',  payFn,  { race: 'reject' });   // 409 if in flight
-registerAction('log',  logFn,  { race: 'ignore' });   // All run in parallel
-```
-
----
-
-## Reactive Runes
-
-Nexus implements Svelte 5 Rune semantics for island components:
-
-```typescript
-// Fine-grained reactivity
-let count = $state(0);
-let doubled = $derived(count * 2);
-$effect(() => console.log('Count changed:', count));
-
-// Props from server/parent
-let { initialValue, onSave } = $props();
-
-// Optimistic UI — instant update, auto-rollback on failure
-const savePost = $optimistic(
-  async (draft) => await callAction('savePost', draft),
-  (current, draft) => ({ ...current, ...draft }),  // optimistic updater
-);
-
-// Synchronized state — stays in sync with cookies/session/DB
-const theme = $sync('theme', {
-  default: 'light',
-  storage: 'cookie',
-  path: '/',
-});
-```
-
----
-
-## Global State Store
-
-Zero hydration misses across SPA navigation:
-
-```typescript
-// In any island — state persists across /shop → /checkout
-import { useStore } from '@nexus_js/runtime';
-
-const cart = useStore('cart', {
-  default: [] as CartItem[],
-  persist: 'session',  // survives navigation
-});
-
-cart.value.push({ id: 'sku-123', qty: 1 });
-// Automatically available in the next page's cart island
-```
-
----
-
-## Smart Edge-Cache Headers
-
-Nexus computes `Cache-Control` automatically from your data's TTL:
-
-```typescript
----
-// TTL of 60 seconds → s-maxage=60, stale-while-revalidate=120
-const data = await cache('posts', fetchPosts, { ttl: 60 });
-
-// Session cookie detected → private, no-store (never CDN-cached)
-const user = ctx.cookies.get('session');
----
-```
-
-No manual `Cache-Control` headers. The renderer aggregates TTLs from all `cache()` calls and picks the most conservative value.
-
----
-
-## Database — Bring Your Own
-
-Nexus doesn't bundle an ORM. It wraps your client with caching and invalidation:
-
-```typescript
-// nexus.config.ts
-import { defineNexus } from '@nexus_js/cli';
-import { defineDB } from '@nexus_js/db';
-import { PrismaClient } from '@prisma/client';
-
-export default defineNexus({
-  db: defineDB(new PrismaClient(), { defaultTtl: 60 }),
-});
-```
-
-```typescript
-// Auto-cached query
-const posts = await ctx.db.query('post', 'findMany', () =>
-  ctx.db.client.post.findMany({ where: { published: true } })
-);
-
-// Auto-invalidates 'post' cache tag
-const post = await ctx.db.mutate('post', 'create', () =>
-  ctx.db.client.post.create({ data })
-);
-```
-
-Supported adapters: **Prisma**, **Drizzle ORM**, **libSQL/Turso**, or any custom client via `defineDB()`.
-
----
-
-## Nexus Studio
-
-A real-time developer dashboard, zero dependencies:
-
-```bash
-nexus studio
-# → Opens http://localhost:4000
-```
-
-Panels:
-- **Layout Tree** — visual hierarchy of nested layouts for the current route
-- **Island Map** — all live islands, their state, hydration strategy
-- **Action Log** — real-time stream of Server Action calls with payloads and timings
-- **Cache Inspector** — active cache entries, TTLs, hit/miss ratio
-- **Store Viewer** — live snapshot of the Global State Store
-
----
-
-## CLI Reference
-
-```bash
-nexus dev              # Start dev server with HMR (default: port 3000)
-nexus build            # Build for production
-nexus start            # Start production server
-nexus studio           # Open Nexus Studio dashboard
-nexus routes           # Print the route manifest
-nexus check            # TypeScript type-check
-nexus analyze          # Bundle budget report per route
-npm create @nexus_js/nexus my-app   # Scaffold (or npx @nexus_js/create-nexus)
-```
-
----
-
-## Monorepo Architecture
-
-The **framework** you install from npm (`@nexus_js/*`, `vite-plugin-nexus`) lives **only** in `packages/`. The `examples/` and `docs/` directories are demos and the marketing site — they are not published as framework packages.
+Published npm packages live under **`packages/`**. **`examples/`** are sample apps included in the workspace; they are not published as framework packages.
 
 ```
 nexus/
 ├── packages/
-│   ├── compiler/          # .nx parser, codegen, CSS scoping, preload scanner
-│   ├── runtime/           # Runes, islands, store, navigation, cache, optimistic, sync
-│   ├── server/            # HTTP server, SSR renderer, streaming, actions, error boundaries
-│   ├── router/            # File-based route manifest builder
-│   ├── cli/               # nexus CLI + Nexus Studio dashboard
-│   ├── assets/            # Image (AVIF/WebP) and font optimization
-│   ├── head/              # SEO metadata manager (defineHead/useHead)
-│   ├── middleware/         # Edge middleware (CORS, rate limit, auth, geo)
-│   ├── serialize/          # SuperJSON-like serializer for complex types
-│   ├── types/             # E2E type generation (nexus-types.d.ts)
-│   ├── testing/           # Vitest/Playwright testing utilities
-│   ├── vite-plugin-nexus/ # Vite plugin for HMR and build pipeline
-│   └── db/                # BYOD DB thin provider (Prisma/Drizzle/libSQL)
-├── examples/
-│   └── basic/             # Starter example app
-├── docs/
-│   └── index.html         # Multilingual landing page (ES/EN/PT)
-└── tsconfig.base.json     # Shared TypeScript configuration
+│   ├── compiler/          # .nx → JS (parser, codegen, islands, CSS scoping)
+│   ├── runtime/           # Client: runes, islands, navigation, cache, store
+│   ├── server/            # HTTP server, SSR, streaming, actions
+│   ├── router/            # File-based route manifest
+│   ├── cli/               # `nexus` CLI and Nexus Studio
+│   ├── create-nexus/      # `npm create @nexus_js/nexus` scaffold
+│   ├── head/              # Metadata (defineHead / useHead)
+│   ├── serialize/         # Types across server ↔ client boundaries
+│   ├── vite-plugin-nexus/ # Vite integration
+│   ├── assets/            # Image / font pipeline
+│   ├── db/                # Optional DB helper (BYO client)
+│   ├── middleware/, connect/, security/, sync/, audit/
+│   ├── types/, testing/, ui/
+│   └── nexus_js / nexus-js   # Meta-packages re-exporting the stack
+├── examples/              # Demos: basic, pokedex, nexusflow, …
+├── docs/                  # Contributor docs + [REPOSITORY.md](./docs/REPOSITORY.md) (clean GitHub publish)
+└── .github/workflows/     # CI
 ```
+
+Maintainers: release process is documented in [`docs/PUBLISHING.md`](./docs/PUBLISHING.md).
 
 ---
 
-## Deployment
+## The `.nx` format (short)
 
-Nexus targets the Web Platform. Any runtime that speaks `Request` / `Response` works:
+Each file can include:
 
-| Platform | Status | Notes |
-|---|---|---|
-| Node.js (≥20) | ✅ Production | Default runtime |
-| Cloudflare Workers | ✅ Production | Via `@nexus_js/middleware` adapter |
-| Vercel Edge | ✅ Production | Via `@nexus_js/middleware` adapter |
-| Deno Deploy | ✅ Production | Web-standard APIs only |
-| Bun | ✅ Production | Drop-in Node.js compatibility |
-| Docker / VPS | ✅ Production | `nexus build && nexus start` |
+1. **`---` frontmatter** — server-only: imports, data loading, `// nexus:pretext`, actions.
+2. **`<script>`** — Svelte 5 runes for island code.
+3. **`<template>`** — HTML with `{expressions}` and `{#if}` / `{#each}`.
+4. **`<style>`** — scoped CSS.
+
+Hydration examples: `client:load`, `client:idle`, `client:visible`, `client:media="…"`, `server:only`. Details: [`docs/ISLANDS.md`](./docs/ISLANDS.md), [`docs/PRETEXT.md`](./docs/PRETEXT.md).
+
+---
+
+## Feature snapshot
+
+| Area | Highlights |
+|------|------------|
+| Rendering | Islands, streaming SSR, automatic cache-related `Cache-Control` hints |
+| Data | Pretext merged into `$pretext()`, `cache()` with tags/TTL |
+| Client | Global store, optimistic updates, SPA-style navigation where enabled |
+| Tooling | `nexus dev | build | start | check | studio`, bundle analysis |
 
 ---
 
 ## Contributing
 
-We welcome contributions of all kinds — bug reports, documentation, new adapters, or features. See [CONTRIBUTING.md](./CONTRIBUTING.md) to get started.
-
-```bash
-# Clone and set up
-git clone https://github.com/bierfor/nexus.git
-cd nexus
-pnpm install
-pnpm dev
-
-# Run tests
-pnpm test
-
-# Type-check all packages
-pnpm typecheck
-```
+Issues and pull requests are welcome. See [**CONTRIBUTING.md**](./CONTRIBUTING.md) (setup, structure, commits, tests). To **replace or recreate the GitHub remote** with a clean tree only, follow [**docs/REPOSITORY.md**](./docs/REPOSITORY.md).
 
 ---
 
 ## License
 
-MIT © 2026 [Nexus Contributors](https://github.com/bierfor/nexus/graphs/contributors)
-
----
-
-<div align="center">
-
-Built with conviction that the web deserves better defaults.
-
-**[Get Started → nexusjs.dev](https://nexusjs.dev)**
-
-</div>
+MIT — see [LICENSE](./LICENSE).

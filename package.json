@@ -2,14 +2,10 @@
   "name": "nexus-workspace",
   "version": "0.7.4",
   "private": true,
-  "description": "Nexus — Full-stack framework: islands, Svelte 5 Runes, server actions, pretext, Hardened Mode & supply-chain audit",
+  "description": "Nexus — full-stack framework: islands-first SSR, Svelte 5 runes, server actions, file-based routes",
   "workspaces": [
     "packages/*",
-    "examples/*",
-    "my-nexus-app",
-    "news",
-    "fin-sh",
-    "fin-sh/api"
+    "examples/*"
   ],
   "scripts": {
     "preinstall": "node scripts/ensure-pnpm.mjs",
@@ -18,8 +14,6 @@
     "dev:pokedex": "pnpm --filter pokedex dev",
     "dev:nexusflow": "pnpm --filter nexusflow dev",
     "dev:anonymous-chat": "pnpm --filter anonymous-chat dev",
-    "dev:my-nexus-app": "pnpm --filter my-nexus-app dev",
-    "dev:news": "pnpm --filter news dev",
     "dev:all": "pnpm --filter './packages/*' --parallel dev & pnpm --filter pokedex dev",
     "test": "pnpm -r test",
     "lint": "pnpm -r lint",

@@ -5,6 +5,7 @@ Thank you for your interest in contributing to Nexus. This document explains the
 ## Table of Contents
 
 - [Code of Conduct](#code-of-conduct)
+- [Repository on GitHub (clean publish)](#repository-on-github-clean-publish)
 - [Getting Started](#getting-started)
 - [Development Setup](#development-setup)
 - [Project Structure](#project-structure)
@@ -21,6 +22,12 @@ Thank you for your interest in contributing to Nexus. This document explains the
 ## Code of Conduct
 
 This project adheres to the [Contributor Covenant Code of Conduct](./CODE_OF_CONDUCT.md). By participating, you agree to uphold these standards. Report unacceptable behavior to the maintainers.
+
+---
+
+## Repository on GitHub (clean publish)
+
+This monorepo should only track **framework-related** sources (`packages/`, `examples/`, `docs/`, CI, scripts). If you need to **delete the remote and push again** (or start from a fresh `git init`), follow [**docs/REPOSITORY.md**](./docs/REPOSITORY.md).
 
 ---
 
@@ -294,4 +301,4 @@ Use the GitHub Issues bug report template. Include:
 
 ## Questions?
 
-Open a [GitHub Discussion](https://github.com/bierfor/nexus/discussions) for questions, ideas, or RFCs. Issues are for actionable bugs and feature requests.
+Open **GitHub Discussions** on your repository (e.g. `https://github.com/<org>/nexus/discussions`) for questions, ideas, or RFCs. Issues are for actionable bugs and feature requests.

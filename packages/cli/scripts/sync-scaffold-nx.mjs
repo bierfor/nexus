@@ -1,14 +1,23 @@
 /**
- * Copies my-nexus-app route templates into packages/cli/src/create.ts `buildFullScaffoldFiles` only.
+ * Copies `my-nexus-app/` route templates into packages/cli/src/create.ts `buildFullScaffoldFiles` only.
  * (The `minimal` template is edited inline in create.ts — not synced from my-nexus-app.)
+ *
+ * `my-nexus-app` is gitignored in the OSS repo; clone or recreate it locally to run this script.
  */
-import { readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 const app = join(repoRoot, 'my-nexus-app');
 const createPath = join(repoRoot, 'packages/cli/src/create.ts');
+
+if (!existsSync(app)) {
+  console.error(
+    '[sync-scaffold] Missing my-nexus-app/ at repo root. Add that folder locally (gitignored) to sync routes into create.ts.',
+  );
+  process.exit(1);
+}
 
 function esc(s) {
   return s.replace(/\\/g, '\\\\').replace(/`/g, '\\`').replace(/\$\{/g, '\\${');

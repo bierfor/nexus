@@ -198,7 +198,7 @@ Each scoped package has `"publishConfig": { "access": "public" }`. **`pnpm relea
 ## Documentation and homepage
 
 - **Official site:** [https://nexusjs.dev](https://nexusjs.dev)
-- **Source:** [https://github.com/bierfor/nexus](https://github.com/bierfor/nexus)
+- **Source:** your public GitHub URL (set `repository` / `bugs` in each `package.json` to match after you publish the repo)
 
 Each published package includes `homepage`, `repository`, and `bugs` fields pointing at these URLs.
 

@@ -1,4 +1,4 @@
-# Used by `docker build -f Dockerfile.news .` from repo root
+# Optional Docker builds from repo root
 .git
 .github
 **/node_modules

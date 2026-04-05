@@ -47,11 +47,11 @@ flowchart LR
 
 Para precisión de imports y árbol de componentes, ver también el código en [`packages/compiler/src/preload-scanner.ts`](../packages/compiler/src/preload-scanner.ts) (resolución de `.nx` y preloads).
 
-## Idioma (i18n) en la app de ejemplo
+## Idioma (i18n) en la plantilla full
 
-En `my-nexus-app`, el idioma activo sigue `?lang=` / `?locale=` (p. ej. `?lang=es`), la cookie `nx-lang` y `Accept-Language`; el listado coincide con `i18n.locales` en `nexus.config.ts`. Las rutas internas enlazan con `pathWithLang` para conservar el idioma.
+En el proyecto generado con **`npm create @nexus_js/nexus@latest`** (plantilla **full**), el idioma activo sigue `?lang=` / `?locale=` (p. ej. `?lang=es`), la cookie `nx-lang` y `Accept-Language`; el listado coincide con `i18n.locales` en `nexus.config.ts`. Las rutas internas enlazan con `pathWithLang` para conservar el idioma.
 
 ## Más documentación
 
 - Sitio: [nexusjs.dev](https://nexusjs.dev)
-- App de ejemplo en el monorepo: `my-nexus-app/src/routes/islands/+page.nx`
+- Islas de ejemplo: en un proyecto **full**, `src/routes/islands/+page.nx`

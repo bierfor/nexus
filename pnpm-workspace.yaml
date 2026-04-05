@@ -1,7 +1,3 @@
 packages:
   - 'packages/*'
   - 'examples/*'
-  - 'my-nexus-app'
-  - 'news'
-  - 'fin-sh'
-  - 'fin-sh/api'
