@@ -58,7 +58,7 @@ git push -u origin main
 |---------|--------|
 | `packages/` | Published `@nexus_js/*` packages (incl. `@nexus_js/vite-plugin-nexus`) |
 | `examples/` | Small demo apps wired in `pnpm-workspace.yaml` |
-| `docs/` | In-repo technical docs and static assets |
+| `docs/` | In-repo technical docs and static assets (see **[`PRODUCTION.md`](./PRODUCTION.md)** for deploy / server-action hardening) |
 | `.github/` | CI and templates |
 | `scripts/` | Build, release, and tooling helpers |
 | Root `package.json`, `pnpm-workspace.yaml`, `pnpm-lock.yaml`, `tsconfig.base.json`, `.npmrc` | Workspace bootstrap |

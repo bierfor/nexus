@@ -8,21 +8,17 @@
   <meta name="keywords" content="Nexus.js, Nexus framework, full-stack JavaScript, Svelte 5, Runes, islands architecture, server actions, SSR, pretext, Hardened Mode, supply chain security, TypeScript">
   <meta name="author" content="Nexus Contributors">
   <meta name="robots" content="index, follow, max-image-preview:large">
-  <meta name="theme-color" content="#0f172a">
-  <link rel="icon" href="assets/nexus-logo.svg" type="image/svg+xml">
-  <link rel="apple-touch-icon" href="assets/nexus-logo.svg">
+  <meta name="theme-color" content="#fafafa">
   <link rel="canonical" href="https://nexusjs.dev/">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://nexusjs.dev/">
   <meta id="og-title" property="og:title" content="Nexus.js — Full-stack framework | Islands, Runes &amp; Hardened Mode">
   <meta id="og-desc" property="og:description" content="Opinionated framework with technical purity: surgical JS via islands, pretext for secure server data, and Hardened Mode as your build-time auditor.">
   <meta property="og:site_name" content="Nexus.js">
-  <meta property="og:image" content="https://nexusjs.dev/assets/nexus-logo.svg">
   <meta property="og:locale" id="og-locale" content="en_US">
   <meta name="twitter:card" content="summary">
   <meta id="tw-title" name="twitter:title" content="Nexus.js — Full-stack framework">
   <meta id="tw-desc" name="twitter:description" content="Islands + Runes + Server Actions + Hardened Mode. Built for real problems in 2026.">
-  <meta name="twitter:image" content="https://nexusjs.dev/assets/nexus-logo.svg">
   <link rel="alternate" hreflang="en" href="https://nexusjs.dev/">
   <link rel="alternate" hreflang="es" href="https://nexusjs.dev/">
   <link rel="alternate" hreflang="pt" href="https://nexusjs.dev/">
@@ -30,7 +26,7 @@
   <script type="application/ld+json">
   {"@context":"https://schema.org","@graph":[
     {"@type":"WebSite","@id":"https://nexusjs.dev/#website","name":"Nexus.js","url":"https://nexusjs.dev/","description":"Full-stack JavaScript framework: islands, Svelte 5 Runes, server actions, pretext, Hardened Mode.","inLanguage":["en","es","pt"],"publisher":{"@id":"https://nexusjs.dev/#org"}},
-    {"@type":"Organization","@id":"https://nexusjs.dev/#org","name":"Nexus.js","url":"https://nexusjs.dev/","logo":{"@type":"ImageObject","url":"https://nexusjs.dev/assets/nexus-logo.svg"}},
+    {"@type":"Organization","@id":"https://nexusjs.dev/#org","name":"Nexus.js","url":"https://nexusjs.dev/"},
     {"@type":"SoftwareApplication","name":"Nexus.js","applicationCategory":"DeveloperApplication","operatingSystem":"Cross-platform","license":"https://opensource.org/licenses/MIT","url":"https://github.com/bierfor/nexus","description":"Opinionated full-stack framework with islands architecture, Runes reactivity, and security-first compiler & audit tooling."}
   ]}
   </script>
@@ -130,13 +126,18 @@
       overscroll-behavior: contain;
     }
 
-    .logo-img {
-      width: 36px;
-      height: 36px;
-      flex-shrink: 0;
+    .logo-mark {
+      width: 36px; height: 36px;
+      background: linear-gradient(145deg, #18181b 0%, #3f3f46 100%);
       border-radius: 10px;
-      object-fit: contain;
-      box-shadow: 0 2px 10px rgba(15, 23, 42, 0.12);
+      display: grid;
+      place-items: center;
+      font-size: 17px;
+      font-weight: 700;
+      color: #fff;
+      font-family: var(--mono);
+      flex-shrink: 0;
+      box-shadow: 0 2px 8px rgba(0,0,0,.12);
     }
 
     .logo-text {
@@ -288,25 +289,13 @@
 
     .mobile-brand {
       flex: 1;
-      display: flex;
-      align-items: center;
-      gap: 10px;
       font-weight: 700;
       font-size: 16px;
       color: var(--text);
       text-decoration: none;
       letter-spacing: -0.02em;
-      min-width: 0;
     }
-    .mobile-brand-logo {
-      width: 32px;
-      height: 32px;
-      flex-shrink: 0;
-      border-radius: 9px;
-      object-fit: contain;
-      box-shadow: 0 1px 6px rgba(15, 23, 42, 0.1);
-    }
-    .mobile-brand-suffix {
+    .mobile-brand span {
       font-weight: 500;
       color: var(--muted);
       font-size: 13px;
@@ -472,16 +461,6 @@
 
     .hero > * { position: relative; z-index: 1; }
 
-    .hero-logo {
-      display: block;
-      width: 88px;
-      height: 88px;
-      margin: 0 auto 24px;
-      border-radius: 22px;
-      box-shadow: 0 8px 32px rgba(15, 23, 42, 0.18), 0 2px 8px rgba(0, 0, 0, 0.06);
-      object-fit: contain;
-    }
-
     .hero-badge {
       display: inline-flex;
       align-items: center;
@@ -548,14 +527,6 @@
       border: 1px solid var(--border-strong);
     }
     .btn-outline:hover { border-color: var(--text); color: var(--text); }
-
-    .btn-coffee {
-      background: #FFDD00;
-      color: #000;
-      border: 1px solid rgba(0,0,0,.08);
-      font-weight: 700;
-    }
-    .btn-coffee:hover { background: #ffe733; transform: translateY(-1px); box-shadow: 0 4px 16px rgba(255,221,0,.4); }
 
     .hero-stats {
       display: flex;
@@ -1016,11 +987,6 @@
       .hero {
         padding-top: 72px;
       }
-      .hero-logo {
-        width: 72px;
-        height: 72px;
-        margin-bottom: 20px;
-      }
       .to-top {
         right: 14px;
         bottom: 16px;
@@ -1039,10 +1005,7 @@
   <button type="button" class="nav-toggle" id="nav-toggle" aria-expanded="false" aria-controls="sidebar-nav" aria-label="Open menu">
     <span class="nav-toggle-icon" aria-hidden="true"><span></span><span></span><span></span></span>
   </button>
-  <a href="#top" class="mobile-brand">
-    <img class="mobile-brand-logo" src="assets/nexus-logo.svg" width="32" height="32" alt="" decoding="async" />
-    <span>Nexus <span class="mobile-brand-suffix">docs</span></span>
-  </a>
+  <a href="#top" class="mobile-brand">Nexus <span>docs</span></a>
   <div class="mobile-lang">
     <button type="button" class="lang-btn active" onclick="setLang('en')">EN</button>
     <button type="button" class="lang-btn" onclick="setLang('es')">ES</button>
@@ -1062,9 +1025,9 @@
 <!-- ── Sidebar ────────────────────────────────────────────────────────────── -->
 <aside>
   <a href="#top" class="sidebar-logo">
-    <img class="logo-img" src="assets/nexus-logo.svg" width="36" height="36" alt="" decoding="async" />
+    <div class="logo-mark">N</div>
     <span class="logo-text">Nexus</span>
-    <span class="logo-version">v0.7.4</span>
+    <span class="logo-version">v0.8.0</span>
   </a>
   <nav id="sidebar-nav">
     <div class="nav-filter-wrap">
@@ -1072,8 +1035,8 @@
       <input type="search" class="nav-filter" id="nav-filter" placeholder="Filter sections…" autocomplete="off" spellcheck="false">
     </div>
     <div class="nav-section" data-i18n="nav.gettingStarted">Getting Started</div>
-    <a href="#install" class="active" data-i18n="nav.install">⚡ Installation</a>
-    <a href="#quickstart" data-i18n="nav.quickStart">🚀 Quick Start</a>
+    <a href="#install" class="active">⚡ Installation</a>
+    <a href="#quickstart">🚀 Quick Start</a>
     <a href="#project-structure">📁 Project Structure</a>
 
     <div class="nav-section" data-i18n="nav.core">Core Concepts</div>
@@ -1100,7 +1063,7 @@
     <a href="#local-first">📴 Local-First Sync</a>
     <a href="#zero-bundle">✨ Zero-Bundle UI</a>
 
-    <div class="nav-section" data-i18n="nav.security">Security</div>
+    <div class="nav-section">Security</div>
     <a href="#security">🛡️ Security by Default</a>
     <a href="#audit">🔍 nexus audit</a>
     <a href="#supply-chain">⛓️ Supply Chain Guard</a>
@@ -1111,6 +1074,7 @@
     <a href="#studio">🎛️ Nexus Studio</a>
     <a href="#testing">🧪 Testing</a>
     <a href="#deployment">🚀 Deployment</a>
+    <a href="#production-hardening">📦 Production hardening</a>
 
     <div class="nav-section" data-i18n="nav.reference">Reference</div>
     <a href="#changelog">📋 Changelog</a>
@@ -1124,7 +1088,6 @@
 
   <!-- Hero -->
   <div class="hero" id="top">
-    <img class="hero-logo" src="assets/nexus-logo.svg" width="88" height="88" alt="Nexus" decoding="async" />
     <div class="hero-badge">
       <span>◆</span>
       <span data-i18n="hero.badge">Islands Architecture + Svelte 5 Runes + Server Actions</span>
@@ -1134,13 +1097,12 @@
     <div class="hero-actions">
       <a href="#quickstart" class="btn btn-primary" data-i18n="hero.cta1">Get Started →</a>
       <a href="https://github.com/bierfor/nexus" class="btn btn-outline" target="_blank" data-i18n="hero.cta2">GitHub ↗</a>
-      <a href="https://buymeacoffee.com/bierfor084" class="btn btn-coffee" target="_blank" rel="noopener" aria-label="Buy Me a Coffee">☕ Buy me a coffee</a>
     </div>
     <div class="hero-stats">
       <div class="stat"><div class="stat-num">18</div><div class="stat-label" data-i18n="hero.stat1">Packages</div></div>
       <div class="stat"><div class="stat-num">0kb</div><div class="stat-label" data-i18n="hero.stat2">JS by Default</div></div>
       <div class="stat"><div class="stat-num">100%</div><div class="stat-label" data-i18n="hero.stat3">TypeScript</div></div>
-      <div class="stat"><div class="stat-num">v0.7.4</div><div class="stat-label" data-i18n="hero.stat4">Latest</div></div>
+      <div class="stat"><div class="stat-num">v0.8.0</div><div class="stat-label" data-i18n="hero.stat4">Latest</div></div>
     </div>
   </div>
 
@@ -1241,11 +1203,11 @@
     <section id="install">
       <div class="section-label">Getting Started</div>
       <h2 data-i18n="install.title">Installation</h2>
-      <p class="lead" data-i18n="install.lead">Nexus requires Node.js ≥ 22 and pnpm ≥ 9. It works on any OS.</p>
+      <p class="lead" data-i18n="install.lead">Nexus requires Node.js ≥ 20 and pnpm ≥ 9. It works on any OS.</p>
 
       <h3 data-i18n="install.prereq">Prerequisites</h3>
       <div class="code-title"><span>terminal</span><span class="code-lang">bash</span></div>
-      <pre><code class="language-bash">node --version   # Must be ≥ 22.0.0
+      <pre><code class="language-bash">node --version   # Must be ≥ 20.0.0
 npm install -g pnpm
 pnpm --version   # Must be ≥ 9.0.0</code></pre>
     </section>
@@ -1261,7 +1223,7 @@ pnpm --version   # Must be ≥ 9.0.0</code></pre>
           <div class="step-content">
             <h4 data-i18n="qs.step1">Scaffold a new project</h4>
             <div class="code-title"><span>terminal</span><span class="code-lang">bash</span></div>
-            <pre><code class="language-bash">pnpm create @nexus_js/nexus@latest my-app
+            <pre><code class="language-bash">pnpm create nexus@latest my-app
 cd my-app</code></pre>
           </div>
         </div>
@@ -2046,7 +2008,7 @@ export default defineNexus({
         <tbody>
           <tr><td><code>nexus dev</code></td><td>Start dev server with HMR on <code>localhost:3000</code> + background CVE audit</td><td>v0.1</td></tr>
           <tr><td><code>nexus dev --port 4200</code></td><td>Dev server on custom port</td><td>v0.1</td></tr>
-          <tr><td><code>nexus build</code></td><td>Production build → <code>.nexus/output/</code> (fails on critical CVEs in block mode)</td><td>v0.1</td></tr>
+          <tr><td><code>nexus build</code></td><td>Production build → <code>.nexus/output/</code>, <code>.nexus/build-id.json</code>, <code>.nexus/lib/</code> from <code>src/lib</code> (fails on critical CVEs in block mode)</td><td>v0.1+</td></tr>
           <tr><td><code>nexus start</code></td><td>Start the production server</td><td>v0.1</td></tr>
           <tr><td><code>nexus studio</code></td><td>Open Nexus Studio at <code>localhost:4000</code></td><td>v0.2</td></tr>
           <tr><td><code>nexus routes</code></td><td>Print the full route manifest</td><td>v0.1</td></tr>
@@ -2236,6 +2198,8 @@ test('createPost saves to DB', async () => {
       <pre><code class="language-bash">nexus build
 nexus start        # Starts on PORT env var or 3000
 
+# Production: set NEXUS_SECRET; optional NEXUS_BUILD_ID at build time (see Production hardening)
+
 # Docker
 docker build -t my-app .
 docker run -p 3000:3000 my-app</code></pre>
@@ -2259,6 +2223,21 @@ export default toCloudflareHandler(server.fetch);</code></pre>
       <pre><code class="language-typescript">// Nexus uses only Web-standard APIs
 // No Node.js-specific APIs in the critical path
 // Works on Deno Deploy and Bun without modification</code></pre>
+    </section>
+
+    <section id="production-hardening">
+      <div class="section-label">Tooling</div>
+      <h2>📦 Production hardening</h2>
+      <p class="lead">Build artifacts, build-ID consistency for server actions, and environment variables that matter when <code>NODE_ENV=production</code>.</p>
+
+      <ul style="color:var(--text-secondary);line-height:1.85;margin:16px 0 16px 22px">
+        <li><strong style="color:var(--text)">Artifacts</strong> — <code>nexus build</code> writes <code>.nexus/output/</code>, <code>.nexus/build-id.json</code> (<code>buildId</code> + <code>generatedAt</code>), and transpiled <code>src/lib</code> → <code>.nexus/lib/**/*.js</code> for runtime <code>$lib</code> resolution.</li>
+        <li><strong style="color:var(--text)">Stale tabs after deploy</strong> — When a build id is present, the server expects <code>x-nexus-build-id</code> on action requests; mismatch → <strong>412</strong> <code>BUILD_MISMATCH</code>. HTML injects <code>window.__NEXUS_BUILD_ID__</code>; <code>callAction</code> sends the header and reloads on 412.</li>
+        <li><strong style="color:var(--text)">CI</strong> — Set <code>NEXUS_BUILD_ID</code> during <code>nexus build</code> (e.g. git SHA) so deployed HTML and server share the same id.</li>
+        <li><strong style="color:var(--text)">Secrets &amp; errors</strong> — Set <code>NEXUS_SECRET</code> in production. Unhandled action errors are masked unless <code>NEXUS_EXPOSE_ERRORS=true</code> (responses include <code>errorId</code>; details in server logs).</li>
+      </ul>
+
+      <p style="font-size:14px;color:var(--muted)">Full reference (CSRF tiers, rate limits, body limits, URL helpers): <a href="https://github.com/bierfor/nexus/blob/main/docs/PRODUCTION.md" style="color:var(--accent2)"><code>docs/PRODUCTION.md</code> on GitHub ↗</a></p>
     </section>
 
     <!-- ═══════════════════════════════════════════════════════════════════ -->
@@ -2463,20 +2442,18 @@ async function remove(id) {
     <!-- ═══════════════════════════════════════════════════════════════════ -->
 
     <section id="security">
-      <div class="section-label">Security — v0.5</div>
+      <div class="section-label">Security — v0.5+ (actions v0.7.5+)</div>
       <h2>🛡️ Security by Default</h2>
-      <p class="lead">Nexus treats security as a compilation concern, not a runtime afterthought. Five layers of protection are active with zero configuration.</p>
+      <p class="lead">Nexus treats security as a compilation concern, not a runtime afterthought. Compiler guardrails, action hardening, and optional Hardened Mode headers stack with zero ceremony for the basics.</p>
 
-      <h3>1 — Anti-CSRF & Replay (Action Tokens)</h3>
-      <p>Every island render generates an ephemeral HMAC-signed token bound to the user session. <code>createAction</code> validates it automatically — single-use, expired in 5 minutes.</p>
-      <div class="code-title"><span>packages/server/src/csrf.ts — how it works</span><span class="code-lang">typescript</span></div>
-      <pre><code class="language-typescript">// Automatic — you never write this manually
-const token = await generateActionToken(sessionId, secretKey);
-// token is injected into the island's hidden &lt;input&gt; by the renderer
+      <h3>1 — Anti-CSRF for server actions (dual tier, v0.7.5+)</h3>
+      <p><strong>Tier 1 (default):</strong> action requests must include the custom header <code>x-nexus-action: 1</code>. <code>callAction</code> and friends send it automatically; simple cross-origin form posts cannot forge it. <strong>Tier 2 (when <code>x-nexus-action-token</code> is present):</strong> the server validates the HMAC token — session-bound, single-use, ~15 minute TTL, with a small clock-skew guard against far-future <code>iat</code>. <code>Origin: null</code> (opaque contexts) is rejected. Set <code>NEXUS_SECRET</code> in production so tokens cannot be forged.</p>
+      <div class="code-title"><span>Conceptual flow — packages/server/src/csrf.ts</span><span class="code-lang">typescript</span></div>
+      <pre><code class="language-typescript">// Tier 1: fetch-based callers send x-nexus-action (blocks classic form CSRF)
 
-// On the server, createAction calls this before your handler runs:
+// Tier 2 (optional token path): HMAC validation before your handler
 await validateActionToken(token, sessionId, secretKey);
-// Throws if: wrong HMAC | expired | already used (replay detected)</code></pre>
+// Fails on: wrong HMAC | expired (~15 min) | already used | clock skew &gt; 5s ahead</code></pre>
 
       <h3>2 — Ghost Wall: Secret Leak Detection</h3>
       <p>The Nexus compiler scans every <code>.nx</code> file. If a server-side variable matching <code>*_SECRET</code>, <code>*_KEY</code>, or <code>process.env.*</code> is referenced inside a client island, the build fails immediately with a pedagogical error.</p>
@@ -2498,6 +2475,7 @@ await validateActionToken(token, sessionId, secretKey);
 { name: "&amp;lt;script&amp;gt;alert(1)&amp;lt;/script&amp;gt;" }</code></pre>
 
       <h3>4 — Per-Action Rate Limiting</h3>
+      <p style="color:var(--text-secondary);font-size:15px;margin-bottom:12px">Limiters are registered once per action and reused across requests (sliding window state persists — not recreated per hit).</p>
       <div class="code-title"><span>src/actions/capture.ts</span><span class="code-lang">typescript</span></div>
       <pre><code class="language-typescript">export const captureAction = createAction({
   rateLimit: { window: '1m', max: 3 },   // sliding-window per user IP
@@ -2594,7 +2572,7 @@ nexus audit --json       # Machine-readable output</code></pre>
 
       <h3>Build-time blocking (Vite plugin)</h3>
       <div class="code-title"><span>vite.config.ts</span><span class="code-lang">typescript</span></div>
-      <pre><code class="language-typescript">import { nexus, nexusSecurity } from '@nexus_js/vite-plugin-nexus';
+      <pre><code class="language-typescript">import { nexus, nexusSecurity } from 'vite-plugin-nexus';
 
 export default {
   plugins: [
@@ -2660,8 +2638,38 @@ nexus fix --force        # Also fix medium + low severity</code></pre>
 
       <div style="border-left:3px solid var(--accent); padding-left:20px; margin-bottom:32px">
         <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
-          <span style="font-size:18px;font-weight:700">v0.6.0</span>
+          <span style="font-size:18px;font-weight:700">v0.8.0</span>
           <span class="badge badge-purple">Latest</span>
+          <span style="color:var(--muted);font-size:13px">2026-04</span>
+        </div>
+        <p style="color:var(--muted);margin-bottom:12px">Build ID contract, production error masking, layout/page output split</p>
+        <ul style="color:var(--text);line-height:2;list-style:disc;padding-left:16px">
+          <li><code>.nexus/build-id.json</code> on every <code>nexus build</code>; optional <code>NEXUS_BUILD_ID</code> in CI</li>
+          <li>Server actions: <code>x-nexus-build-id</code> must match → else <strong>412</strong> <code>BUILD_MISMATCH</code>; <code>callAction</code> reloads on mismatch</li>
+          <li><code>window.__NEXUS_BUILD_ID__</code> injected in HTML; stale tabs recover after deploy</li>
+          <li>Production: masked action errors with <code>errorId</code> unless <code>NEXUS_EXPOSE_ERRORS=true</code></li>
+          <li>CSRF token clock-skew guard; JSON body complexity limits before parse; <code>isSafeUrl()</code> for SSRF-safe fetch wrappers</li>
+          <li>Root <code>+layout</code> vs <code>+page</code> → <code>index._layout.js</code> / <code>index.js</code> (no overwrite)</li>
+        </ul>
+      </div>
+
+      <div style="border-left:3px solid var(--green); padding-left:20px; margin-bottom:32px">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
+          <span style="font-size:18px;font-weight:700">v0.7.5</span>
+          <span style="color:var(--muted);font-size:13px">2026-04</span>
+        </div>
+        <p style="color:var(--muted);margin-bottom:12px">Server action security &amp; production path fixes</p>
+        <ul style="color:var(--text);line-height:2;list-style:disc;padding-left:16px">
+          <li>Dual-tier CSRF: <code>x-nexus-action</code> header + optional HMAC token; compiler no longer disables CSRF on sidecars</li>
+          <li>Rate limit registry (persistent sliding window); <code>USED_TOKENS</code> TTL map; <code>NEXUS_SECRET</code> prod warning</li>
+          <li><code>Origin: null</code> rejected; action name allowlist; max body size (10 MB default); <code>Vary</code> on public HTML</li>
+          <li>Dev endpoints restricted to loopback <code>Origin</code>; <code>compileLib</code> + <code>.nexus/lib</code> for production <code>$lib</code></li>
+        </ul>
+      </div>
+
+      <div style="border-left:3px solid var(--accent2); padding-left:20px; margin-bottom:32px">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
+          <span style="font-size:18px;font-weight:700">v0.6.0</span>
           <span style="color:var(--muted);font-size:13px">2026-04</span>
         </div>
         <p style="color:var(--muted);margin-bottom:12px">Integrated Dependency Auditing &amp; Supply Chain Guard</p>
@@ -2675,14 +2683,14 @@ nexus fix --force        # Also fix medium + low severity</code></pre>
         </ul>
       </div>
 
-      <div style="border-left:3px solid var(--accent2); padding-left:20px; margin-bottom:32px">
+      <div style="border-left:3px solid var(--amber); padding-left:20px; margin-bottom:32px">
         <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
           <span style="font-size:18px;font-weight:700">v0.5.0</span>
           <span style="color:var(--muted);font-size:13px">2026-03</span>
         </div>
         <p style="color:var(--muted);margin-bottom:12px">Security by Compilation</p>
         <ul style="color:var(--text);line-height:2;list-style:disc;padding-left:16px">
-          <li>Anti-CSRF &amp; Replay: HMAC-signed single-use action tokens per island render</li>
+          <li>Action security foundation: HMAC tokens + compiler guardrails; dual-tier CSRF (custom header + optional token) shipped in v0.7.5</li>
           <li>Ghost Wall: compiler blocks builds when server secrets reach client bundles</li>
           <li>XSS auto-encoding in <code>@nexus_js/serialize</code> for all server→client strings</li>
           <li>Per-action rate limiting with sliding window &amp; RFC 6585 <code>Retry-After</code> headers</li>
@@ -2816,7 +2824,7 @@ nexus fix --force        # Also fix medium + low severity</code></pre>
           <tr><td><code>@nexus_js/serialize</code></td><td>SuperJSON-like: Date, Map, Set, BigInt, RegExp, URL, Uint8Array, Error</td></tr>
           <tr><td><code>@nexus_js/types</code></td><td>E2E type generation for routes, params, and Server Actions</td></tr>
           <tr><td><code>@nexus_js/testing</code></td><td><code>renderSSR</code>, <code>mountIsland</code>, <code>createActionTestHarness</code> for Vitest</td></tr>
-          <tr><td><code>@nexus_js/vite-plugin-nexus</code></td><td>Vite plugin for HMR, CSS preprocessing, island manifest emission, CVE blocking</td></tr>
+          <tr><td><code>vite-plugin-nexus</code></td><td>Vite plugin for HMR, CSS preprocessing, island manifest emission, CVE blocking</td></tr>
           <tr><td><code>@nexus_js/db</code></td><td>BYOD DB adapter: Prisma, Drizzle ORM, libSQL/Turso, or custom</td></tr>
           <tr><td><code>@nexus_js/sync</code></td><td><code>$localSync</code> rune — IndexedDB offline writes + background server sync + conflict resolution</td></tr>
           <tr><td><code>@nexus_js/ui</code></td><td>Zero-Bundle CSS-only interactive components (Accordion, Tabs, Modal, Tooltip, Progress Ring)</td></tr>
@@ -2829,14 +2837,9 @@ nexus fix --force        # Also fix medium + low severity</code></pre>
 
       <hr>
 
-      <p style="text-align:center; color: var(--muted); font-size:13px; margin-top:32px; display:flex; flex-wrap:wrap; gap:12px; justify-content:center; align-items:center;">
-        <span><strong style="color:var(--text)">Nexus</strong> — MIT License © 2026 Nexus Contributors</span>
+      <p style="text-align:center; color: var(--muted); font-size:13px; margin-top:32px">
+        <strong style="color:var(--text)">Nexus</strong> — MIT License © 2026 Nexus Contributors ·
         <a href="https://github.com/bierfor/nexus" style="color:var(--accent2); text-decoration:none">GitHub ↗</a>
-        <a href="https://buymeacoffee.com/bierfor084" target="_blank" rel="noopener"
-           style="display:inline-flex;align-items:center;gap:5px;background:#FFDD00;color:#000;font-weight:700;font-size:12px;padding:4px 12px;border-radius:8px;text-decoration:none;transition:opacity .15s;"
-           onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">
-          ☕ Buy me a coffee
-        </a>
       </p>
     </section>
 
@@ -2880,10 +2883,9 @@ const translations = {
     'hero.stat1': 'Packages', 'hero.stat2': 'JS by Default', 'hero.stat3': 'TypeScript', 'hero.stat4': 'Latest',
     'nav.gettingStarted': 'Getting Started', 'nav.core': 'Core Concepts', 'nav.data': 'Data & Server',
     'nav.advanced': 'Advanced', 'nav.tooling': 'Tooling', 'nav.reference': 'Reference',
-    'nav.install': '⚡ Installation', 'nav.quickStart': '🚀 Quick Start', 'nav.security': 'Security',
-    'install.title': 'Installation', 'install.lead': 'Nexus requires Node.js ≥ 22 and pnpm ≥ 9. It works on any OS.',
+    'install.title': 'Installation', 'install.lead': 'Nexus requires Node.js ≥ 20 and pnpm ≥ 9.',
     'install.prereq': 'Prerequisites',
-    'qs.title': 'Quick Start', 'qs.lead': 'Create a new Nexus project in seconds with the official scaffolder.',
+    'qs.title': 'Quick Start', 'qs.lead': 'Create a new Nexus project in seconds.',
     'qs.step1': 'Scaffold a new project', 'qs.step2': 'Install dependencies', 'qs.step3': 'Start the dev server',
     'struct.title': 'Project Structure', 'struct.lead': 'A typical Nexus app looks like this:',
     'nx.title': 'The .nx Component Format', 'nx.lead': 'Every Nexus page and component is a .nx file with up to four sections.',
@@ -2950,10 +2952,9 @@ const translations = {
     'hero.stat1': 'Paquetes', 'hero.stat2': 'JS por Defecto', 'hero.stat3': 'TypeScript', 'hero.stat4': 'Último',
     'nav.gettingStarted': 'Primeros pasos', 'nav.core': 'Conceptos Core', 'nav.data': 'Datos y Servidor',
     'nav.advanced': 'Avanzado', 'nav.tooling': 'Herramientas', 'nav.reference': 'Referencia',
-    'nav.install': '⚡ Instalación', 'nav.quickStart': '🚀 Inicio rápido', 'nav.security': 'Seguridad',
-    'install.title': 'Instalación', 'install.lead': 'Nexus requiere Node.js ≥ 22 y pnpm ≥ 9. Funciona en cualquier sistema operativo.',
+    'install.title': 'Instalación', 'install.lead': 'Nexus requiere Node.js ≥ 20 y pnpm ≥ 9.',
     'install.prereq': 'Requisitos previos',
-    'qs.title': 'Inicio rápido', 'qs.lead': 'Crea un proyecto Nexus en segundos con el scaffolder oficial.',
+    'qs.title': 'Inicio rápido', 'qs.lead': 'Crea un proyecto Nexus en segundos.',
     'qs.step1': 'Genera un nuevo proyecto', 'qs.step2': 'Instala las dependencias', 'qs.step3': 'Inicia el servidor de desarrollo',
     'struct.title': 'Estructura del proyecto', 'struct.lead': 'Una app Nexus típica luce así:',
     'nx.title': 'El formato de componente .nx', 'nx.lead': 'Cada página y componente es un archivo .nx con hasta cuatro secciones.',
@@ -3020,10 +3021,9 @@ const translations = {
     'hero.stat1': 'Pacotes', 'hero.stat2': 'JS por Padrão', 'hero.stat3': 'TypeScript', 'hero.stat4': 'Último',
     'nav.gettingStarted': 'Primeiros passos', 'nav.core': 'Conceitos Core', 'nav.data': 'Dados e Servidor',
     'nav.advanced': 'Avançado', 'nav.tooling': 'Ferramentas', 'nav.reference': 'Referência',
-    'nav.install': '⚡ Instalação', 'nav.quickStart': '🚀 Início rápido', 'nav.security': 'Segurança',
-    'install.title': 'Instalação', 'install.lead': 'Nexus requer Node.js ≥ 22 e pnpm ≥ 9. Funciona em qualquer sistema operacional.',
+    'install.title': 'Instalação', 'install.lead': 'Nexus requer Node.js ≥ 20 e pnpm ≥ 9.',
     'install.prereq': 'Pré-requisitos',
-    'qs.title': 'Início rápido', 'qs.lead': 'Crie um projeto Nexus em segundos com o scaffold oficial.',
+    'qs.title': 'Início rápido', 'qs.lead': 'Crie um projeto Nexus em segundos.',
     'qs.step1': 'Gere um novo projeto', 'qs.step2': 'Instale as dependências', 'qs.step3': 'Inicie o servidor de desenvolvimento',
     'struct.title': 'Estrutura do projeto', 'struct.lead': 'Um app Nexus típico se parece com isso:',
     'nx.title': 'O formato de componente .nx', 'nx.lead': 'Cada página e componente é um arquivo .nx com até quatro seções.',
