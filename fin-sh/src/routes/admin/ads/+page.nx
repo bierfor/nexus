@@ -1,0 +1,330 @@
+---
+import { createAction } from '@nexus_js/server';
+import { finShGql } from '$lib/graphql';
+import { pageSeo } from '$lib/seo';
+
+const ADS_Q = `
+  query AdminAds {
+    adminAds {
+      id
+      title
+      body
+      targetUrl
+      imageUrl
+      regions
+      priority
+      active
+      audiencePlan
+      createdAt
+    }
+  }
+`;
+
+// nexus:pretext
+export async function load(ctx) {
+  let ads = [];
+  let gqlError = '';
+  try {
+    const data = await finShGql(ADS_Q, undefined, ctx.request, ctx.secrets);
+    ads = data.adminAds;
+  } catch (e) {
+    gqlError = e instanceof Error ? e.message : 'GraphQL error';
+  }
+  return {
+    ads,
+    gqlError,
+    ...pageSeo(ctx, {
+      title: 'Ad placements · Admin · Fin.sh',
+      description: 'Configure sponsored tiles: copy, targets, regions, and audience by plan.',
+      robots: 'noindex, nofollow',
+    }),
+  };
+}
+
+const upsertAd = createAction(
+  async (input, ctx) => {
+    const fd = input instanceof FormData ? input : null;
+    if (!fd) throw new Error('Expected FormData');
+    const id = String(fd.get('id') ?? '').trim();
+    const title = String(fd.get('title') ?? '').trim();
+    const targetUrl = String(fd.get('targetUrl') ?? '').trim();
+    if (!title || !targetUrl) throw new Error('title and targetUrl required');
+    const body = String(fd.get('body') ?? '');
+    const imageUrl = String(fd.get('imageUrl') ?? '');
+    const regions = String(fd.get('regions') ?? '*');
+    const priority = Number(fd.get('priority') ?? 0);
+    const active = String(fd.get('active') ?? 'true') !== 'false';
+    const audiencePlan = String(fd.get('audiencePlan') ?? 'free');
+    const q = `
+      mutation Ups($input: AdPlacementInput!) {
+        adminUpsertAd(input: $input) {
+          id
+        }
+      }
+    `;
+    const inp = {
+      title,
+      body,
+      targetUrl,
+      imageUrl,
+      regions,
+      priority,
+      active,
+      audiencePlan,
+    };
+    if (id) inp.id = id;
+    await finShGql(q, { input: inp }, ctx.request, ctx.secrets);
+    return ctx.redirect('/admin/ads');
+  },
+  {
+    csrf: false,
+    rateLimit: { window: '1m', max: 60 },
+    race: 'ignore',
+  },
+);
+
+const deleteAd = createAction(
+  async (input, ctx) => {
+    const fd = input instanceof FormData ? input : null;
+    if (!fd) throw new Error('Expected FormData');
+    const id = String(fd.get('id') ?? '');
+    const q = `mutation Del($id: ID!) { adminDeleteAd(id: $id) }`;
+    await finShGql(q, { id }, ctx.request, ctx.secrets);
+    return ctx.redirect('/admin/ads');
+  },
+  {
+    csrf: false,
+    rateLimit: { window: '1m', max: 60 },
+    race: 'ignore',
+  },
+);
+---
+
+<template>
+  <section>
+    <h1 class="title">Ad placements</h1>
+    <p class="sub mono">Shown on <strong>free</strong> plan dashboards when <code>audiencePlan</code> matches.</p>
+
+    {#if pretext.gqlError}
+      <p class="err mono">{pretext.gqlError}</p>
+    {/if}
+
+    <div class="panel">
+      <h2 class="h2">New or edit</h2>
+      <p class="hint mono">Leave ID empty to create. Paste an existing ID to update that row.</p>
+      <form class="grid-form" method="post" action="/_nexus/action/upsertAd">
+        <label class="field">
+          <span>ID (optional)</span>
+          <input class="input mono" type="text" name="id" placeholder="Mongo ObjectId to update" />
+        </label>
+        <label class="field">
+          <span>Title *</span>
+          <input class="input mono" type="text" name="title" required />
+        </label>
+        <label class="field wide">
+          <span>Body</span>
+          <textarea class="input mono ta" name="body" rows="2"></textarea>
+        </label>
+        <label class="field wide">
+          <span>Target URL *</span>
+          <input class="input mono" type="url" name="targetUrl" required placeholder="https://…" />
+        </label>
+        <label class="field">
+          <span>Image URL</span>
+          <input class="input mono" type="url" name="imageUrl" />
+        </label>
+        <label class="field">
+          <span>Regions</span>
+          <input class="input mono" type="text" name="regions" value="*" placeholder="US,CA or *" />
+        </label>
+        <label class="field">
+          <span>Priority</span>
+          <input class="input mono" type="number" name="priority" value="0" />
+        </label>
+        <label class="field">
+          <span>Active</span>
+          <select class="input mono" name="active">
+            <option value="true" selected>yes</option>
+            <option value="false">no</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>Audience</span>
+          <select class="input mono" name="audiencePlan">
+            <option value="free" selected>free users</option>
+            <option value="all">all plans</option>
+          </select>
+        </label>
+        <div class="field wide">
+          <button type="submit" class="btn">Save placement</button>
+        </div>
+      </form>
+    </div>
+
+    <h2 class="h2 list-h">Existing</h2>
+    {#if !(pretext.ads ?? []).length && !pretext.gqlError}
+      <p class="empty mono">No ads.</p>
+    {:else}
+      <ul class="ad-list">
+        {#each pretext.ads as a}
+          <li class="ad-row">
+            <div class="ad-main">
+              <span class="t mono">{a.title}</span>
+              <span class="u mono">{a.targetUrl}</span>
+              <span class="meta mono"
+                >regions {a.regions} · priority {a.priority} · {a.active ? 'on' : 'off'} · {a.audiencePlan}</span
+              >
+            </div>
+            <form method="post" action="/_nexus/action/deleteAd" class="del-form">
+              <input type="hidden" name="id" value={String(a.id)} />
+              <button type="submit" class="btn-del">Delete</button>
+            </form>
+          </li>
+        {/each}
+      </ul>
+    {/if}
+  </section>
+</template>
+
+<style>
+  .title {
+    font-size: 24px;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    margin-bottom: 8px;
+  }
+  .sub {
+    font-size: 12px;
+    color: var(--fin-muted, #666);
+    margin-bottom: 24px;
+    line-height: 1.5;
+  }
+  .err {
+    color: #b45309;
+    margin-bottom: 16px;
+  }
+  .panel {
+    border: 1px solid var(--fin-border, #eaeaea);
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 32px;
+  }
+  .h2 {
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--fin-muted, #666);
+    margin-bottom: 8px;
+  }
+  .list-h {
+    margin-bottom: 12px;
+  }
+  .hint {
+    font-size: 11px;
+    color: var(--fin-muted, #666);
+    margin-bottom: 16px;
+  }
+  .grid-form {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 14px;
+  }
+  .field.wide {
+    grid-column: 1 / -1;
+  }
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--fin-muted, #666);
+  }
+  .input {
+    height: 38px;
+    padding: 0 10px;
+    border-radius: 8px;
+    border: 1px solid var(--fin-border, #eaeaea);
+    background: var(--fin-bg, #fafafa);
+    color: var(--fin-fg, #000);
+    font-size: 12px;
+  }
+  .ta {
+    height: auto;
+    padding: 10px;
+    resize: vertical;
+  }
+  .btn {
+    height: 40px;
+    padding: 0 18px;
+    border-radius: 8px;
+    border: none;
+    background: var(--fin-fg, #000);
+    color: var(--fin-bg, #fafafa);
+    font-weight: 600;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .empty {
+    color: var(--fin-muted, #666);
+  }
+  .ad-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    border: 1px solid var(--fin-border, #eaeaea);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .ad-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    align-items: flex-start;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--fin-border, #eaeaea);
+  }
+  .ad-row:last-child {
+    border-bottom: none;
+  }
+  .ad-main {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+  }
+  .t {
+    font-weight: 600;
+    font-size: 13px;
+  }
+  .u {
+    font-size: 11px;
+    color: var(--fin-muted, #666);
+    word-break: break-all;
+  }
+  .meta {
+    font-size: 10px;
+    color: var(--fin-muted, #666);
+  }
+  .del-form {
+    flex-shrink: 0;
+  }
+  .btn-del {
+    height: 32px;
+    padding: 0 12px;
+    border-radius: 6px;
+    border: 1px solid var(--fin-border, #eaeaea);
+    background: transparent;
+    color: var(--fin-fg, #000);
+    font-size: 11px;
+    cursor: pointer;
+  }
+  .btn-del:hover {
+    border-color: #b45309;
+    color: #b45309;
+  }
+  .mono {
+    font-family: var(--fin-mono, 'JetBrains Mono', monospace);
+  }
+</style>

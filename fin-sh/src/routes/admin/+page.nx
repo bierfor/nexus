@@ -1,0 +1,66 @@
+---
+import { pageSeo } from '$lib/seo';
+
+// nexus:pretext
+export async function load(ctx) {
+  return pageSeo(ctx, {
+    title: 'Admin overview · Fin.sh',
+    description: 'Manage subscription plans, sponsored placements, and the global link catalog.',
+    robots: 'noindex, nofollow',
+  });
+}
+---
+
+<template>
+  <section>
+    <h1 class="title">Admin</h1>
+    <p class="lede">Separate from user dashboards: manage subscription plans, sponsored placements, and global link inventory.</p>
+    <ul class="tiles">
+      <li>
+        <a href="/admin/analytics">
+          <strong>Analytics</strong> — traffic, deduped visitors, top links &amp; paths, monetization inputs
+        </a>
+      </li>
+      <li><a href="/admin/users">Users — assign free / premium / business</a></li>
+      <li><a href="/admin/ads">Ads — copy, target URL, regions, audience (free vs all)</a></li>
+      <li><a href="/admin/links">Links — audit slugs, owners, clicks</a></li>
+    </ul>
+  </section>
+</template>
+
+<style>
+  .title {
+    font-size: 26px;
+    font-weight: 700;
+    letter-spacing: -0.04em;
+    margin-bottom: 12px;
+  }
+  .lede {
+    font-size: 14px;
+    color: var(--fin-muted, #666);
+    max-width: 560px;
+    line-height: 1.55;
+    margin-bottom: 28px;
+  }
+  .tiles {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .tiles a {
+    display: block;
+    padding: 16px 18px;
+    border: 1px solid var(--fin-border, #eaeaea);
+    border-radius: 8px;
+    text-decoration: none;
+    color: var(--fin-fg, #000);
+    font-size: 14px;
+    font-weight: 500;
+  }
+  .tiles a:hover {
+    background: color-mix(in srgb, var(--fin-fg, #000) 4%, transparent);
+  }
+</style>

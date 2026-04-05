@@ -1,0 +1,1033 @@
+---
+import { finShPublicOrigin } from '$lib/graphql';
+import { pageSeo } from '$lib/seo';
+
+// nexus:pretext
+export async function load(ctx) {
+  const origin = finShPublicOrigin(ctx);
+  const ogImage = `${origin}/images/og-cover.svg`;
+  return {
+    ...pageSeo(ctx, {
+      title: 'Fin.sh — Short links, click analytics & sponsored placements',
+      description:
+        'Short URLs with server-side click tracking and a clear business model: Free links can show sponsor offers before redirect and promos in the dashboard; Premium and Business remove that noise for your brand. Measure every tap, control how ads appear.',
+      keywords:
+        'short link monetization, URL shortener, click analytics, sponsored links, link tracking, Fin.sh, branded short URLs, free shortener with ads, premium ad-free short links',
+      ogImage,
+      jsonLd: {
+        '@context': 'https://schema.org',
+        '@graph': [
+          {
+            '@type': 'WebSite',
+            '@id': `${origin}/#website`,
+            name: 'Fin.sh',
+            url: `${origin}/`,
+            description:
+              'Short links with click analytics, sponsor moments on the Free plan, and Premium options for an ad-free, brand-first experience.',
+            publisher: { '@id': `${origin}/#org` },
+            inLanguage: 'en-US',
+          },
+          {
+            '@type': 'Organization',
+            '@id': `${origin}/#org`,
+            name: 'Fin.sh',
+            url: `${origin}/`,
+            description:
+              'Fin.sh provides short-link infrastructure with analytics and plan-aware advertising surfaces for operators and creators.',
+          },
+          {
+            '@type': 'SoftwareApplication',
+            name: 'Fin.sh',
+            applicationCategory: 'BusinessApplication',
+            operatingSystem: 'Web',
+            offers: {
+              '@type': 'Offer',
+              price: '0',
+              priceCurrency: 'USD',
+              description: 'Free plan with core shortening, analytics, and sponsored placements.',
+            },
+            description:
+              'Short links, click recording, admin-managed ad placements, Premium and Business plans for ad-free dashboards and advanced controls.',
+          },
+          {
+            '@type': 'FAQPage',
+            mainEntity: [
+              {
+                '@type': 'Question',
+                name: 'What is Fin.sh?',
+                acceptedAnswer: {
+                  '@type': 'Answer',
+                  text:
+                    'Fin.sh is a link shortener with a dashboard, server-side click analytics, and plan-based sponsorship: Free users may see a sponsor offer before redirect; Premium and Business keep the experience focused on your brand. Admins configure placements.',
+                },
+              },
+              {
+                '@type': 'Question',
+                name: 'How does advertising work on Fin.sh?',
+                acceptedAnswer: {
+                  '@type': 'Answer',
+                  text:
+                    'On the Free plan, visitors may see a sponsored offer before redirecting to your destination, and the dashboard can show promotional tiles. Premium and Business plans remove those surfaces so your brand stays clean. Placements are configurable by admins.',
+                },
+              },
+              {
+                '@type': 'Question',
+                name: 'Do I earn money from clicks on my short links?',
+                acceptedAnswer: {
+                  '@type': 'Answer',
+                  text:
+                    'Fin.sh is built to measure every click and route traffic through plan-aware sponsorship. How revenue is shared or billed depends on how you operate your own deployment; the product gives you analytics, gating, and placement hooks to run a serious link business.',
+                },
+              },
+              {
+                '@type': 'Question',
+                name: 'Is there a free plan?',
+                acceptedAnswer: {
+                  '@type': 'Answer',
+                  text:
+                    'Yes. New accounts start on the Free plan with shortening, analytics, and sponsored surfaces. Admins can upgrade users to Premium or Business for ad-free experiences and higher limits.',
+                },
+              },
+              {
+                '@type': 'Question',
+                name: 'Can I use my own domain?',
+                acceptedAnswer: {
+                  '@type': 'Answer',
+                  text:
+                    'Use your own domain and HTTPS in production: point DNS and TLS at your Fin.sh deployment with your hosting provider or IT team.',
+                },
+              },
+              {
+                '@type': 'Question',
+                name: 'Where is my data stored?',
+                acceptedAnswer: {
+                  '@type': 'Answer',
+                  text:
+                    'Your links, click history, account, and ad placement settings are stored securely. Sessions use private browser cookies so you stay signed in safely.',
+                },
+              },
+            ],
+          },
+        ],
+      },
+    }),
+  };
+}
+---
+
+<template>
+  <article class="landing" itemscope itemtype="https://schema.org/WebPage">
+    <meta itemprop="name" content="Fin.sh — Short links &amp; click monetization" />
+    <header class="hero">
+      <div class="hero-copy">
+        <p class="eyebrow mono">Short links · clicks · placements</p>
+        <h1 itemprop="headline">Stop bleeding clicks into the void.</h1>
+        <p class="lede" itemprop="description">
+          Every tap is <strong>money-shaped data</strong>: who moved, when, and through which slug. We record clicks on
+          the server, fund the <strong>Free</strong> tier with <strong>sponsor moments</strong> on your links and in the
+          dashboard, and let you <strong>upgrade</strong> when your brand should be the only thing people see.
+        </p>
+        <div class="cta-row">
+          <a class="btn btn-primary" href="/register">Claim your free account</a>
+          <a class="btn btn-ghost" href="/login">Sign in</a>
+          <a class="btn btn-text" href="/#monetize">Why clicks matter</a>
+        </div>
+        <ul class="trust-row mono" aria-label="Platform highlights">
+          <li>Server-side click capture</li>
+          <li>Sponsored link gate + dashboard promos</li>
+          <li>Premium = your brand, zero ad tiles</li>
+        </ul>
+      </div>
+      <figure class="hero-visual">
+        <img
+          class="hero-img"
+          src="/images/hero-dashboard.svg"
+          width="560"
+          height="380"
+          alt="Fin.sh dashboard: short links, click analytics chart, and command palette for power users"
+          fetchpriority="high"
+        />
+      </figure>
+    </header>
+
+    <section class="stats" aria-label="Value at a glance">
+      <div class="stat">
+        <span class="stat-value mono">Clicks</span>
+        <span class="stat-label">Counted on the server — bots filtered where configured; no inflated browser fiction.</span>
+      </div>
+      <div class="stat">
+        <span class="stat-value mono">Ads</span>
+        <span class="stat-label">Interstitial on short links (Free) + optional dashboard placements — you choose the plan.</span>
+      </div>
+      <div class="stat">
+        <span class="stat-value mono">Model</span>
+        <span class="stat-label">Free = sponsored surfaces that pay for the product. Premium &amp; Business = analytics without promo clutter — you pick the trade-off.</span>
+      </div>
+    </section>
+
+    <section class="section pitch-dark" aria-labelledby="pitch-dark-title">
+      <div class="pitch-dark-inner">
+        <p class="pitch-kicker mono">The uncomfortable truth</p>
+        <h2 id="pitch-dark-title">Your audience already clicks. You just don’t get the receipt.</h2>
+        <p class="pitch-body">
+          Long URLs don’t convert curiosity into leverage. Without measurement, you’re donating attention to platforms
+          that <em>do</em> count. Fin.sh is built for people who want <strong>proof per slug</strong>, optional
+          sponsorship on the free tier, and a clean Premium lane when your name should be the only brand in the room.
+        </p>
+        <a class="btn btn-on-dark" href="/register">Start measuring today</a>
+      </div>
+    </section>
+
+    <section id="monetize" class="section monetize" aria-labelledby="monetize-title">
+      <div class="section-head">
+        <h2 id="monetize-title">Turn traffic into something you can defend</h2>
+        <p class="section-sub">
+          “Monetize” here means <strong>measurable inventory</strong>: clicks as events, plans that control how sponsors
+          appear, and an admin layer to run placements responsibly — not magic passive income promises.
+        </p>
+      </div>
+      <div class="monetize-grid">
+        <article class="monetize-card">
+          <h3>Click = signal</h3>
+          <p>
+            Each visit to <span class="mono-inline">/s/your-slug</span> becomes a counted event. Read totals in the
+            dashboard, compare links, and prove performance to clients or sponsors with real numbers — not screenshots of
+            guesswork.
+          </p>
+        </article>
+        <article class="monetize-card">
+          <h3>Free = funded by attention</h3>
+          <p>
+            Free accounts help fund the product through <strong>sponsored surfaces</strong>: a gate before redirect and
+            promotional space in the UI. You trade a moment of attention for infrastructure.
+          </p>
+        </article>
+        <article class="monetize-card">
+          <h3>Premium = reputation mode</h3>
+          <p>
+            Upgrade (via admin in this demo) to strip dashboard promos and keep the experience centered on
+            <strong>your</strong> links and analytics — ideal when clients see your workspace.
+          </p>
+        </article>
+      </div>
+    </section>
+
+    <section id="placements" class="section placements" aria-labelledby="placements-title">
+      <div class="section-head">
+        <h2 id="placements-title">How advertising shows up (by design)</h2>
+        <p class="section-sub">
+          Different surfaces for different intents — all plan-aware and admin-configurable in this stack.
+        </p>
+      </div>
+      <ul class="placement-list">
+        <li>
+          <h3>Short-link interstitial (Free)</h3>
+          <p>
+            Visitors may see a <strong>sponsor offer</strong> before the final redirect. Clicks and outbound taps can be
+            tracked for analytics. Premium/Business users typically skip this friction for their audience.
+          </p>
+        </li>
+        <li>
+          <h3>Dashboard &amp; in-app promos</h3>
+          <p>
+            Tiles and placements inside the logged-in experience expose offers to creators who live in the product.
+            Premium removes that noise so the dashboard feels like <em>your</em> command center.
+          </p>
+        </li>
+        <li>
+          <h3>Regional / plan targeting</h3>
+          <p>
+            Placements match each viewer’s context (for example region and plan) so you are not blasting one generic
+            offer to everyone — a serious base for testing messages and partnerships.
+          </p>
+        </li>
+      </ul>
+    </section>
+
+    <section id="features" class="section features" aria-labelledby="features-title">
+      <div class="section-head">
+        <h2 id="features-title">Everything you need to ship</h2>
+        <p class="section-sub">
+          Everything tied to how you earn and retain trust: links, clicks, ads, plans, and admin control — without
+          drowning in spreadsheets.
+        </p>
+      </div>
+      <div class="feature-grid">
+        <article class="feature">
+          <img src="/images/feature-link.svg" width="48" height="48" alt="" />
+          <h3>Branded short links</h3>
+          <p>Custom slugs, HTTPS redirects, and per-link details kept with your account — ready to share and sell.</p>
+        </article>
+        <article class="feature">
+          <img src="/images/feature-analytics.svg" width="48" height="48" alt="" />
+          <h3>Click intelligence</h3>
+          <p>Server-side recording for defensible counts — built for operators who argue with data, not hope.</p>
+        </article>
+        <article class="feature">
+          <img src="/images/feature-api.svg" width="48" height="48" alt="" />
+          <h3>Built to scale with you</h3>
+          <p>Start in the dashboard; when you outgrow manual work, your data and workflows are structured for teams, partners, and later integrations — without ripping out your links.</p>
+        </article>
+        <article class="feature">
+          <img src="/images/feature-ads.svg" width="48" height="48" alt="" />
+          <h3>Plan-aware placements</h3>
+          <p>Free-tier sponsorship; Premium and Business peel it back — controlled from Admin.</p>
+        </article>
+        <article class="feature">
+          <img src="/images/feature-shield.svg" width="48" height="48" alt="" />
+          <h3>Sessions &amp; roles</h3>
+          <p>Secure sign-in, role-aware access, and an admin layer so only the right people change users, placements, or global settings.</p>
+        </article>
+        <article class="feature">
+          <img src="/images/feature-keyboard.svg" width="48" height="48" alt="" />
+          <h3>⌘K command palette</h3>
+          <p>Jump to any link from the keyboard once you are inside the dashboard.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section how" aria-labelledby="how-title">
+      <div class="section-head">
+        <h2 id="how-title">How it works</h2>
+        <p class="section-sub">Three steps from zero to links you can brag about with numbers.</p>
+      </div>
+      <ol class="steps">
+        <li class="step">
+          <span class="step-num mono">1</span>
+          <div>
+            <h3>Register &amp; sign in</h3>
+            <p>Create an account on the Free plan. You stay signed in securely while you manage links and see live counts.</p>
+          </div>
+        </li>
+        <li class="step">
+          <span class="step-num mono">2</span>
+          <div>
+            <h3>Create a link</h3>
+            <p>Paste a destination, pick a slug, publish. The dashboard shows live click totals per link.</p>
+          </div>
+        </li>
+        <li class="step">
+          <span class="step-num mono">3</span>
+          <div>
+            <h3>Share, gate, measure</h3>
+            <p>
+              Visitors hit <span class="mono-inline">/s/your-slug</span>; we record the click, apply your plan rules
+              (including the sponsor gate on Free), then send them to the destination. Your dashboard stays the source of
+              truth.
+            </p>
+          </div>
+        </li>
+      </ol>
+    </section>
+
+    <section class="section preview-block" aria-labelledby="preview-title">
+      <div class="preview-inner">
+        <div>
+          <h2 id="preview-title">Clarity under load</h2>
+          <p class="section-sub preview-copy">
+            Sticky navigation, clear tables, and layouts that work from phone to desktop — so you can check performance
+            anywhere your deals get done.
+          </p>
+        </div>
+        <img
+          class="preview-img"
+          src="/images/hero-dashboard.svg"
+          width="480"
+          height="326"
+          alt="Fin.sh dashboard interface preview"
+          loading="lazy"
+        />
+      </div>
+    </section>
+
+    <section id="pricing" class="section pricing" aria-labelledby="pricing-title">
+      <div class="section-head">
+        <h2 id="pricing-title">Plans that match how you monetize attention</h2>
+        <p class="section-sub">Same core product; admins move you between Free, Premium, and Business in this demo.</p>
+      </div>
+      <div class="pricing-grid">
+        <article class="price-card">
+          <h3>Free</h3>
+          <p class="price-desc">Full shortening + analytics. Sponsored surfaces fund the tier.</p>
+          <ul class="price-list">
+            <li>Short links &amp; server click counts</li>
+            <li>Dashboard + ⌘K palette</li>
+            <li>Link gate + promos (plan default)</li>
+          </ul>
+          <div class="price-cta">
+            <a class="btn btn-ghost price-btn" href="/register">Start free</a>
+          </div>
+        </article>
+        <article class="price-card price-card-highlight">
+          <p class="price-badge mono">Popular</p>
+          <h3>Premium</h3>
+          <p class="price-desc">Remove in-dashboard ads; keep the analytics edge.</p>
+          <ul class="price-list">
+            <li>Everything in Free</li>
+            <li>No sponsored tiles cluttering your workspace</li>
+            <li>Best when your brand is the product</li>
+          </ul>
+          <div class="price-cta">
+            <a class="btn btn-primary price-btn" href="/register">Get on the list</a>
+          </div>
+          <p class="price-footnote mono">Upgraded by an admin in this deployment.</p>
+        </article>
+        <article class="price-card">
+          <h3>Business</h3>
+          <p class="price-desc">For orgs that need admin scale: users, ads, global oversight.</p>
+          <ul class="price-list">
+            <li>Premium-class experience</li>
+            <li>Admin console: users, placements, links</li>
+            <li>Room for SLA-style process (your ops)</li>
+          </ul>
+          <div class="price-cta">
+            <a class="btn btn-ghost price-btn" href="/register">Talk through admin</a>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section id="faq" class="section faq" aria-labelledby="faq-title">
+      <div class="section-head">
+        <h2 id="faq-title">Questions people ask before they commit</h2>
+        <p class="section-sub">Honest answers — tune legal and hosting copy for your jurisdiction.</p>
+      </div>
+      <div class="faq-list">
+        <details class="faq-item">
+          <summary>What is Fin.sh?</summary>
+          <p>
+            A link shortener built around a real business model: server-side click analytics, sponsor surfaces on Free,
+            cleaner experiences on Premium and Business, and admin tools to run users and placements. Built for people who
+            treat traffic as inventory.
+          </p>
+        </details>
+        <details class="faq-item">
+          <summary>How does advertising work?</summary>
+          <p>
+            Free users may see a sponsor step before redirect and promotional UI in the dashboard. Premium/Business
+            strips those surfaces so attention stays on your operations. Admins control placements in this demo.
+          </p>
+        </details>
+        <details class="faq-item">
+          <summary>Do I earn money from each click?</summary>
+          <p>
+            Fin.sh gives you <strong>measurement and surfaces</strong> to run a link business. Whether you resell traffic,
+            bundle links in a media kit, or operate your own sponsor deals is up to you — the platform is the lever, not
+            a lottery ticket.
+          </p>
+        </details>
+        <details class="faq-item">
+          <summary>Is it production-ready?</summary>
+          <p>
+            The product is built for real traffic and real money conversations. For a full launch you still add your own
+            domain, backups, legal pages, and monitoring — same as any serious business on the web.
+          </p>
+        </details>
+        <details class="faq-item">
+          <summary>How do I change branding and SEO?</summary>
+          <p>
+            Your logo, colors, and page titles should match your brand; structured data (FAQs, organization info) helps
+            search engines explain your offer. Work with whoever runs your site or deployment to update those assets.
+          </p>
+        </details>
+        <details class="faq-item">
+          <summary>Where do /sign-in and /sign-up go?</summary>
+          <p>
+            <a href="/sign-in">/sign-in</a> → <a href="/login">/login</a> and
+            <a href="/sign-up">/sign-up</a> → <a href="/register">/register</a> (301) for SEO and old bookmarks.
+          </p>
+        </details>
+      </div>
+    </section>
+
+    <section class="cta-band" aria-labelledby="cta-title">
+      <h2 id="cta-title">While you wait, someone else is already counting</h2>
+      <p>No credit card in this demo — just an account between you and honest click data.</p>
+      <div class="cta-row cta-row-center">
+        <a class="btn btn-primary" href="/register">Create account</a>
+        <a class="btn btn-ghost" href="/login">Sign in</a>
+      </div>
+    </section>
+  </article>
+</template>
+
+<style>
+  .landing {
+    flex: 1 0 auto;
+    width: 100%;
+    max-width: 100%;
+  }
+  .hero {
+    display: grid;
+    gap: clamp(32px, 5vw, 48px);
+    align-items: center;
+    margin-bottom: clamp(48px, 8vw, 80px);
+  }
+  @media (min-width: 900px) {
+    .hero {
+      grid-template-columns: minmax(0, 1fr) minmax(320px, 1fr);
+    }
+  }
+  .eyebrow {
+    font-family: var(--fin-mono, monospace);
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--fin-accent, #0f766e);
+    margin: 0 0 14px;
+  }
+  .hero-copy h1 {
+    font-size: clamp(2.25rem, 5vw, 3.25rem);
+    font-weight: 700;
+    letter-spacing: -0.045em;
+    line-height: 1.06;
+    margin: 0 0 18px;
+    text-wrap: balance;
+  }
+  .lede {
+    font-size: clamp(16px, 2.2vw, 18px);
+    color: var(--fin-muted, #666);
+    line-height: 1.65;
+    margin: 0 0 26px;
+    max-width: 36rem;
+  }
+  .cta-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px 14px;
+    margin-bottom: 22px;
+  }
+  .cta-row-center {
+    justify-content: center;
+    margin-bottom: 0;
+  }
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 46px;
+    padding: 0 22px;
+    font-size: 14px;
+    font-weight: 600;
+    border-radius: 10px;
+    text-decoration: none;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease, color 0.15s ease;
+  }
+  .btn:focus-visible {
+    outline: 2px solid var(--fin-ring, #0f766e66);
+    outline-offset: 3px;
+  }
+  .btn-primary {
+    background: var(--fin-accent, #0f766e);
+    color: var(--fin-accent-fg, #f0fdfa);
+    border: 1px solid color-mix(in srgb, var(--fin-accent, #0f766e) 80%, #000);
+    box-shadow: 0 2px 8px color-mix(in srgb, var(--fin-accent, #0f766e) 25%, transparent);
+  }
+  .btn-primary:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 8px 28px color-mix(in srgb, var(--fin-accent, #0f766e) 35%, transparent);
+  }
+  .btn-ghost {
+    background: var(--fin-bg-elevated, #fff);
+    color: var(--fin-fg, #000);
+    border: 1px solid var(--fin-border, #eaeaea);
+  }
+  .btn-ghost:hover {
+    background: color-mix(in srgb, var(--fin-fg, #000) 5%, var(--fin-bg-elevated, #fff));
+  }
+  .btn-text {
+    background: transparent;
+    color: var(--fin-accent, #0f766e);
+    border: none;
+    padding: 0 8px;
+    min-height: auto;
+    font-weight: 600;
+  }
+  .btn-text:hover {
+    text-decoration: underline;
+  }
+  .trust-row {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 20px;
+    font-size: 12px;
+    color: var(--fin-muted, #666);
+  }
+  .trust-row li {
+    position: relative;
+    padding-left: 14px;
+  }
+  .trust-row li::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0.45em;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--fin-accent, #0f766e);
+    opacity: 0.7;
+  }
+  .hero-visual {
+    margin: 0;
+    border-radius: 20px;
+    background: linear-gradient(
+      145deg,
+      color-mix(in srgb, var(--fin-accent) 12%, var(--fin-bg)),
+      var(--fin-bg-elevated)
+    );
+    border: 1px solid var(--fin-border, #eaeaea);
+    padding: clamp(12px, 2vw, 20px);
+    box-shadow: 0 24px 60px color-mix(in srgb, var(--fin-fg) 8%, transparent);
+  }
+  .hero-img {
+    display: block;
+    width: 100%;
+    height: auto;
+    border-radius: 12px;
+    background: var(--fin-bg-elevated);
+  }
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+    margin-bottom: clamp(56px, 10vw, 96px);
+  }
+  .stat {
+    padding: 20px 22px;
+    border-radius: 14px;
+    border: 1px solid var(--fin-border, #eaeaea);
+    background: var(--fin-bg-elevated, #fff);
+  }
+  .stat-value {
+    display: block;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--fin-accent, #0f766e);
+    margin-bottom: 6px;
+  }
+  .stat-label {
+    font-size: 14px;
+    color: var(--fin-muted, #666);
+    line-height: 1.45;
+  }
+  .section {
+    margin-bottom: clamp(56px, 10vw, 100px);
+  }
+  .section-head {
+    max-width: 40rem;
+    margin-bottom: clamp(28px, 4vw, 40px);
+  }
+  .section-head h2 {
+    font-size: clamp(1.5rem, 3vw, 2rem);
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    margin: 0 0 10px;
+    line-height: 1.2;
+  }
+  .section-sub {
+    margin: 0;
+    font-size: 16px;
+    color: var(--fin-muted, #666);
+    line-height: 1.55;
+  }
+  .feature-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 18px;
+  }
+  .feature {
+    padding: 22px 22px 20px;
+    border-radius: 16px;
+    border: 1px solid var(--fin-border, #eaeaea);
+    background: var(--fin-bg-elevated, #fff);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+  .feature:hover {
+    border-color: color-mix(in srgb, var(--fin-accent, #0f766e) 35%, var(--fin-border, #eaeaea));
+    box-shadow: 0 12px 40px color-mix(in srgb, var(--fin-fg, #000) 6%, transparent);
+  }
+  .feature img {
+    flex-shrink: 0;
+  }
+  .feature h3 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+  .feature p {
+    margin: 0;
+    font-size: 14px;
+    color: var(--fin-muted, #666);
+    line-height: 1.55;
+  }
+  .steps {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    max-width: 44rem;
+  }
+  .step {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 18px;
+    align-items: start;
+    padding: 22px 24px;
+    border-radius: 16px;
+    border: 1px solid var(--fin-border, #eaeaea);
+    background: var(--fin-bg-elevated, #fff);
+  }
+  .step-num {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--fin-accent, #0f766e) 14%, transparent);
+    color: var(--fin-accent, #0f766e);
+    font-size: 14px;
+    font-weight: 700;
+  }
+  .step h3 {
+    margin: 0 0 8px;
+    font-size: 17px;
+    font-weight: 700;
+  }
+  .step p {
+    margin: 0;
+    font-size: 14px;
+    color: var(--fin-muted, #666);
+    line-height: 1.55;
+  }
+  .mono-inline {
+    font-family: var(--fin-mono, monospace);
+    font-size: 0.92em;
+  }
+  .preview-block {
+    border-radius: 20px;
+    border: 1px solid var(--fin-border, #eaeaea);
+    background: color-mix(in srgb, var(--fin-bg-elevated) 65%, var(--fin-bg));
+    overflow: hidden;
+  }
+  .preview-inner {
+    display: grid;
+    gap: 28px;
+    padding: clamp(28px, 5vw, 44px);
+    align-items: center;
+  }
+  @media (min-width: 800px) {
+    .preview-inner {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+  .preview-copy {
+    max-width: 36ch;
+  }
+  .preview-img {
+    width: 100%;
+    max-width: 480px;
+    height: auto;
+    margin: 0 auto;
+    display: block;
+    border-radius: 12px;
+    border: 1px solid var(--fin-border, #eaeaea);
+  }
+  .pricing-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 18px;
+    align-items: stretch;
+  }
+  .price-card {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    text-align: center;
+    padding: 26px 24px 24px;
+    border-radius: 18px;
+    border: 1px solid var(--fin-border, #eaeaea);
+    background: var(--fin-bg-elevated, #fff);
+  }
+  .price-cta {
+    margin-top: auto;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding-top: 4px;
+  }
+  .price-btn {
+    width: 100%;
+    max-width: 260px;
+    box-sizing: border-box;
+    justify-content: center;
+  }
+  .price-card-highlight {
+    border-color: color-mix(in srgb, var(--fin-accent, #0f766e) 45%, var(--fin-border, #eaeaea));
+    box-shadow: 0 16px 48px color-mix(in srgb, var(--fin-accent, #0f766e) 12%, transparent);
+    position: relative;
+    padding-top: 32px;
+  }
+  .price-badge {
+    position: absolute;
+    top: 16px;
+    right: 18px;
+    margin: 0;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--fin-accent, #0f766e);
+  }
+  .price-card h3 {
+    margin: 0 0 8px;
+    font-size: 20px;
+    font-weight: 700;
+    text-align: center;
+  }
+  .price-desc {
+    margin: 0 0 18px;
+    font-size: 14px;
+    color: var(--fin-muted, #666);
+    line-height: 1.5;
+    text-align: center;
+  }
+  .price-list {
+    margin: 0 0 20px;
+    padding: 0 0 0 1.1rem;
+    font-size: 14px;
+    color: var(--fin-muted, #666);
+    line-height: 1.6;
+    flex: 1;
+    text-align: left;
+    align-self: center;
+    width: 100%;
+    max-width: 280px;
+    box-sizing: border-box;
+  }
+  .price-footnote {
+    margin: 14px 0 0;
+    font-size: 11px;
+    color: var(--fin-muted, #666);
+    text-align: center;
+    width: 100%;
+  }
+  .faq-list {
+    max-width: 44rem;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .faq-item {
+    border-radius: 14px;
+    border: 1px solid var(--fin-border, #eaeaea);
+    background: var(--fin-bg-elevated, #fff);
+    padding: 0 18px;
+  }
+  .faq-item summary {
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 15px;
+    padding: 16px 0;
+    list-style: none;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .faq-item summary::-webkit-details-marker {
+    display: none;
+  }
+  .faq-item summary::after {
+    content: '+';
+    font-family: var(--fin-mono, monospace);
+    font-size: 18px;
+    color: var(--fin-accent, #0f766e);
+    font-weight: 600;
+  }
+  .faq-item[open] summary::after {
+    content: '−';
+  }
+  .faq-item p {
+    margin: 0 0 16px;
+    font-size: 14px;
+    color: var(--fin-muted, #666);
+    line-height: 1.6;
+  }
+  .faq-item a {
+    color: var(--fin-accent, #0f766e);
+    font-weight: 600;
+    text-decoration: none;
+  }
+  .faq-item a:hover {
+    text-decoration: underline;
+  }
+  .cta-band {
+    text-align: center;
+    padding: clamp(40px, 8vw, 64px) clamp(20px, 4vw, 40px);
+    border-radius: 20px;
+    background: linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--fin-accent, #0f766e) 12%, var(--fin-bg-elevated, #fff)),
+      var(--fin-bg-elevated, #fff)
+    );
+    border: 1px solid var(--fin-border, #eaeaea);
+  }
+  .cta-band h2 {
+    margin: 0 0 10px;
+    font-size: clamp(1.35rem, 3vw, 1.75rem);
+    font-weight: 700;
+    letter-spacing: -0.03em;
+  }
+  .cta-band > p {
+    margin: 0 0 22px;
+    color: var(--fin-muted, #666);
+    font-size: 15px;
+  }
+
+  .pitch-dark {
+    margin-bottom: clamp(56px, 10vw, 100px);
+    border-radius: 22px;
+    background: radial-gradient(120% 90% at 10% 0%, #134e4a 0%, transparent 55%),
+      linear-gradient(165deg, #0c0c0c 0%, #141414 40%, #0a0a0a 100%);
+    border: 1px solid color-mix(in srgb, var(--fin-accent, #14b8a6) 28%, #222);
+    box-shadow: 0 32px 80px color-mix(in srgb, #000 55%, transparent);
+    overflow: hidden;
+  }
+  .pitch-dark-inner {
+    padding: clamp(36px, 7vw, 56px) clamp(24px, 5vw, 48px);
+    max-width: 44rem;
+  }
+  .pitch-kicker {
+    margin: 0 0 12px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    color: color-mix(in srgb, var(--fin-accent, #2dd4bf) 85%, #fff);
+  }
+  .pitch-dark h2 {
+    margin: 0 0 18px;
+    font-size: clamp(1.55rem, 3.5vw, 2.1rem);
+    font-weight: 700;
+    letter-spacing: -0.035em;
+    line-height: 1.15;
+    color: #f4f4f1;
+    text-wrap: balance;
+  }
+  .pitch-body {
+    margin: 0 0 28px;
+    font-size: clamp(15px, 2vw, 17px);
+    line-height: 1.65;
+    color: #b9b8b3;
+  }
+  .pitch-body strong {
+    color: #e8e7e2;
+    font-weight: 600;
+  }
+  .pitch-body em {
+    font-style: normal;
+    color: #d6d5d0;
+    font-weight: 600;
+  }
+  .btn-on-dark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 48px;
+    padding: 0 26px;
+    font-size: 14px;
+    font-weight: 700;
+    border-radius: 12px;
+    text-decoration: none;
+    background: linear-gradient(180deg, #2dd4bf 0%, #0d9488 100%);
+    color: #042f2e;
+    border: 1px solid color-mix(in srgb, #fff 22%, #0f766e);
+    box-shadow: 0 0 0 1px color-mix(in srgb, #000 35%, transparent),
+      0 12px 40px color-mix(in srgb, var(--fin-accent, #14b8a6) 45%, transparent);
+    transition: transform 0.15s ease, filter 0.15s ease;
+  }
+  .btn-on-dark:hover {
+    transform: translateY(-2px);
+    filter: brightness(1.06);
+  }
+  .btn-on-dark:focus-visible {
+    outline: 2px solid #5eead4;
+    outline-offset: 3px;
+  }
+
+  .monetize-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 18px;
+  }
+  .monetize-card {
+    padding: 22px 22px 20px;
+    border-radius: 16px;
+    border: 1px solid var(--fin-border, #eaeaea);
+    background: var(--fin-bg-elevated, #fff);
+    box-shadow: 0 10px 36px color-mix(in srgb, var(--fin-fg, #000) 5%, transparent);
+  }
+  .monetize-card h3 {
+    margin: 0 0 10px;
+    font-size: 17px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--fin-fg, #111);
+  }
+  .monetize-card p {
+    margin: 0;
+    font-size: 14px;
+    color: var(--fin-muted, #666);
+    line-height: 1.58;
+  }
+
+  .placement-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    max-width: 48rem;
+  }
+  .placement-list li {
+    margin: 0;
+    padding: 22px 24px;
+    border-radius: 16px;
+    border: 1px solid color-mix(in srgb, var(--fin-accent, #0f766e) 22%, var(--fin-border, #eaeaea));
+    background: linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--fin-accent, #0f766e) 6%, var(--fin-bg-elevated, #fff)),
+      var(--fin-bg-elevated, #fff)
+    );
+  }
+  .placement-list h3 {
+    margin: 0 0 8px;
+    font-size: 16px;
+    font-weight: 700;
+  }
+  .placement-list p {
+    margin: 0;
+    font-size: 14px;
+    color: var(--fin-muted, #666);
+    line-height: 1.58;
+  }
+  .placement-list strong {
+    color: var(--fin-fg, #222);
+    font-weight: 600;
+  }
+</style>

@@ -1,0 +1,35 @@
+{
+  "name": "fin-sh",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Fin.sh — Nexus + Apollo GraphQL + MongoDB link shortener (workspace demo).",
+  "scripts": {
+    "predev": "node ./scripts/check-node-modules.mjs",
+    "dev": "concurrently -k -n api,web -c blue,magenta \"pnpm --filter fin-sh-api dev\" \"node --env-file-if-exists=.env ./node_modules/@nexus_js/cli/dist/bin.js dev --port 3050\"",
+    "dev:web": "node --env-file-if-exists=.env ./node_modules/@nexus_js/cli/dist/bin.js dev --port 3050",
+    "prebuild": "node ./scripts/check-node-modules.mjs",
+    "build": "node --env-file-if-exists=.env ./node_modules/@nexus_js/cli/dist/bin.js build",
+    "prestart": "node ./scripts/check-node-modules.mjs",
+    "start": "node --env-file-if-exists=.env ./node_modules/@nexus_js/cli/dist/bin.js start --port 3050",
+    "precheck": "node ./scripts/check-node-modules.mjs",
+    "check": "node ./node_modules/@nexus_js/cli/dist/bin.js check",
+    "audit": "node ./node_modules/@nexus_js/cli/dist/bin.js audit"
+  },
+  "dependencies": {
+    "@nexus_js/head": "workspace:^",
+    "@nexus_js/runtime": "workspace:^",
+    "@nexus_js/serialize": "workspace:^",
+    "@nexus_js/server": "workspace:^",
+    "qr-code-styling": "^1.9.2",
+    "qrcode": "^1.5.4"
+  },
+  "devDependencies": {
+    "@nexus_js/audit": "workspace:^",
+    "@nexus_js/cli": "workspace:^",
+    "@nexus_js/compiler": "workspace:^",
+    "@types/qrcode": "^1.5.6",
+    "concurrently": "^9.1.0",
+    "typescript": "^5.5.0"
+  }
+}

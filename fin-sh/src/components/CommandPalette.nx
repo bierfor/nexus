@@ -1,0 +1,172 @@
+---
+/**
+ * ⌘K command palette — filter links by slug or target (Geist-style utility chrome).
+ */
+---
+
+<script>
+  let { links = '[]' } = $props<{ links?: string }>();
+
+  let rows = (() => {
+    try {
+      return JSON.parse(links) as Array<{ slug: string; targetUrl: string; clicks?: number }>;
+    } catch {
+      return [];
+    }
+  })();
+
+  let open = $state(false);
+  let q = $state('');
+
+  function matches(row: { slug: string; targetUrl: string }, needle: string): boolean {
+    if (!needle) return true;
+    return (
+      row.slug.toLowerCase().includes(needle) || row.targetUrl.toLowerCase().includes(needle)
+    );
+  }
+
+  $effect(() => {
+    function onKey(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        open = !open;
+      }
+      if (e.key === 'Escape') open = false;
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  });
+</script>
+
+<template>
+  <button type="button" class="palette-trigger mono" onclick={() => (open = true)}>
+    Search links <span class="kbd">⌘K</span>
+  </button>
+
+  {#if open}
+    <div class="palette-backdrop" onclick={() => (open = false)} aria-hidden="true"></div>
+    <div class="palette" role="dialog" aria-modal="true" aria-label="Command palette">
+      <input
+        class="palette-input mono"
+        type="search"
+        placeholder="Filter by slug or URL…"
+        bind:value={q}
+      />
+      <ul class="palette-list">
+        {#each rows.filter((r) => matches(r, q.trim().toLowerCase())).slice(0, 12) as row}
+          <li>
+            <a class="palette-item" href="/s/{row.slug}" onclick={() => (open = false)}>
+              <span class="slug mono">/{row.slug}</span>
+              <span class="target mono">{row.targetUrl}</span>
+              <span class="clicks mono">{row.clicks ?? 0}</span>
+            </a>
+          </li>
+        {/each}
+      </ul>
+      {#if rows.filter((r) => matches(r, q.trim().toLowerCase())).length === 0}
+        <p class="palette-empty mono">No matches</p>
+      {/if}
+    </div>
+  {/if}
+</template>
+
+<style>
+  .palette-trigger {
+    position: fixed;
+    bottom: max(20px, calc(env(safe-area-inset-bottom, 0px) + 12px));
+    right: max(16px, calc(env(safe-area-inset-right, 0px) + 8px));
+    z-index: 40;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--fin-fg, #000);
+    background: var(--fin-bg-elevated, var(--fin-bg, #fafafa));
+    border: 1px solid var(--fin-border, #eaeaea);
+    border-radius: 10px;
+    cursor: pointer;
+    box-shadow: 0 4px 24px color-mix(in srgb, var(--fin-fg, #000) 8%, transparent);
+  }
+  .palette-trigger:focus-visible {
+    outline: 2px solid var(--fin-ring, #0f766e66);
+    outline-offset: 3px;
+  }
+  .kbd {
+    font-size: 11px;
+    padding: 2px 6px;
+    border: 1px solid var(--fin-border, #eaeaea);
+    border-radius: 4px;
+    color: var(--fin-muted, #666);
+  }
+  .palette-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 90;
+    background: color-mix(in srgb, var(--fin-fg, #000) 35%, transparent);
+  }
+  .palette {
+    position: fixed;
+    left: 50%;
+    top: 22%;
+    transform: translateX(-50%);
+    z-index: 100;
+    width: min(520px, calc(100vw - 32px));
+    max-height: min(420px, 70vh);
+    overflow: auto;
+    background: var(--fin-bg-elevated, var(--fin-bg, #fafafa));
+    border: 1px solid var(--fin-border, #eaeaea);
+    border-radius: 14px;
+    box-shadow: 0 24px 80px color-mix(in srgb, var(--fin-fg, #000) 20%, transparent);
+  }
+  .palette-input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 14px 16px;
+    font-size: 13px;
+    border: none;
+    border-bottom: 1px solid var(--fin-border, #eaeaea);
+    background: transparent;
+    color: var(--fin-fg, #000);
+    outline: none;
+  }
+  .palette-list {
+    list-style: none;
+    margin: 0;
+    padding: 8px;
+  }
+  .palette-item {
+    display: grid;
+    grid-template-columns: 100px 1fr 48px;
+    gap: 8px;
+    align-items: center;
+    padding: 10px 10px;
+    border-radius: 6px;
+    text-decoration: none;
+    color: inherit;
+    font-size: 11px;
+  }
+  .palette-item:hover {
+    background: color-mix(in srgb, var(--fin-fg, #000) 5%, transparent);
+  }
+  .slug {
+    font-weight: 600;
+    color: var(--fin-fg, #000);
+  }
+  .target {
+    color: var(--fin-muted, #666);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .clicks {
+    text-align: right;
+    color: var(--fin-muted, #666);
+  }
+  .palette-empty {
+    padding: 16px;
+    color: var(--fin-muted, #666);
+    text-align: center;
+  }
+</style>

@@ -1,0 +1,10 @@
+# Fin.sh — crawlers: index marketing pages; keep app surfaces out of search.
+User-agent: *
+Allow: /
+Allow: /login
+Allow: /register
+Disallow: /dashboard
+Disallow: /admin
+
+# Optional: set absolute URL in production (Google requires a full URL).
+# Sitemap: https://your-domain.com/sitemap.xml

@@ -1,0 +1,76 @@
+---
+import { finShGql } from '$lib/graphql';
+import { pageSeo } from '$lib/seo';
+
+const GUARD = `
+  query AdminGuard {
+    me {
+      role
+      email
+    }
+  }
+`;
+
+// nexus:pretext
+export async function load(ctx) {
+  const path = ctx.url.pathname + ctx.url.search;
+  try {
+    const { me } = await finShGql(GUARD, undefined, ctx.request, ctx.secrets);
+    if (!me) {
+      return ctx.redirect('/login?redirect=' + encodeURIComponent(path));
+    }
+    if (me.role !== 'admin') {
+      return ctx.redirect('/dashboard');
+    }
+    return {
+      ...pageSeo(ctx, {
+        title: 'Admin · Fin.sh',
+        description: 'Operations: users, ad placements, and global link inventory.',
+        robots: 'noindex, nofollow',
+      }),
+    };
+  } catch {
+    return ctx.redirect('/login?redirect=' + encodeURIComponent(path));
+  }
+}
+---
+
+<template>
+  <div class="admin-wrap">
+    <nav class="admin-nav mono" aria-label="Admin sections">
+      <a href="/admin">Overview</a>
+      <a href="/admin/analytics">Analytics</a>
+      <a href="/admin/users">Users &amp; plans</a>
+      <a href="/admin/ads">Ad placements</a>
+      <a href="/admin/links">All links</a>
+    </nav>
+    <!--nexus:slot-->
+  </div>
+</template>
+
+<style>
+  .admin-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 32px;
+  }
+  .admin-nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px 24px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--fin-border, #eaeaea);
+    font-size: 12px;
+  }
+  .admin-nav a {
+    color: var(--fin-muted, #666);
+    text-decoration: none;
+    font-weight: 500;
+  }
+  .admin-nav a:hover {
+    color: var(--fin-fg, #000);
+  }
+  .mono {
+    font-family: var(--fin-mono, 'JetBrains Mono', monospace);
+  }
+</style>

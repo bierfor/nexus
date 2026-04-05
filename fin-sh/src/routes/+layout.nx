@@ -1,0 +1,636 @@
+---
+import { createAction } from '@nexus_js/server';
+import { finShGql, finShGraphqlBrowserUrl } from '$lib/graphql';
+import { pageSeo } from '$lib/seo';
+
+const NAV_ME = `
+  query NavMe {
+    me {
+      email
+      plan
+      role
+    }
+  }
+`;
+
+// nexus:pretext
+export async function load(ctx) {
+  let navMe = null;
+  try {
+    const data = await finShGql(NAV_ME, undefined, ctx.request, ctx.secrets);
+    navMe = data.me;
+  } catch {
+    navMe = null;
+  }
+  const graphqlBrowserUrl = finShGraphqlBrowserUrl(ctx);
+  return {
+    navMe,
+    graphqlBrowserUrl,
+    beaconGqlEncoded: encodeURIComponent(graphqlBrowserUrl),
+    ...pageSeo(ctx, {
+      title: 'Fin.sh — Short links & analytics',
+      description:
+        'Short URLs with honest click tracking and plan-based sponsorship: free links can show sponsor offers before redirect; Premium keeps your brand clean. Built for creators and teams who sell attention responsibly.',
+    }),
+  };
+}
+
+const logout = createAction(
+  async (_input, ctx) => {
+    try {
+      await finShGql(`mutation { logout }`, undefined, ctx.request, ctx.secrets);
+    } catch {
+      /* still clear cookie */
+    }
+    ctx.setCookie('finsh_session', '', {
+      path: '/',
+      maxAge: 0,
+      httpOnly: true,
+      sameSite: 'Lax',
+    });
+    return ctx.redirect('/');
+  },
+  {
+    csrf: false,
+    rateLimit: { window: '1m', max: 40 },
+    race: 'ignore',
+  },
+);
+---
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="robots" content="{pretext.seoRobots}">
+  <meta name="description" content="{pretext.seoDescription}">
+  {#if pretext.seoKeywords}
+  <meta name="keywords" content="{pretext.seoKeywords}">
+  {/if}
+  <meta name="theme-color" content="#fafafa" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#050505" media="(prefers-color-scheme: dark)">
+  <meta name="format-detection" content="telephone=no">
+  <title>{pretext.seoTitle}</title>
+  <link rel="canonical" href="{pretext.seoCanonical}">
+  <meta property="og:type" content="{pretext.seoOgType}">
+  <meta property="og:title" content="{pretext.seoTitle}">
+  <meta property="og:description" content="{pretext.seoDescription}">
+  <meta property="og:url" content="{pretext.seoCanonical}">
+  <meta property="og:site_name" content="Fin.sh">
+  <meta property="og:locale" content="en_US">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="{pretext.seoTitle}">
+  <meta name="twitter:description" content="{pretext.seoDescription}">
+  {#if pretext.seoOgImage}
+  <meta property="og:image" content="{pretext.seoOgImage}">
+  <meta name="twitter:image" content="{pretext.seoOgImage}">
+  {/if}
+  {#if pretext.seoJsonLdScript}
+  <script type="application/ld+json">{pretext.seoJsonLdScript}</script>
+  {/if}
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    rel="stylesheet"
+    href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;1,500&family=JetBrains+Mono:wght@400;500;600&display=swap"
+  >
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" sizes="any">
+  <link rel="icon" href="/favicon.ico" sizes="32x32">
+  <link rel="apple-touch-icon" href="/images/finsh-mark.svg">
+  <link rel="alternate" hreflang="en" href="{pretext.seoCanonical}">
+</head>
+<body class="fin-body" data-finsh-beacon-gql="{pretext.beaconGqlEncoded}">
+  <a class="skip-link" href="#main-content">Skip to content</a>
+  <header class="fin-header" role="banner">
+    <div class="fin-header-inner">
+      <a href="/" class="fin-logo" aria-label="Fin.sh home">
+        <img
+          class="fin-logo-mark"
+          src="/images/finsh-mark.svg"
+          width="32"
+          height="32"
+          alt=""
+          decoding="async"
+        />
+        <span class="fin-logo-word">Fin.sh</span>
+      </a>
+      <nav class="fin-nav" aria-label="Primary">
+        <a href="/">Home</a>
+        <a href="/#features">Features</a>
+        <a href="/#monetize">Monetize</a>
+        <a href="/#placements">Ads</a>
+        <a href="/#pricing">Plans</a>
+        <a href="/#faq">FAQ</a>
+        {#if pretext.navMe}
+          <a href="/dashboard">My links</a>
+          <span class="plan-pill mono" aria-label="Current plan">{pretext.navMe.plan}</span>
+          {#if pretext.navMe.role === 'admin'}
+            <a href="/admin" class="admin-link">Admin</a>
+          {/if}
+          <form class="logout-form" method="post" action="/_nexus/action/logout">
+            <button type="submit" class="linkish">Log out</button>
+          </form>
+        {:else}
+          <a href="/dashboard">Dashboard</a>
+        {/if}
+        <span class="fin-nav-auth" aria-label="Account">
+          <a href="/login">Log in</a>
+          <a href="/register">Register</a>
+        </span>
+      </nav>
+    </div>
+  </header>
+  <main id="main-content" class="fin-main" role="main">
+    <!--nexus:slot-->
+  </main>
+  <footer class="fin-footer" role="contentinfo">
+    <div class="fin-footer-inner">
+      <div class="fin-footer-brand">
+        <a href="/" class="fin-footer-logo-link" aria-label="Fin.sh home">
+          <img
+            class="fin-footer-mark"
+            src="/images/finsh-mark.svg"
+            width="36"
+            height="36"
+            alt=""
+            decoding="async"
+          />
+          <span class="fin-footer-logo">Fin.sh</span>
+        </a>
+        <p class="fin-footer-tag">Short links with honest click analytics and plan-aware sponsorship.</p>
+      </div>
+      <div class="fin-footer-columns">
+        <nav class="fin-footer-col" aria-labelledby="footer-product-heading">
+          <h2 id="footer-product-heading" class="fin-footer-col-title mono">Product</h2>
+          <ul class="fin-footer-links">
+            <li><a href="/">Overview</a></li>
+            <li><a href="/#features">Features</a></li>
+            <li><a href="/#monetize">Monetize</a></li>
+            <li><a href="/#placements">Ads</a></li>
+            <li><a href="/#pricing">Plans</a></li>
+            <li><a href="/#faq">FAQ</a></li>
+          </ul>
+        </nav>
+        <nav class="fin-footer-col" aria-labelledby="footer-workspace-heading">
+          <h2 id="footer-workspace-heading" class="fin-footer-col-title mono">Workspace</h2>
+          <ul class="fin-footer-links">
+            <li><a href="/dashboard">Dashboard</a></li>
+            <li><a href="/dashboard#dash-create">Create link</a></li>
+            <li><a href="/dashboard#dash-links">All links</a></li>
+            <li><a href="/dashboard#dash-link-ads">Link ads</a></li>
+            <li><a href="/dashboard#dash-billing">Billing</a></li>
+            <li><a href="/dashboard/qr">QR Studio</a></li>
+          </ul>
+        </nav>
+        <nav class="fin-footer-col" aria-labelledby="footer-account-heading">
+          <h2 id="footer-account-heading" class="fin-footer-col-title mono">Account</h2>
+          <ul class="fin-footer-links">
+            {#if pretext.navMe}
+              <li><a href="/dashboard">My links</a></li>
+              {#if pretext.navMe.role === 'admin'}
+                <li><a href="/admin">Admin</a></li>
+              {/if}
+              <li>
+                <form class="fin-footer-logout" method="post" action="/_nexus/action/logout">
+                  <button type="submit" class="fin-footer-logout-btn">Log out</button>
+                </form>
+              </li>
+            {:else}
+              <li><a href="/login">Log in</a></li>
+              <li><a href="/register">Create account</a></li>
+            {/if}
+          </ul>
+        </nav>
+      </div>
+      <div class="fin-footer-meta">
+        <p class="fin-footer-copy mono">
+          © {new Date().getFullYear()} Fin.sh
+        </p>
+        <p class="fin-footer-note">Sponsored screens on free-tier links help fund the product; Premium and Business can opt out.</p>
+      </div>
+    </div>
+  </footer>
+  <script type="module">
+    (() => {
+      const raw = document.body?.getAttribute('data-finsh-beacon-gql') || '';
+      const GQL = decodeURIComponent(raw);
+      if (!GQL.startsWith('http')) return;
+      try {
+        const path = (location.pathname || '/').slice(0, 200);
+        if (!path.startsWith('/') || path.includes('..')) return;
+        const k = 'finsh_pv_' + path;
+        if (sessionStorage.getItem(k)) return;
+        sessionStorage.setItem(k, '1');
+        const q =
+          'mutation FinshPv($p:String!){ recordSitePageView(path:$p) }';
+        fetch(GQL, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          mode: 'cors',
+          credentials: 'omit',
+          body: JSON.stringify({ query: q, variables: { p: path } }),
+        }).catch(() => {});
+      } catch {
+        /* ignore */
+      }
+    })();
+  </script>
+</body>
+</html>
+
+<style>
+  :global(:root) {
+    color-scheme: light;
+    --fin-bg: #f6f6f4;
+    --fin-bg-elevated: #ffffff;
+    --fin-fg: #0a0a0a;
+    --fin-muted: #5c5c5c;
+    --fin-border: #e2e2de;
+    --fin-accent: #0f766e;
+    --fin-accent-fg: #f0fdfa;
+    --fin-ring: #0f766e66;
+    --fin-mono: 'JetBrains Mono', ui-monospace, monospace;
+    --fin-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    --fin-header-h: 56px;
+    letter-spacing: -0.02em;
+  }
+  @media (prefers-color-scheme: dark) {
+    :global(:root) {
+      color-scheme: dark;
+      --fin-bg: #050505;
+      --fin-bg-elevated: #111111;
+      --fin-fg: #f4f4f0;
+      --fin-muted: #9ca3af;
+      --fin-border: #27272a;
+      --fin-accent: #2dd4bf;
+      --fin-accent-fg: #042f2e;
+      --fin-ring: #2dd4bf55;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    :global(*, *::before, *::after) {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+  :global(html) {
+    min-height: 100dvh;
+    background-color: var(--fin-bg);
+    scroll-behavior: smooth;
+    /* Anchor / hash links: keep targets below sticky .fin-header + notch */
+    scroll-padding-top: calc(var(--fin-header-h, 56px) + env(safe-area-inset-top, 0px) + 20px);
+  }
+  @media (max-width: 720px) {
+    :global(html) {
+      scroll-padding-top: calc(var(--fin-header-h, 56px) + env(safe-area-inset-top, 0px) + 52px);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    :global(html) {
+      scroll-behavior: auto;
+    }
+  }
+  :global(.fin-body) {
+    margin: 0;
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    background-color: var(--fin-bg);
+    color: var(--fin-fg);
+    font-family: var(--fin-sans);
+    font-size: 15px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  :global(.skip-link) {
+    position: absolute;
+    left: 12px;
+    top: -100px;
+    z-index: 100;
+    padding: 10px 16px;
+    background: var(--fin-fg);
+    color: var(--fin-bg);
+    font-weight: 600;
+    font-size: 13px;
+    text-decoration: none;
+    border-radius: 8px;
+    transition: top 0.2s ease;
+  }
+  :global(.skip-link:focus) {
+    top: 12px;
+    outline: 2px solid var(--fin-accent);
+    outline-offset: 3px;
+  }
+  :global(.fin-header) {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    border-bottom: 1px solid var(--fin-border);
+    background-color: color-mix(in srgb, var(--fin-bg) 92%, transparent);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+  :global(.fin-header-inner) {
+    max-width: 1120px;
+    margin: 0 auto;
+    padding: 0 clamp(16px, 4vw, 28px);
+    min-height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+  }
+  :global(.fin-logo) {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 700;
+    font-size: 17px;
+    color: var(--fin-fg);
+    text-decoration: none;
+    letter-spacing: -0.04em;
+  }
+  :global(.fin-logo-mark) {
+    display: block;
+    width: 32px;
+    height: 32px;
+    flex-shrink: 0;
+    border-radius: 9px;
+    transition: transform 0.18s ease;
+  }
+  :global(.fin-logo:hover .fin-logo-word) {
+    color: var(--fin-accent);
+  }
+  :global(.fin-logo:hover .fin-logo-mark) {
+    transform: scale(1.04);
+  }
+  :global(.fin-logo:focus-visible) {
+    outline: 2px solid var(--fin-ring);
+    outline-offset: 4px;
+    border-radius: 10px;
+  }
+  :global(.fin-nav) {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 20px;
+  }
+  :global(.fin-nav a) {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--fin-muted);
+    text-decoration: none;
+    border-radius: 6px;
+    padding: 4px 2px;
+  }
+  :global(.fin-nav a:hover),
+  :global(.fin-nav a.admin-link) {
+    color: var(--fin-fg);
+  }
+  :global(.fin-nav a.admin-link) {
+    font-weight: 600;
+  }
+  :global(.fin-nav a:focus-visible) {
+    outline: 2px solid var(--fin-ring);
+    outline-offset: 2px;
+  }
+  :global(.fin-nav-auth) {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 18px;
+    margin-left: 8px;
+    padding-left: 18px;
+    border-left: 1px solid var(--fin-border);
+  }
+  @media (max-width: 720px) {
+    :global(.fin-nav-auth) {
+      margin-left: 0;
+      padding-left: 0;
+      border-left: none;
+      width: 100%;
+      padding-top: 8px;
+      border-top: 1px solid var(--fin-border);
+    }
+  }
+  :global(.plan-pill) {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 4px 10px;
+    border: 1px solid var(--fin-border);
+    border-radius: 999px;
+    color: var(--fin-muted);
+    background: var(--fin-bg-elevated);
+  }
+  :global(.logout-form) {
+    display: inline;
+    margin: 0;
+  }
+  :global(.linkish) {
+    background: none;
+    border: none;
+    padding: 4px 2px;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--fin-muted);
+    cursor: pointer;
+    border-radius: 6px;
+  }
+  :global(.linkish:hover) {
+    color: var(--fin-fg);
+  }
+  :global(.linkish:focus-visible) {
+    outline: 2px solid var(--fin-ring);
+    outline-offset: 2px;
+  }
+  :global(.fin-main) {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    max-width: 1120px;
+    margin: 0 auto;
+    padding: clamp(32px, 5vw, 56px) clamp(16px, 4vw, 28px) clamp(48px, 8vw, 96px);
+    box-sizing: border-box;
+    background-color: var(--fin-bg);
+  }
+  :global(.mono) {
+    font-family: var(--fin-mono);
+  }
+  :global(.fin-footer) {
+    margin-top: auto;
+    border-top: 1px solid var(--fin-border);
+    background: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--fin-fg) 2.5%, var(--fin-bg)) 0%,
+      var(--fin-bg) 48%
+    );
+  }
+  :global(.fin-footer-inner) {
+    max-width: 1120px;
+    margin: 0 auto;
+    padding: 36px clamp(16px, 4vw, 28px) max(28px, env(safe-area-inset-bottom, 0px));
+    display: flex;
+    flex-direction: column;
+    gap: 32px;
+  }
+  :global(.fin-footer-brand) {
+    max-width: 22rem;
+  }
+  :global(.fin-footer-logo-link) {
+    text-decoration: none;
+    color: inherit;
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    border-radius: 10px;
+    margin: -4px -6px;
+    padding: 4px 6px;
+  }
+  :global(.fin-footer-mark) {
+    display: block;
+    width: 36px;
+    height: 36px;
+    flex-shrink: 0;
+    border-radius: 10px;
+    transition: transform 0.18s ease;
+  }
+  :global(.fin-footer-logo-link:hover .fin-footer-logo) {
+    color: var(--fin-accent);
+  }
+  :global(.fin-footer-logo-link:hover .fin-footer-mark) {
+    transform: scale(1.04);
+  }
+  :global(.fin-footer-logo-link:focus-visible) {
+    outline: 2px solid var(--fin-ring);
+    outline-offset: 2px;
+  }
+  :global(.fin-footer-logo) {
+    font-weight: 700;
+    font-size: 17px;
+    letter-spacing: -0.04em;
+    transition: color 0.15s ease;
+  }
+  :global(.fin-footer-tag) {
+    margin: 10px 0 0;
+    font-size: 13px;
+    color: var(--fin-muted);
+    line-height: 1.55;
+  }
+  :global(.fin-footer-columns) {
+    display: grid;
+    gap: 28px 40px;
+    grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));
+  }
+  @media (min-width: 720px) {
+    :global(.fin-footer-inner) {
+      display: grid;
+      grid-template-columns: minmax(200px, 1.05fr) minmax(0, 2.15fr);
+      grid-template-areas:
+        'brand cols'
+        'meta meta';
+      gap: 36px 48px 28px;
+      align-items: start;
+    }
+    :global(.fin-footer-brand) {
+      grid-area: brand;
+    }
+    :global(.fin-footer-columns) {
+      grid-area: cols;
+    }
+    :global(.fin-footer-meta) {
+      grid-area: meta;
+    }
+  }
+  @media (min-width: 960px) {
+    :global(.fin-footer-columns) {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+  }
+  :global(.fin-footer-col-title) {
+    margin: 0 0 12px;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: color-mix(in srgb, var(--fin-muted) 88%, var(--fin-fg));
+  }
+  :global(.fin-footer-links) {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  :global(.fin-footer-links a) {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--fin-muted);
+    text-decoration: none;
+    border-radius: 6px;
+    margin: -2px -4px;
+    padding: 2px 4px;
+    width: fit-content;
+    transition: color 0.15s ease;
+  }
+  :global(.fin-footer-links a:hover) {
+    color: var(--fin-fg);
+  }
+  :global(.fin-footer-links a:focus-visible) {
+    outline: 2px solid var(--fin-ring);
+    outline-offset: 2px;
+  }
+  :global(.fin-footer-logout) {
+    display: inline;
+    margin: 0;
+  }
+  :global(.fin-footer-logout-btn) {
+    display: inline;
+    margin: 0;
+    padding: 2px 4px;
+    margin-left: -4px;
+    border: none;
+    background: none;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--fin-muted);
+    cursor: pointer;
+    border-radius: 6px;
+    text-align: left;
+    transition: color 0.15s ease;
+  }
+  :global(.fin-footer-logout-btn:hover) {
+    color: var(--fin-fg);
+  }
+  :global(.fin-footer-logout-btn:focus-visible) {
+    outline: 2px solid var(--fin-ring);
+    outline-offset: 2px;
+  }
+  :global(.fin-footer-meta) {
+    padding-top: 8px;
+    border-top: 1px solid color-mix(in srgb, var(--fin-border) 85%, transparent);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  :global(.fin-footer-copy) {
+    font-size: 11px;
+    color: var(--fin-muted);
+    margin: 0;
+    line-height: 1.55;
+  }
+  :global(.fin-footer-note) {
+    margin: 0;
+    font-size: 12px;
+    line-height: 1.5;
+    color: color-mix(in srgb, var(--fin-muted) 92%, var(--fin-fg));
+    max-width: 42rem;
+  }
+</style>

@@ -1,0 +1,147 @@
+---
+import { finShGql, finShPublicOrigin } from '$lib/graphql';
+import { pageSeo } from '$lib/seo';
+
+const LINKS_Q = `
+  query AdminLinks($lim: Int) {
+    adminLinks(limit: $lim) {
+      id
+      slug
+      targetUrl
+      clicks
+      plan
+      ownerEmail
+      createdAt
+    }
+  }
+`;
+
+// nexus:pretext
+export async function load(ctx) {
+  let links = [];
+  let gqlError = '';
+  try {
+    const data = await finShGql(LINKS_Q, { lim: 300 }, ctx.request, ctx.secrets);
+    links = data.adminLinks;
+  } catch (e) {
+    gqlError = e instanceof Error ? e.message : 'GraphQL error';
+  }
+  return {
+    links,
+    gqlError,
+    publicOrigin: finShPublicOrigin(ctx),
+    ...pageSeo(ctx, {
+      title: 'All links · Admin · Fin.sh',
+      description: 'Read-only inventory of slugs, owners, and click counts for support.',
+      robots: 'noindex, nofollow',
+    }),
+  };
+}
+---
+
+<template>
+  <section>
+    <h1 class="title">All links</h1>
+    <p class="sub mono">Read-only inventory for support and moderation.</p>
+
+    {#if pretext.gqlError}
+      <p class="err mono">{pretext.gqlError}</p>
+    {/if}
+
+    {#if !(pretext.links ?? []).length && !pretext.gqlError}
+      <p class="empty mono">No links.</p>
+    {:else}
+      <ul class="link-list">
+        {#each pretext.links as row}
+          <li class="link-row">
+            <div class="main">
+              <span class="slug mono">{pretext.publicOrigin}/s/{row.slug}</span>
+              <span class="target mono">{row.targetUrl}</span>
+            </div>
+            <div class="meta mono">
+              <span>{row.clicks} clicks</span>
+              <span>{row.plan}</span>
+              <span class="owner">{row.ownerEmail ?? '—'}</span>
+            </div>
+          </li>
+        {/each}
+      </ul>
+    {/if}
+  </section>
+</template>
+
+<style>
+  .title {
+    font-size: 24px;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    margin-bottom: 8px;
+  }
+  .sub {
+    font-size: 12px;
+    color: var(--fin-muted, #666);
+    margin-bottom: 24px;
+  }
+  .err {
+    color: #b45309;
+    margin-bottom: 16px;
+  }
+  .empty {
+    color: var(--fin-muted, #666);
+  }
+  .link-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    border: 1px solid var(--fin-border, #eaeaea);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .link-row {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--fin-border, #eaeaea);
+  }
+  .link-row:last-child {
+    border-bottom: none;
+  }
+  .main {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+    flex: 1;
+  }
+  .slug {
+    font-weight: 600;
+    font-size: 12px;
+  }
+  .target {
+    font-size: 11px;
+    color: var(--fin-muted, #666);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 480px;
+  }
+  .meta {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+    font-size: 10px;
+    color: var(--fin-muted, #666);
+  }
+  .owner {
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .mono {
+    font-family: var(--fin-mono, 'JetBrains Mono', monospace);
+  }
+</style>

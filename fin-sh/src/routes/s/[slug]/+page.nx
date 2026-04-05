@@ -1,0 +1,884 @@
+---
+import { Buffer } from 'node:buffer';
+import QRCode from 'qrcode';
+import { isLikelyBotFromRequest, viewerRegionFromRequest } from '$lib/bot';
+import { finShGql, finShGraphqlBrowserUrl, finShPublicOrigin } from '$lib/graphql';
+import { pageSeo } from '$lib/seo';
+
+/** @param {string} s */
+function b64utf8(s) {
+  return Buffer.from(s, 'utf8').toString('base64');
+}
+
+/** @param {string | undefined} s @param {number} max */
+function truncateSeo(s, max) {
+  const t = String(s ?? '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (t.length <= max) return t;
+  return `${t.slice(0, Math.max(0, max - 1)).trimEnd()}…`;
+}
+
+/** @param {string} u */
+function absoluteOgImage(u, origin) {
+  const x = String(u ?? '').trim();
+  if (!x) return undefined;
+  if (/^https:\/\//i.test(x)) return x;
+  if (/^http:\/\//i.test(x)) return x;
+  if (x.startsWith('//')) return `https:${x}`;
+  if (x.startsWith('/')) return `${origin}${x}`;
+  return undefined;
+}
+
+const GATE_Q = `
+  query Gate($s: String!, $r: String!) {
+    linkBySlug(slug: $s) {
+      targetUrl
+      plan
+      linkInterstitialAllowed
+    }
+    adForViewer(region: $r, viewerPlan: "free") {
+      id
+      title
+      body
+      targetUrl
+      imageUrl
+    }
+  }
+`;
+
+const CLICK = `
+  mutation C($s: String!) {
+    recordClick(slug: $s)
+  }
+`;
+
+const RECORD_GATE = `
+  mutation RG($s: String!) {
+    recordLinkGateView(slug: $s)
+  }
+`;
+
+// nexus:pretext
+export async function load(ctx) {
+  const slug = ctx.params.slug;
+  if (!slug || slug.length > 200) {
+    return ctx.notFound();
+  }
+
+  const region = viewerRegionFromRequest(ctx.request);
+  const bot = isLikelyBotFromRequest(ctx.request);
+
+  let targetUrl = '';
+  let plan = 'free';
+  let ad = null;
+  let linkInterstitialAllowed = true;
+
+  try {
+    const data = await finShGql(GATE_Q, { s: slug, r: region }, ctx.request, ctx.secrets);
+    targetUrl = data.linkBySlug?.targetUrl ?? '';
+    plan = String(data.linkBySlug?.plan ?? 'free').toLowerCase();
+    ad = data.adForViewer ?? null;
+    linkInterstitialAllowed = data.linkBySlug?.linkInterstitialAllowed !== false;
+  } catch {
+    return ctx.notFound();
+  }
+
+  if (!targetUrl) {
+    return ctx.notFound();
+  }
+
+  const useGate = !bot && plan === 'free' && ad !== null && linkInterstitialAllowed;
+
+  if (!useGate) {
+    try {
+      await finShGql(CLICK, { s: slug }, ctx.request, ctx.secrets);
+    } catch {
+      /* still redirect */
+    }
+    return ctx.redirect(targetUrl);
+  }
+
+  try {
+    await finShGql(RECORD_GATE, { s: slug }, ctx.request, ctx.secrets);
+  } catch {
+    try {
+      await finShGql(CLICK, { s: slug }, ctx.request, ctx.secrets);
+    } catch {
+      /* ignore */
+    }
+    return ctx.redirect(targetUrl);
+  }
+
+  const origin = finShPublicOrigin(ctx);
+  const shortPath = `/s/${slug}`;
+  const pageUrl = `${origin}${shortPath}`;
+  const descFromAd = truncateSeo(ad.body, 158);
+  const seoDescription =
+    descFromAd ||
+    'Fin.sh short link: a brief sponsored moment before you continue to your destination. Premium links skip this step.';
+  const ogImg = absoluteOgImage(ad.imageUrl, origin);
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'WebPage',
+    '@id': `${pageUrl}#webpage`,
+    url: pageUrl,
+    name: truncateSeo(ad.title || 'Sponsored offer', 110),
+    description: seoDescription,
+    isPartOf: {
+      '@type': 'WebSite',
+      name: 'Fin.sh',
+      url: origin,
+    },
+  };
+
+  let gateQrDataUrl = '';
+  try {
+    gateQrDataUrl = await QRCode.toDataURL(pageUrl, {
+      width: 168,
+      margin: 1,
+      errorCorrectionLevel: 'M',
+      color: {
+        dark: '#0a0a0aff',
+        light: '#ffffffff',
+      },
+    });
+  } catch {
+    gateQrDataUrl = '';
+  }
+
+  return {
+    showGate: true,
+    slug,
+    targetUrl,
+    gateQrDataUrl,
+    gateB64Gql: b64utf8(finShGraphqlBrowserUrl(ctx)),
+    gateB64Dest: b64utf8(targetUrl),
+    gateB64Sponsor: b64utf8(ad.targetUrl),
+    ad: {
+      id: ad.id,
+      title: ad.title,
+      body: ad.body ?? '',
+      targetUrl: ad.targetUrl,
+      imageUrl: ad.imageUrl ?? '',
+    },
+    ...pageSeo(ctx, {
+      title: `${truncateSeo(ad.title || 'Sponsored offer', 52)} · Fin.sh`,
+      description: seoDescription,
+      keywords: 'Fin.sh, short link, redirect, analytics',
+      robots: 'noindex, follow',
+      ogType: 'website',
+      ...(ogImg ? { ogImage: ogImg } : {}),
+      jsonLd,
+    }),
+  };
+}
+---
+
+<template>
+  {#if pretext.showGate}
+    <div
+      class="gate"
+      id="finsh-gate"
+      data-b64-gql="{pretext.gateB64Gql}"
+      data-b64-dest="{pretext.gateB64Dest}"
+      data-b64-sponsor="{pretext.gateB64Sponsor}"
+      data-slug="{pretext.slug}"
+      data-ad-id="{pretext.ad.id}"
+    >
+      <div class="gate-atlas" aria-hidden="true">
+        <div class="gate-atlas__mesh"></div>
+        <div class="gate-atlas__slash"></div>
+        <div class="gate-atlas__block gate-atlas__block--a"></div>
+        <div class="gate-atlas__block gate-atlas__block--b"></div>
+        <div class="gate-atlas__orbit"></div>
+      </div>
+      <div class="gate-surface">
+        <header class="gate-rail mono">
+          <span class="gate-rail__brand">Fin.sh</span>
+          <span class="gate-rail__slug">/{pretext.slug}</span>
+        </header>
+        <div class="gate-compose">
+          <div class="gate-aside">
+            {#if pretext.gateQrDataUrl}
+              <figure class="gate-qr-frame">
+                <img
+                  class="gate-qr"
+                  src="{pretext.gateQrDataUrl}"
+                  width="168"
+                  height="168"
+                  alt="QR code for this Fin.sh short link"
+                  decoding="async"
+                />
+                <figcaption class="gate-qr-label mono">Scan · short URL</figcaption>
+              </figure>
+            {/if}
+            <p class="gate-chapter mono" aria-hidden="true">
+              <span class="gate-chapter__n">01</span>
+              <span class="gate-chapter__l">transit</span>
+            </p>
+          </div>
+          <div class="gate-card">
+            <p class="gate-eyebrow mono">Interstitial · outbound</p>
+            <p id="finsh-gate-status" class="gate-status" aria-live="polite">
+              Tap <strong>Open offer</strong> once to open the sponsor — <strong>Continue</strong> unlocks after 15s. Or use
+              <strong>Open now</strong> to open both in new tabs and skip the wait.
+            </p>
+            <div id="finsh-cooldown" class="gate-cooldown gate-cooldown--hidden" aria-hidden="true">
+              <p class="gate-cooldown-label mono">Continue unlocks in</p>
+              <div class="gate-cooldown-row">
+                <span id="finsh-cd-secs" class="gate-cooldown-secs mono">15</span>
+                <span class="gate-cooldown-unit mono">seconds</span>
+              </div>
+              <div
+                id="finsh-cd-bar"
+                class="gate-cooldown-bar"
+                role="progressbar"
+                aria-valuemin="0"
+                aria-valuemax="15"
+                aria-valuenow="15"
+                aria-label="Time until continue unlocks"
+              >
+                <div id="finsh-cd-bar-fill" class="gate-cooldown-bar-fill"></div>
+              </div>
+            </div>
+            <h1 class="gate-title">{pretext.ad.title}</h1>
+            {#if pretext.ad.body}
+              <p class="gate-body">{pretext.ad.body}</p>
+            {/if}
+            {#if pretext.ad.imageUrl}
+              <img
+                class="gate-img"
+                src="{pretext.ad.imageUrl}"
+                alt=""
+                loading="lazy"
+                decoding="async"
+              />
+            {/if}
+            <div class="gate-actions">
+              <a
+                id="finsh-sponsor"
+                class="btn btn-promo"
+                href="{pretext.ad.targetUrl}"
+                target="_blank"
+                rel="noopener noreferrer sponsored"
+              >
+                Open offer
+              </a>
+              <button type="button" class="btn btn-secondary mono" id="finsh-open-now">
+                Open now
+              </button>
+              <button type="button" class="btn btn-continue mono btn-locked" id="finsh-continue" disabled aria-disabled="true">
+                Continue to your link →
+              </button>
+            </div>
+            <p class="gate-foot mono">
+              Free-plan short links show this step once per visit. Premium links skip it.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- After script tag close-angle, use a same-line semicolon so Nexus parser keeps this in the template. -->
+    <script type="module">;
+      function bootFinshGate() {
+        const gate = document.getElementById('finsh-gate');
+        const statusEl = document.getElementById('finsh-gate-status');
+        const cont = document.getElementById('finsh-continue');
+        const sponsorA = document.getElementById('finsh-sponsor');
+        const openNowBtn = document.getElementById('finsh-open-now');
+        const cdRoot = document.getElementById('finsh-cooldown');
+        const cdSecs = document.getElementById('finsh-cd-secs');
+        const cdBar = document.getElementById('finsh-cd-bar');
+        const cdFill = document.getElementById('finsh-cd-bar-fill');
+        if (!gate || !cont) return;
+
+        const OFFER_COOLDOWN_MS = 15000;
+        const FAILSAFE_UNLOCK_MS = 90000;
+
+        function b64ToUtf8(b64) {
+          try {
+            const bin = atob((b64 || '').trim());
+            const bytes = new Uint8Array(bin.length);
+            for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+            return new TextDecoder('utf-8').decode(bytes);
+          } catch {
+            return '';
+          }
+        }
+
+        const GQL = b64ToUtf8(gate.dataset.b64Gql);
+        const destination = b64ToUtf8(gate.dataset.b64Dest);
+        const sponsorUrl = b64ToUtf8(gate.dataset.b64Sponsor);
+        const slug = (gate.dataset.slug || '').trim();
+        const adId = (gate.dataset.adId || '').trim();
+
+        function recordOutbound() {
+          if (!adId) return;
+          fetch(GQL, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            mode: 'cors',
+            credentials: 'omit',
+            body: JSON.stringify({
+              query: 'mutation PO($id:ID!){ recordPlacementOutboundClick(adId:$id) }',
+              variables: { id: adId },
+            }),
+          }).catch(() => {});
+        }
+
+        function recordClickMutation() {
+          if (clickRecorded) return Promise.resolve();
+          clickRecorded = true;
+          return fetch(GQL, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            mode: 'cors',
+            credentials: 'omit',
+            body: JSON.stringify({
+              query: 'mutation RC($s:String!){ recordClick(slug:$s) }',
+              variables: { s: slug },
+            }),
+          }).catch(() => {});
+        }
+
+        let cooldownTimer = null;
+        let failsafeTimer = null;
+        let clickRecorded = false;
+        let offerFirstOpened = false;
+
+        function lockContinue() {
+          cont.disabled = true;
+          cont.classList.add('btn-locked');
+          cont.setAttribute('aria-disabled', 'true');
+        }
+
+        function setCooldownUi(visible) {
+          if (!cdRoot) return;
+          if (visible) {
+            cdRoot.classList.remove('gate-cooldown--hidden');
+            cdRoot.setAttribute('aria-hidden', 'false');
+          } else {
+            cdRoot.classList.add('gate-cooldown--hidden');
+            cdRoot.setAttribute('aria-hidden', 'true');
+          }
+        }
+
+        function updateCooldownVisual(leftMs, totalMs) {
+          const s = Math.max(0, Math.ceil(leftMs / 1000));
+          if (cdSecs) cdSecs.textContent = String(s);
+          const pct = totalMs > 0 ? Math.min(100, Math.max(0, (100 * leftMs) / totalMs)) : 0;
+          if (cdFill) cdFill.style.width = pct + '%';
+          if (cdBar) {
+            cdBar.setAttribute('aria-valuenow', String(s));
+            cdBar.setAttribute('aria-valuemax', String(Math.ceil(totalMs / 1000)));
+          }
+        }
+
+        function unlockContinue(msg) {
+          if (cooldownTimer) {
+            clearInterval(cooldownTimer);
+            cooldownTimer = null;
+          }
+          setCooldownUi(false);
+          cont.disabled = false;
+          cont.classList.remove('btn-locked');
+          cont.setAttribute('aria-disabled', 'false');
+          if (statusEl && msg !== undefined && msg !== '') statusEl.textContent = msg;
+        }
+
+        function startOfferCooldown() {
+          lockContinue();
+          setCooldownUi(true);
+          const end = Date.now() + OFFER_COOLDOWN_MS;
+          const tick = () => {
+            const left = Math.max(0, end - Date.now());
+            updateCooldownVisual(left, OFFER_COOLDOWN_MS);
+            if (statusEl) {
+              statusEl.textContent =
+                left > 0
+                  ? 'Sponsor opened in another tab. Wait for the timer below, then tap Continue.'
+                  : 'You can continue to your link.';
+            }
+            if (left <= 0) {
+              if (cooldownTimer) clearInterval(cooldownTimer);
+              cooldownTimer = null;
+              unlockContinue('You can continue to your link.');
+            }
+          };
+          tick();
+          cooldownTimer = setInterval(tick, 200);
+        }
+
+        if (!GQL.startsWith('http') || !destination || !sponsorUrl || !slug) {
+          if (statusEl) statusEl.textContent = 'Could not load redirect data. Reload or try “Open offer”.';
+          unlockContinue('');
+          return;
+        }
+
+        function clearFailsafe() {
+          if (failsafeTimer) {
+            clearTimeout(failsafeTimer);
+            failsafeTimer = null;
+          }
+        }
+
+        /* First tap on Open offer: outbound + 15s countdown; browser opens sponsor via href. Later taps = link only. */
+        sponsorA?.addEventListener(
+          'click',
+          () => {
+            if (offerFirstOpened) return;
+            offerFirstOpened = true;
+            recordOutbound();
+            startOfferCooldown();
+          },
+          true,
+        );
+
+        /* Open now: sponsor tab + destination tab, record click, unlock Continue immediately. */
+        openNowBtn?.addEventListener('click', () => {
+          offerFirstOpened = true;
+          if (cooldownTimer) {
+            clearInterval(cooldownTimer);
+            cooldownTimer = null;
+          }
+          setCooldownUi(false);
+          clearFailsafe();
+          recordOutbound();
+          window.open(sponsorUrl, '_blank', 'noopener,noreferrer');
+          window.open(destination, '_blank', 'noopener,noreferrer');
+          void recordClickMutation().then(() => {
+            if (statusEl) {
+              statusEl.textContent =
+                'Opened sponsor and your link in new tabs. Continue is unlocked — use it to go there in this tab if you want.';
+            }
+            unlockContinue('Continue goes to your link in this tab (already counted).');
+          });
+        });
+
+        failsafeTimer = setTimeout(() => {
+          if (cooldownTimer) {
+            clearInterval(cooldownTimer);
+            cooldownTimer = null;
+          }
+          unlockContinue('Continue unlocked — you can go to your link.');
+        }, FAILSAFE_UNLOCK_MS);
+
+        cont.addEventListener('click', async () => {
+          if (cont.disabled) return;
+          clearFailsafe();
+          await recordClickMutation();
+          location.href = destination;
+        });
+      }
+
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', bootFinshGate, { once: true });
+      } else {
+        queueMicrotask(bootFinshGate);
+      }
+    </script>
+  {:else}
+    <p class="mono">Redirecting…</p>
+  {/if}
+</template>
+
+<style>
+  /* Abstract / modernist gate — geometry, high contrast, no decorative clutter */
+  .gate {
+    --gate-ink: var(--fin-fg, #0a0a0a);
+    --gate-paper: var(--fin-bg-elevated, #fff);
+    --gate-wash: var(--fin-bg, #f4f3ef);
+    --gate-line: var(--fin-border, #e0dfda);
+    --gate-signal: var(--fin-accent, #0f766e);
+    position: relative;
+    isolation: isolate;
+    min-height: min(92dvh, 920px);
+    display: flex;
+    align-items: stretch;
+    justify-content: center;
+    padding: clamp(20px, 5vw, 48px) max(16px, env(safe-area-inset-left, 0px))
+      max(28px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-right, 0px));
+    background: var(--gate-wash);
+    overflow: hidden;
+  }
+  .gate-atlas {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+  }
+  .gate-atlas__mesh {
+    position: absolute;
+    inset: -20%;
+    opacity: 0.45;
+    background-image:
+      linear-gradient(90deg, color-mix(in srgb, var(--gate-ink) 6%, transparent) 1px, transparent 1px),
+      linear-gradient(color-mix(in srgb, var(--gate-ink) 6%, transparent) 1px, transparent 1px);
+    background-size: 56px 56px;
+    transform: rotate(-6deg) scale(1.15);
+  }
+  .gate-atlas__slash {
+    position: absolute;
+    top: -30%;
+    right: -15%;
+    width: min(55vw, 420px);
+    height: 160%;
+    background: linear-gradient(
+      165deg,
+      color-mix(in srgb, var(--gate-signal) 22%, transparent) 0%,
+      transparent 48%
+    );
+    transform: rotate(12deg);
+  }
+  .gate-atlas__block--a {
+    position: absolute;
+    bottom: 12%;
+    left: 4%;
+    width: clamp(72px, 14vw, 140px);
+    height: clamp(72px, 14vw, 140px);
+    border: 2px solid color-mix(in srgb, var(--gate-ink) 88%, transparent);
+    border-radius: 0;
+    transform: rotate(8deg);
+    opacity: 0.85;
+  }
+  .gate-atlas__block--b {
+    position: absolute;
+    top: 18%;
+    left: 8%;
+    width: 12px;
+    height: clamp(120px, 22vh, 220px);
+    background: color-mix(in srgb, var(--gate-signal) 55%, var(--gate-ink));
+    border-radius: 0;
+    opacity: 0.9;
+  }
+  .gate-atlas__orbit {
+    position: absolute;
+    bottom: 8%;
+    right: 6%;
+    width: min(42vw, 280px);
+    height: min(42vw, 280px);
+    border: 1px solid color-mix(in srgb, var(--gate-ink) 12%, transparent);
+    border-radius: 50%;
+    opacity: 0.7;
+  }
+  .gate-surface {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 1080px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: clamp(20px, 4vw, 32px);
+  }
+  .gate-rail {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px 24px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: color-mix(in srgb, var(--gate-ink) 45%, var(--fin-muted, #666));
+  }
+  .gate-rail__brand {
+    color: var(--gate-ink);
+    letter-spacing: 0.18em;
+  }
+  .gate-rail__slug {
+    font-size: 10px;
+    color: color-mix(in srgb, var(--gate-signal) 35%, var(--fin-muted, #666));
+  }
+  .gate-compose {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: clamp(16px, 3vw, 28px);
+    align-items: start;
+  }
+  @media (min-width: 880px) {
+    .gate-compose {
+      grid-template-columns: minmax(168px, 0.38fr) minmax(0, 1fr);
+      align-items: start;
+    }
+  }
+  .gate-aside {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: clamp(16px, 2.8vw, 24px);
+    width: 100%;
+  }
+  .gate-qr-frame {
+    margin: 0;
+    padding: 0;
+  }
+  .gate-qr {
+    display: block;
+    width: 168px;
+    max-width: min(168px, 46vw);
+    height: auto;
+    aspect-ratio: 1;
+    object-fit: contain;
+    border: 2px solid var(--gate-ink);
+    box-shadow: 6px 6px 0 color-mix(in srgb, var(--gate-signal) 50%, var(--gate-ink));
+    background: var(--gate-paper);
+  }
+  .gate-qr-label {
+    margin: 10px 0 0;
+    max-width: 168px;
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    line-height: 1.35;
+    color: color-mix(in srgb, var(--gate-ink) 42%, var(--fin-muted, #666));
+  }
+  .gate-chapter {
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    line-height: 1;
+    user-select: none;
+  }
+  @media (max-width: 879px) {
+    .gate-chapter {
+      flex-direction: row;
+      align-items: baseline;
+      gap: 12px;
+    }
+  }
+  .gate-chapter__n {
+    font-size: clamp(3.5rem, 14vw, 6.5rem);
+    font-weight: 800;
+    letter-spacing: -0.06em;
+    color: color-mix(in srgb, var(--gate-ink) 8%, var(--gate-wash));
+    -webkit-text-stroke: 1px color-mix(in srgb, var(--gate-ink) 14%, transparent);
+  }
+  .gate-chapter__l {
+    font-size: 10px;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: color-mix(in srgb, var(--gate-signal) 40%, var(--fin-muted, #666));
+  }
+  .gate-card {
+    position: relative;
+    width: 100%;
+    max-width: 480px;
+    margin-left: 0;
+    border: 1px solid var(--gate-line);
+    border-radius: 2px;
+    padding: clamp(22px, 4vw, 32px) clamp(20px, 4vw, 28px) clamp(20px, 3vw, 26px);
+    background: var(--gate-paper);
+    box-shadow:
+      12px 12px 0 color-mix(in srgb, var(--gate-ink) 8%, transparent),
+      0 0 0 1px color-mix(in srgb, var(--gate-ink) 4%, transparent);
+  }
+  @media (min-width: 880px) {
+    .gate-card {
+      margin-left: auto;
+      margin-right: 0;
+    }
+  }
+  .gate-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 4px;
+    background: var(--gate-signal);
+  }
+  .gate-eyebrow {
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.22em;
+    color: color-mix(in srgb, var(--gate-ink) 42%, var(--fin-muted, #666));
+    margin: 0 0 14px;
+    font-weight: 600;
+    padding-left: 8px;
+  }
+  .gate-status {
+    font-size: 13px;
+    color: color-mix(in srgb, var(--gate-ink) 55%, var(--fin-muted, #555));
+    margin: 0 0 18px;
+    line-height: 1.55;
+    min-height: 3.2em;
+    padding-left: 8px;
+    max-width: 42rem;
+  }
+  .gate-status strong {
+    color: var(--gate-ink);
+    font-weight: 700;
+  }
+  .gate-cooldown {
+    margin: 0 0 22px 8px;
+    padding: 20px 18px 18px;
+    border-radius: 0;
+    border: 1px solid color-mix(in srgb, var(--gate-signal) 35%, var(--gate-line));
+    border-left-width: 4px;
+    background: color-mix(in srgb, var(--gate-signal) 7%, var(--gate-paper));
+    text-align: left;
+    transition: opacity 0.25s ease, transform 0.25s ease;
+  }
+  .gate-cooldown--hidden {
+    display: none;
+  }
+  .gate-cooldown-label {
+    margin: 0 0 8px;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    color: color-mix(in srgb, var(--gate-signal) 50%, var(--fin-muted, #666));
+    font-weight: 600;
+  }
+  .gate-cooldown-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: flex-start;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+  .gate-cooldown-secs {
+    font-size: clamp(2.8rem, 9vw, 3.6rem);
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: -0.05em;
+    color: var(--gate-signal);
+    font-variant-numeric: tabular-nums;
+  }
+  .gate-cooldown-unit {
+    font-size: 11px;
+    font-weight: 600;
+    color: color-mix(in srgb, var(--gate-ink) 35%, var(--fin-muted, #666));
+    text-transform: lowercase;
+    letter-spacing: 0.08em;
+  }
+  .gate-cooldown-bar {
+    height: 6px;
+    border-radius: 0;
+    background: color-mix(in srgb, var(--gate-ink) 10%, var(--gate-paper));
+    overflow: hidden;
+  }
+  .gate-cooldown-bar-fill {
+    height: 100%;
+    width: 100%;
+    border-radius: 0;
+    background: var(--gate-signal);
+    transition: width 0.15s linear;
+  }
+  .gate-title {
+    font-size: clamp(1.25rem, 3.2vw, 1.55rem);
+    font-weight: 800;
+    letter-spacing: -0.04em;
+    margin: 0 0 12px;
+    line-height: 1.2;
+    color: var(--gate-ink);
+    padding-left: 8px;
+    text-wrap: balance;
+  }
+  .gate-body {
+    font-size: 14px;
+    color: color-mix(in srgb, var(--gate-ink) 48%, var(--fin-muted, #555));
+    line-height: 1.6;
+    margin: 0 0 16px;
+    padding-left: 8px;
+    max-width: 40rem;
+  }
+  .gate-img {
+    width: 100%;
+    max-height: 220px;
+    object-fit: cover;
+    border-radius: 0;
+    margin: 0 0 22px 8px;
+    border: 1px solid var(--gate-line);
+    max-width: calc(100% - 8px);
+  }
+  .gate-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin: 0 0 20px 8px;
+  }
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 48px;
+    padding: 12px 22px;
+    border-radius: 0;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-decoration: none;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+    text-transform: uppercase;
+    transition: transform 0.1s ease, box-shadow 0.1s ease, background 0.1s ease, opacity 0.1s ease;
+    touch-action: manipulation;
+  }
+  .btn:active:not(:disabled) {
+    transform: translate(1px, 1px);
+  }
+  .btn-promo {
+    background: var(--gate-ink);
+    color: var(--gate-paper);
+    box-shadow: 4px 4px 0 color-mix(in srgb, var(--gate-signal) 65%, var(--gate-ink));
+  }
+  .btn-promo:hover {
+    opacity: 0.92;
+  }
+  .btn-secondary {
+    background: var(--gate-paper);
+    color: var(--gate-ink);
+    border: 2px solid var(--gate-ink);
+    font-size: 12px;
+    font-weight: 700;
+  }
+  .btn-secondary:hover {
+    background: color-mix(in srgb, var(--gate-ink) 5%, var(--gate-paper));
+  }
+  .btn-continue {
+    background: transparent;
+    color: var(--gate-signal);
+    border: 2px solid color-mix(in srgb, var(--gate-signal) 55%, var(--gate-line));
+    font-size: 11px;
+  }
+  .btn-continue:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--gate-signal) 8%, var(--gate-paper));
+  }
+  .btn-continue:disabled,
+  .btn-continue.btn-locked {
+    opacity: 0.35;
+    cursor: not-allowed;
+    box-shadow: none;
+  }
+  .btn-continue:not(:disabled) {
+    opacity: 1;
+  }
+  .gate-foot {
+    font-size: 10px;
+    color: color-mix(in srgb, var(--gate-ink) 38%, var(--fin-muted, #888));
+    line-height: 1.5;
+    margin: 0;
+    padding-left: 8px;
+    letter-spacing: 0.04em;
+    max-width: 38rem;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .btn,
+    .gate-cooldown {
+      transition: none;
+    }
+    .btn:active:not(:disabled) {
+      transform: none;
+    }
+  }
+  .mono {
+    font-family: var(--fin-mono, 'JetBrains Mono', 'SF Mono', ui-monospace, monospace);
+  }
+</style>

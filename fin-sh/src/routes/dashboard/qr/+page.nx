@@ -1,0 +1,989 @@
+---
+import { finShGql, finShPublicOrigin } from '$lib/graphql';
+import { pageSeo } from '$lib/seo';
+
+const ME_Q = `
+  query DashMe {
+    me {
+      email
+      name
+      plan
+      role
+    }
+  }
+`;
+
+const MY_LINKS_Q = `
+  query MyLinks($lim: Int) {
+    myLinks(limit: $lim) {
+      id
+      slug
+      targetUrl
+      clicks
+      plan
+      createdAt
+    }
+  }
+`;
+
+// nexus:pretext
+export async function load(ctx) {
+  let me = null;
+  let links = [];
+  let gqlError = '';
+  try {
+    const m = await finShGql(ME_Q, undefined, ctx.request, ctx.secrets);
+    me = m.me;
+  } catch (e) {
+    gqlError = e instanceof Error ? e.message : 'GraphQL unavailable';
+  }
+  if (!me && !gqlError) {
+    return ctx.redirect('/login?redirect=/dashboard/qr');
+  }
+  const publicOrigin = finShPublicOrigin(ctx);
+  const plan = String(me?.plan ?? 'free')
+    .trim()
+    .toLowerCase();
+  const qrStudioEnabled = plan === 'premium' || plan === 'business';
+  if (me && !qrStudioEnabled) {
+    return ctx.redirect('/dashboard');
+  }
+  if (me) {
+    try {
+      const data = await finShGql(MY_LINKS_Q, { lim: 100 }, ctx.request, ctx.secrets);
+      const raw = data.myLinks ?? [];
+      links = raw.map((row) => ({
+        ...row,
+        shortUrl: `${publicOrigin}/s/${row.slug}`,
+      }));
+    } catch (e) {
+      gqlError = e instanceof Error ? e.message : 'GraphQL unavailable';
+    }
+  }
+  const po = String(publicOrigin ?? '').replace(/\/$/, '');
+  const qrPayloadHint =
+    links.length > 0
+      ? (links[0].shortUrl ?? `${po}/s/${links[0].slug}`)
+      : po
+        ? `${po}/`
+        : 'https://example.com';
+  return {
+    me,
+    links,
+    gqlError,
+    publicOrigin,
+    qrStudioEnabled,
+    qrPayloadHint,
+    ...pageSeo(ctx, {
+      title: 'QR Studio · Fin.sh',
+      description: 'Design and export branded QR codes for your short links.',
+      robots: 'noindex, nofollow',
+    }),
+  };
+}
+---
+
+<script>
+  /**
+   * Island template must stay static (no {#if}/{#each}/bind:/{}): Nexus serializes it as a string
+   * and does not evaluate ${…} blocks; bind:this/bind:value break. We drive UI via DOM + .value reads.
+   */
+  let links = $state([]);
+  let publicOrigin = $state('');
+
+  /**
+   * $pretext() is not reactive — this must run on every DOM sync and after
+   * `nexus:island-static-patch` (SPA / re-hydrate) or links stay empty/stale.
+   */
+  function pullPretextIntoState() {
+    const p = $pretext();
+    publicOrigin.value = String(p.publicOrigin ?? '');
+    const raw = p.links;
+    const next = Array.isArray(raw) ? raw : [];
+    const sig = next.map((r) => String(r.slug ?? '')).join('\0');
+    if (sig !== __lastLinkSlugSig) {
+      __lastLinkSlugSig = sig;
+      didSeedUrl.value = false;
+      __qrLinksSig = '';
+    }
+    links.value = next;
+  }
+
+  let selectedSlug = $state('');
+  let encodeUrl = $state('');
+  let didSeedUrl = $state(false);
+  let dotsColor = $state('#0f172a');
+  let cornersSquareColor = $state('#0f172a');
+  let cornersDotColor = $state('#0f172a');
+  let bgColor = $state('#ffffff');
+  let bgTransparent = $state(false);
+  let dotsType = $state('rounded');
+  let cornersSquareType = $state('extra-rounded');
+  let cornersDotType = $state('dot');
+  let errorLevel = $state('Q');
+  let margin = $state(12);
+  let size = $state(280);
+  let shape = $state('square');
+  let logoDataUrl = $state('');
+  let hideDotsUnderLogo = $state(true);
+  let logoScale = $state(0.35);
+
+  let qrRef = null;
+  let __qrLinksSig = '';
+  let __lastLinkSlugSig = '';
+  let __qrDocDelegation = false;
+
+  function normalizePayloadUrl(raw) {
+    const po = publicOrigin.value;
+    let u = String(raw ?? '').trim();
+    if (!u) return po ? `${po.replace(/\/$/, '')}/` : 'https://example.com';
+    if (!/^https?:\/\//i.test(u)) u = `https://${u}`;
+    try {
+      new URL(u);
+      return u;
+    } catch {
+      return 'https://example.com';
+    }
+  }
+
+  function buildOpts() {
+    const bg = bgTransparent.value ? 'rgba(0,0,0,0)' : bgColor.value;
+    const o = {
+      type: 'canvas',
+      shape: shape.value,
+      width: size.value,
+      height: size.value,
+      margin: margin.value,
+      data: normalizePayloadUrl(encodeUrl.value),
+      qrOptions: {
+        errorCorrectionLevel: errorLevel.value,
+      },
+      dotsOptions: {
+        type: dotsType.value,
+        color: dotsColor.value,
+      },
+      cornersSquareOptions: {
+        type: cornersSquareType.value,
+        color: cornersSquareColor.value,
+      },
+      cornersDotOptions: {
+        type: cornersDotType.value,
+        color: cornersDotColor.value,
+      },
+      backgroundOptions: {
+        color: bg,
+      },
+      imageOptions: {
+        hideBackgroundDots: hideDotsUnderLogo.value,
+        imageSize: logoScale.value,
+        margin: 6,
+      },
+    };
+    if (logoDataUrl.value) o.image = logoDataUrl.value;
+    return o;
+  }
+
+  function applyShortLinkFromSlug() {
+    const ls = links.value;
+    const slug = String(selectedSlug.value);
+    const row = ls.find((r) => String(r.slug) === slug);
+    if (row) {
+      const po = publicOrigin.value.replace(/\/$/, '');
+      encodeUrl.value = row.shortUrl ?? `${po}/s/${row.slug}`;
+    }
+  }
+
+  $effect(() => {
+    const ls = links.value;
+    if (!ls.length) return;
+    const first = ls[0];
+    if (
+      first &&
+      (!selectedSlug.value || !ls.some((r) => String(r.slug) === String(selectedSlug.value)))
+    ) {
+      selectedSlug.value = String(first.slug);
+    }
+  });
+
+  $effect(() => {
+    if (didSeedUrl.value) return;
+    const ls = links.value;
+    const po = publicOrigin.value.replace(/\/$/, '');
+    if (ls.length) {
+      const r = ls[0];
+      encodeUrl.value = r.shortUrl ?? `${po}/s/${r.slug}`;
+      selectedSlug.value = String(r.slug);
+    } else if (publicOrigin.value) {
+      encodeUrl.value = `${po}/`;
+    } else {
+      encodeUrl.value = 'https://example.com';
+    }
+    didSeedUrl.value = true;
+  });
+
+  /**
+   * Delegación en `document` (capture): el primer hijo del island se sustituye con `outerHTML`
+   * al hidratar; los listeners colgados del nodo SSR previo se pierden.
+   */
+  function ensureQrDocumentDelegation() {
+    if (__qrDocDelegation) return;
+    __qrDocDelegation = true;
+
+    function inQrStudio(ev) {
+      const root = document.getElementById('qr-studio-root');
+      const t = ev.target;
+      return root && t instanceof Node && root.contains(t);
+    }
+
+    document.addEventListener(
+      'input',
+      (e) => {
+        if (!inQrStudio(e)) return;
+        const t = e.target;
+        if (!(t instanceof HTMLElement)) return;
+        const id = t.id;
+        if (id === 'qr-payload' && t instanceof HTMLInputElement) encodeUrl.value = t.value;
+        else if (id === 'qr-size' && t instanceof HTMLInputElement) size.value = Number(t.value);
+        else if (id === 'qr-margin' && t instanceof HTMLInputElement) margin.value = Number(t.value);
+        else if (id === 'qr-logo-scale' && t instanceof HTMLInputElement) logoScale.value = Number(t.value);
+        else if (id === 'qr-c-dots' && t instanceof HTMLInputElement) dotsColor.value = t.value;
+        else if (id === 'qr-c-corner-sq' && t instanceof HTMLInputElement) cornersSquareColor.value = t.value;
+        else if (id === 'qr-c-corner-dot' && t instanceof HTMLInputElement) cornersDotColor.value = t.value;
+        else if (id === 'qr-c-bg' && t instanceof HTMLInputElement) bgColor.value = t.value;
+      },
+      true,
+    );
+
+    document.addEventListener(
+      'change',
+      (e) => {
+        if (!inQrStudio(e)) return;
+        const t = e.target;
+        if (!(t instanceof HTMLElement)) return;
+        const id = t.id;
+        if (id === 'qr-link' && t instanceof HTMLSelectElement) {
+          selectedSlug.value = t.value;
+          applyShortLinkFromSlug();
+          return;
+        }
+        if (id === 'qr-shape' && t instanceof HTMLSelectElement) shape.value = t.value;
+        else if (id === 'qr-ec' && t instanceof HTMLSelectElement) errorLevel.value = t.value;
+        else if (id === 'qr-dots' && t instanceof HTMLSelectElement) dotsType.value = t.value;
+        else if (id === 'qr-corners-sq' && t instanceof HTMLSelectElement) cornersSquareType.value = t.value;
+        else if (id === 'qr-corners-dot' && t instanceof HTMLSelectElement) cornersDotType.value = t.value;
+        else if (id === 'qr-bg-transparent' && t instanceof HTMLInputElement) bgTransparent.value = t.checked;
+        else if (id === 'qr-hide-dots-logo' && t instanceof HTMLInputElement) hideDotsUnderLogo.value = t.checked;
+        else if (id === 'qr-logo-file') onLogoFile(e);
+      },
+      true,
+    );
+
+    document.addEventListener(
+      'click',
+      (e) => {
+        if (!inQrStudio(e)) return;
+        const btn = e.target instanceof Element ? e.target.closest('button[id]') : null;
+        if (!btn) return;
+        if (btn.id === 'btn-qr-clear-logo') {
+          logoDataUrl.value = '';
+          const inp = document.getElementById('qr-logo-file');
+          if (inp instanceof HTMLInputElement) inp.value = '';
+        } else if (btn.id === 'btn-qr-png') void downloadPng();
+        else if (btn.id === 'btn-qr-svg') void downloadSvg();
+      },
+      true,
+    );
+  }
+
+  function syncQrDomFromState() {
+    pullPretextIntoState();
+    ensureQrDocumentDelegation();
+    const ls = links.value;
+    const hint = document.getElementById('qr-payload-hint');
+    const p = $pretext();
+    if (hint) {
+      const u = encodeUrl.value.trim();
+      hint.textContent = u ? normalizePayloadUrl(encodeUrl.value) : String(p.qrPayloadHint ?? '');
+    }
+
+    const banner = document.getElementById('qr-no-links-banner');
+    if (banner) banner.hidden = ls.length > 0;
+
+    const linkField = document.getElementById('qr-link-field');
+    if (linkField) linkField.hidden = ls.length === 0;
+
+    const payload = document.getElementById('qr-payload');
+    if (payload instanceof HTMLInputElement) {
+      if (document.activeElement !== payload) payload.value = encodeUrl.value;
+      payload.readOnly = ls.length > 0;
+      payload.title = ls.length > 0 ? 'URL comes from your short link below' : 'Paste any https URL for the QR';
+    }
+
+    const linkSel = document.getElementById('qr-link');
+    if (linkSel instanceof HTMLSelectElement && ls.length) {
+      const wantSlug = ls.some((x) => String(x.slug) === String(selectedSlug.value))
+        ? String(selectedSlug.value)
+        : String(ls[0].slug);
+      if (String(selectedSlug.value) !== wantSlug) {
+        selectedSlug.value = wantSlug;
+      }
+
+      const sig = ls.map((r) => `${r.slug}\t${r.targetUrl ?? ''}`).join('\n');
+      const rebuilt =
+        sig !== __qrLinksSig || linkSel.options.length !== ls.length;
+      if (rebuilt) {
+        __qrLinksSig = sig;
+        linkSel.replaceChildren();
+        for (const r of ls) {
+          const o = document.createElement('option');
+          o.value = String(r.slug);
+          const dest = String(r.targetUrl ?? '').replace(/^https?:\/\//i, '');
+          const short = String(r.shortUrl ?? r.slug);
+          o.textContent = dest ? `${short} → ${dest.slice(0, 56)}${dest.length > 56 ? '…' : ''}` : short;
+          linkSel.appendChild(o);
+        }
+        linkSel.value = wantSlug;
+      } else if (document.activeElement !== linkSel && linkSel.value !== wantSlug) {
+        linkSel.value = wantSlug;
+      }
+    }
+
+    const sz = document.getElementById('qr-size');
+    if (sz instanceof HTMLInputElement) sz.value = String(size.value);
+    const szVal = document.getElementById('qr-size-val');
+    if (szVal) szVal.textContent = `${size.value}px`;
+
+    const mg = document.getElementById('qr-margin');
+    if (mg instanceof HTMLInputElement) mg.value = String(margin.value);
+    const mgVal = document.getElementById('qr-margin-val');
+    if (mgVal) mgVal.textContent = `${margin.value}px`;
+
+    const qShape = document.getElementById('qr-shape');
+    if (qShape instanceof HTMLSelectElement) qShape.value = shape.value;
+    const qEc = document.getElementById('qr-ec');
+    if (qEc instanceof HTMLSelectElement) qEc.value = errorLevel.value;
+    const qDots = document.getElementById('qr-dots');
+    if (qDots instanceof HTMLSelectElement) qDots.value = dotsType.value;
+    const qCsq = document.getElementById('qr-corners-sq');
+    if (qCsq instanceof HTMLSelectElement) qCsq.value = cornersSquareType.value;
+    const qCdot = document.getElementById('qr-corners-dot');
+    if (qCdot instanceof HTMLSelectElement) qCdot.value = cornersDotType.value;
+
+    const cDots = document.getElementById('qr-c-dots');
+    if (cDots instanceof HTMLInputElement) cDots.value = dotsColor.value;
+    const cCsq = document.getElementById('qr-c-corner-sq');
+    if (cCsq instanceof HTMLInputElement) cCsq.value = cornersSquareColor.value;
+    const cCdot = document.getElementById('qr-c-corner-dot');
+    if (cCdot instanceof HTMLInputElement) cCdot.value = cornersDotColor.value;
+    const cBg = document.getElementById('qr-c-bg');
+    if (cBg instanceof HTMLInputElement) {
+      cBg.value = bgColor.value;
+      cBg.disabled = bgTransparent.value;
+    }
+
+    const bgTr = document.getElementById('qr-bg-transparent');
+    if (bgTr instanceof HTMLInputElement) bgTr.checked = bgTransparent.value;
+    const lgSc = document.getElementById('qr-logo-scale');
+    if (lgSc instanceof HTMLInputElement) lgSc.value = String(logoScale.value);
+    const lgVal = document.getElementById('qr-logo-scale-val');
+    if (lgVal) lgVal.textContent = `${Math.round(logoScale.value * 100)}%`;
+    const hd = document.getElementById('qr-hide-dots-logo');
+    if (hd instanceof HTMLInputElement) hd.checked = hideDotsUnderLogo.value;
+
+    const clr = document.getElementById('btn-qr-clear-logo');
+    if (clr) clr.hidden = !logoDataUrl.value;
+  }
+
+  if (typeof document !== 'undefined') {
+    document.addEventListener('nexus:island-static-patch', () => {
+      qrRef = null;
+      queueMicrotask(() => queueMicrotask(syncQrDomFromState));
+    });
+  }
+
+  $effect(() => {
+    void links.value;
+    void selectedSlug.value;
+    void encodeUrl.value;
+    void size.value;
+    void margin.value;
+    void shape.value;
+    void errorLevel.value;
+    void dotsType.value;
+    void cornersSquareType.value;
+    void cornersDotType.value;
+    void dotsColor.value;
+    void cornersSquareColor.value;
+    void cornersDotColor.value;
+    void bgColor.value;
+    void bgTransparent.value;
+    void logoScale.value;
+    void hideDotsUnderLogo.value;
+    void logoDataUrl.value;
+    queueMicrotask(() => queueMicrotask(syncQrDomFromState));
+  });
+
+  $effect(() => {
+    void encodeUrl.value;
+    void size.value;
+    void margin.value;
+    void shape.value;
+    void errorLevel.value;
+    void dotsType.value;
+    void cornersSquareType.value;
+    void cornersDotType.value;
+    void dotsColor.value;
+    void cornersSquareColor.value;
+    void cornersDotColor.value;
+    void bgColor.value;
+    void bgTransparent.value;
+    void logoDataUrl.value;
+    void hideDotsUnderLogo.value;
+    void logoScale.value;
+    void publicOrigin.value;
+
+    const opts = buildOpts();
+    queueMicrotask(() => {
+      queueMicrotask(() => {
+        const host = document.getElementById('finsh-qr-mount');
+        if (!host) return;
+        import('qr-code-styling')
+          .then((mod) => {
+            const QRCodeStyling = mod.default ?? mod;
+            if (typeof QRCodeStyling !== 'function') {
+              console.error('[QR Studio] qr-code-styling default export is not a constructor', mod);
+              return;
+            }
+            const h = document.getElementById('finsh-qr-mount');
+            if (!h) return;
+            if (!qrRef) {
+              qrRef = new QRCodeStyling(opts);
+              qrRef.append(h);
+            } else {
+              qrRef.update(opts);
+            }
+          })
+          .catch((err) => {
+            console.error('[QR Studio] Failed to load qr-code-styling (needs import map / network):', err);
+            const mount = document.getElementById('finsh-qr-mount');
+            if (mount) {
+              mount.innerHTML =
+                '<p class="mono" style="padding:12px;font-size:12px;color:var(--fin-muted);max-width:220px;text-align:center">Could not load the QR library. Allow network access to esm.sh or check the console.</p>';
+            }
+          });
+      });
+    });
+  });
+
+  function onLogoFile(ev) {
+    const input = ev.currentTarget;
+    if (!(input instanceof HTMLInputElement)) return;
+    const file = input.files?.[0];
+    if (!file) {
+      logoDataUrl.value = '';
+      return;
+    }
+    if (!file.type.startsWith('image/')) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      logoDataUrl.value = typeof reader.result === 'string' ? reader.result : '';
+    };
+    reader.readAsDataURL(file);
+  }
+
+  async function downloadPng() {
+    if (qrRef) await qrRef.download({ name: 'finsh-qr', extension: 'png' });
+  }
+
+  async function downloadSvg() {
+    if (!qrRef) return;
+    const base = buildOpts();
+    await qrRef.update({ ...base, type: 'svg' });
+    await qrRef.download({ name: 'finsh-qr', extension: 'svg' });
+    await qrRef.update({ ...base, type: 'canvas' });
+  }
+</script>
+
+<template>
+  {#if pretext.me}
+    <div class="qr-route">
+      {#if pretext.gqlError}
+        <div class="banner banner-warn" role="alert">
+          <span class="mono">{pretext.gqlError}</span>
+        </div>
+      {/if}
+
+      <header class="qr-page-head">
+        <p class="qr-studio-eyebrow mono">Included in your plan</p>
+        <h1 class="qr-studio-title">QR Studio</h1>
+        <p class="qr-page-lede">
+          Branded codes for your Fin.sh URLs — preview updates live, then export <strong>PNG</strong> for screens or
+          <strong>SVG</strong> for print.
+        </p>
+        <p class="qr-page-meta mono">
+          {pretext.links?.length ?? 0} short link{pretext.links?.length === 1 ? '' : 's'} on this account
+        </p>
+      </header>
+
+      <div id="qr-studio-root" client:load class="qr-studio">
+        <p class="qr-lead mono">
+          Choose one of <strong>your</strong> short links below — the QR always uses that Fin.sh URL. If you have no links
+          yet, paste any https URL in the field (then create links on the dashboard for a proper picker).
+        </p>
+        <p id="qr-no-links-banner" class="qr-banner mono" hidden>
+          You have no short links yet. Paste a URL in the field below, or
+          <a class="qr-banner-link" href="/dashboard#dash-create">create a short link</a> on the dashboard.
+        </p>
+        <div class="qr-studio-grid">
+          <div class="qr-preview-card">
+            <div id="finsh-qr-mount" class="qr-canvas-wrap"></div>
+            <div class="qr-download-row">
+              <button type="button" id="btn-qr-png" class="btn btn-secondary">Download PNG</button>
+              <button type="button" id="btn-qr-svg" class="btn btn-secondary">Download SVG</button>
+            </div>
+            <p class="qr-hint mono">
+              Preview encodes:
+              <span id="qr-payload-hint" class="qr-hint-url"></span>
+            </p>
+          </div>
+
+          <div class="qr-controls">
+            <div id="qr-link-field" class="qr-field" hidden>
+              <label class="qr-label mono" for="qr-link">Your short links</label>
+              <select id="qr-link" class="qr-select" aria-label="Pick a short link for this QR"></select>
+              <p class="qr-field-hint mono">Only links from your account appear here.</p>
+            </div>
+
+            <div class="qr-field">
+              <label class="qr-label mono" for="qr-payload">URL encoded in the QR</label>
+              <input
+                id="qr-payload"
+                class="input-url mono"
+                type="url"
+                placeholder="https://yoursite.com/s/my-link"
+                autocomplete="off"
+                spellcheck="false"
+              />
+              <p class="qr-field-hint mono">Read-only when you have links — pick the link above. Editable if you have none.</p>
+            </div>
+
+            <div class="qr-field-row">
+              <div class="qr-field">
+                <label class="qr-label mono" for="qr-size">Size</label>
+                <input id="qr-size" class="qr-range" type="range" min="200" max="400" step="10" />
+                <span id="qr-size-val" class="qr-range-val mono">280px</span>
+              </div>
+              <div class="qr-field">
+                <label class="qr-label mono" for="qr-margin">Quiet zone</label>
+                <input id="qr-margin" class="qr-range" type="range" min="0" max="32" step="2" />
+                <span id="qr-margin-val" class="qr-range-val mono">12px</span>
+              </div>
+            </div>
+
+            <div class="qr-field-row">
+              <div class="qr-field">
+                <label class="qr-label mono" for="qr-shape">Shape</label>
+                <select id="qr-shape" class="qr-select">
+                  <option value="square">Square canvas</option>
+                  <option value="circle">Circle canvas</option>
+                </select>
+              </div>
+              <div class="qr-field">
+                <label class="qr-label mono" for="qr-ec">Error correction</label>
+                <select id="qr-ec" class="qr-select">
+                  <option value="L">L — smallest</option>
+                  <option value="M">M</option>
+                  <option value="Q">Q — balanced</option>
+                  <option value="H">H — best with logo</option>
+                </select>
+              </div>
+            </div>
+
+            <fieldset class="qr-fieldset">
+              <legend class="qr-legend mono">Module style</legend>
+              <div class="qr-field-row">
+                <div class="qr-field">
+                  <label class="qr-label mono" for="qr-dots">Dots</label>
+                  <select id="qr-dots" class="qr-select">
+                    <option value="square">Square</option>
+                    <option value="dots">Dots</option>
+                    <option value="rounded">Rounded</option>
+                    <option value="extra-rounded">Extra rounded</option>
+                    <option value="classy">Classy</option>
+                    <option value="classy-rounded">Classy rounded</option>
+                  </select>
+                </div>
+                <div class="qr-field">
+                  <label class="qr-label mono" for="qr-corners-sq">Corner frames</label>
+                  <select id="qr-corners-sq" class="qr-select">
+                    <option value="square">Square</option>
+                    <option value="dot">Dot</option>
+                    <option value="rounded">Rounded</option>
+                    <option value="extra-rounded">Extra rounded</option>
+                    <option value="classy">Classy</option>
+                    <option value="classy-rounded">Classy rounded</option>
+                  </select>
+                </div>
+                <div class="qr-field">
+                  <label class="qr-label mono" for="qr-corners-dot">Corner dots</label>
+                  <select id="qr-corners-dot" class="qr-select">
+                    <option value="square">Square</option>
+                    <option value="dot">Dot</option>
+                    <option value="rounded">Rounded</option>
+                    <option value="extra-rounded">Extra rounded</option>
+                  </select>
+                </div>
+              </div>
+            </fieldset>
+
+            <fieldset class="qr-fieldset">
+              <legend class="qr-legend mono">Colors</legend>
+              <div class="qr-colors">
+                <label class="qr-color">
+                  <span class="mono">Modules</span>
+                  <input id="qr-c-dots" type="color" value="#0f172a" />
+                </label>
+                <label class="qr-color">
+                  <span class="mono">Corners</span>
+                  <input id="qr-c-corner-sq" type="color" value="#0f172a" />
+                </label>
+                <label class="qr-color">
+                  <span class="mono">Corner dots</span>
+                  <input id="qr-c-corner-dot" type="color" value="#0f172a" />
+                </label>
+                <label class="qr-color">
+                  <span class="mono">Background</span>
+                  <input id="qr-c-bg" type="color" value="#ffffff" />
+                </label>
+              </div>
+              <label class="qr-check mono">
+                <input id="qr-bg-transparent" type="checkbox" />
+                Transparent background
+              </label>
+            </fieldset>
+
+            <fieldset class="qr-fieldset">
+              <legend class="qr-legend mono">Logo (center)</legend>
+              <div class="qr-logo-row">
+                <input
+                  id="qr-logo-file"
+                  class="qr-file"
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                />
+                <button type="button" id="btn-qr-clear-logo" class="btn btn-ghost btn-sm" hidden>Remove logo</button>
+              </div>
+              <div class="qr-field qr-field-tight">
+                <label class="qr-label mono" for="qr-logo-scale">Logo size (relative)</label>
+                <input id="qr-logo-scale" class="qr-range" type="range" min="0.15" max="0.55" step="0.02" />
+                <span id="qr-logo-scale-val" class="qr-range-val mono">35%</span>
+              </div>
+              <label class="qr-check mono">
+                <input id="qr-hide-dots-logo" type="checkbox" checked />
+                Hide dots behind logo (recommended)
+              </label>
+            </fieldset>
+          </div>
+        </div>
+      </div>
+    </div>
+  {/if}
+</template>
+
+<style>
+  .qr-route {
+    width: 100%;
+    padding-top: 8px;
+  }
+  :global(.qr-route > nexus-island) {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    vertical-align: unset;
+  }
+  .banner-warn {
+    padding: 12px 14px;
+    border-radius: 10px;
+    border: 1px solid var(--fin-border);
+    margin-bottom: 20px;
+    font-size: 13px;
+    background: color-mix(in srgb, #f59e0b 12%, transparent);
+  }
+  .qr-page-head {
+    margin-bottom: 24px;
+  }
+  .qr-studio-eyebrow {
+    margin: 0 0 8px;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--fin-accent);
+  }
+  .qr-studio-title {
+    margin: 0 0 10px;
+    font-size: clamp(22px, 3vw, 28px);
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    line-height: 1.15;
+    color: var(--fin-fg);
+  }
+  .qr-page-lede {
+    margin: 0;
+    font-size: 14px;
+    color: var(--fin-muted);
+    line-height: 1.5;
+    max-width: 42rem;
+  }
+  .qr-page-lede strong {
+    font-weight: 600;
+    color: var(--fin-fg);
+  }
+  .qr-page-meta {
+    margin: 12px 0 0;
+    font-size: 11px;
+    color: color-mix(in srgb, var(--fin-muted) 90%, var(--fin-accent));
+    letter-spacing: 0.04em;
+  }
+  .qr-studio {
+    width: 100%;
+  }
+  .qr-lead {
+    margin: 0 0 16px;
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--fin-muted);
+    max-width: 52rem;
+  }
+  .qr-banner {
+    margin: 0 0 18px;
+    font-size: 12px;
+    color: var(--fin-muted);
+    padding: 12px 14px;
+    border: 1px dashed var(--fin-border);
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--fin-fg) 3%, var(--fin-bg));
+  }
+  .qr-banner-link {
+    color: var(--fin-accent);
+    font-weight: 600;
+    text-decoration: none;
+  }
+  .qr-banner-link:hover {
+    text-decoration: underline;
+  }
+  .input-url {
+    width: 100%;
+    box-sizing: border-box;
+    min-height: 44px;
+    padding: 0 12px;
+    border-radius: 10px;
+    border: 1px solid var(--fin-border);
+    background: var(--fin-bg);
+    color: var(--fin-fg);
+    font-size: 13px;
+  }
+  .input-url:focus {
+    outline: none;
+    border-color: var(--fin-accent);
+    box-shadow: 0 0 0 3px var(--fin-ring);
+  }
+  .input-url:read-only {
+    opacity: 0.88;
+    cursor: default;
+    background: color-mix(in srgb, var(--fin-fg) 4%, var(--fin-bg));
+  }
+  .qr-field-hint {
+    margin: 0;
+    font-size: 11px;
+    color: var(--fin-muted);
+    line-height: 1.4;
+  }
+  .qr-hint-url {
+    word-break: break-all;
+    color: var(--fin-fg);
+  }
+  .qr-studio-grid {
+    display: grid;
+    grid-template-columns: minmax(260px, 320px) 1fr;
+    gap: 28px;
+    align-items: start;
+  }
+  @media (max-width: 900px) {
+    .qr-studio-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+  .qr-preview-card {
+    position: sticky;
+    top: 88px;
+    padding: 20px;
+    border-radius: 14px;
+    border: 1px solid var(--fin-border);
+    background: linear-gradient(
+      165deg,
+      color-mix(in srgb, var(--fin-accent) 8%, var(--fin-bg)) 0%,
+      var(--fin-bg-elevated) 100%
+    );
+  }
+  .qr-canvas-wrap {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 240px;
+    margin-bottom: 16px;
+    background: color-mix(in srgb, var(--fin-fg) 2.5%, transparent);
+    border-radius: 12px;
+    border: 1px dashed color-mix(in srgb, var(--fin-border) 80%, var(--fin-accent));
+  }
+  .qr-canvas-wrap :global(canvas),
+  .qr-canvas-wrap :global(svg) {
+    max-width: 100%;
+    height: auto;
+    border-radius: 12px;
+    box-shadow: 0 18px 48px color-mix(in srgb, var(--fin-fg) 8%, transparent);
+  }
+  .qr-download-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+  .qr-hint {
+    margin: 0;
+    font-size: 11px;
+    color: var(--fin-muted);
+    line-height: 1.45;
+  }
+  .qr-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+  .qr-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .qr-field-tight {
+    margin-top: 4px;
+  }
+  .qr-field-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 14px;
+  }
+  .qr-label {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--fin-muted);
+  }
+  .qr-select {
+    height: 40px;
+    padding: 0 12px;
+    border-radius: 10px;
+    border: 1px solid var(--fin-border);
+    background: var(--fin-bg);
+    color: var(--fin-fg);
+    font-size: 13px;
+    font-family: inherit;
+  }
+  .qr-range {
+    width: 100%;
+    accent-color: var(--fin-accent);
+  }
+  .qr-range-val {
+    font-size: 11px;
+    color: var(--fin-muted);
+  }
+  .qr-fieldset {
+    margin: 0;
+    padding: 14px 16px;
+    border: 1px solid var(--fin-border);
+    border-radius: 12px;
+    background: var(--fin-bg);
+  }
+  .qr-legend {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 0 6px;
+    color: var(--fin-accent);
+  }
+  .qr-colors {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 12px;
+    margin-bottom: 10px;
+  }
+  .qr-color {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 11px;
+    color: var(--fin-muted);
+  }
+  .qr-color input[type='color'] {
+    width: 100%;
+    height: 36px;
+    padding: 2px;
+    border: 1px solid var(--fin-border);
+    border-radius: 8px;
+    background: var(--fin-bg-elevated);
+    cursor: pointer;
+  }
+  .qr-check {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--fin-muted);
+    cursor: pointer;
+  }
+  .qr-logo-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 8px;
+  }
+  .qr-file {
+    font-size: 12px;
+    color: var(--fin-muted);
+  }
+  .btn {
+    height: 40px;
+    padding: 0 16px;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    font-family: inherit;
+  }
+  .btn-secondary {
+    background: var(--fin-bg-elevated);
+    color: var(--fin-fg);
+    border: 1px solid var(--fin-border);
+  }
+  .btn-secondary:hover {
+    border-color: var(--fin-accent);
+    color: var(--fin-accent);
+  }
+  .btn-ghost {
+    background: transparent;
+    color: var(--fin-muted);
+    border: 1px dashed var(--fin-border);
+    height: 36px;
+    padding: 0 12px;
+    font-size: 12px;
+  }
+  .btn-sm {
+    height: 32px;
+    font-size: 12px;
+  }
+</style>

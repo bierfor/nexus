@@ -1,0 +1,183 @@
+---
+// nexus:pretext
+export async function load(ctx) {
+  const raw = (ctx.url.pathname || '/').replace(/\/$/, '') || '/';
+  return {
+    dashNav: {
+      isQrStudio: raw === '/dashboard/qr',
+      isDashboardHome: raw === '/dashboard',
+    },
+  };
+}
+---
+
+<template>
+  <div class="dash-shell" data-nx-layout="/dashboard">
+    <header class="dash-topbar">
+      <div class="dash-topbar-brand">
+        <nav class="dash-crumb mono" aria-label="Breadcrumb">
+          <a href="/">Home</a>
+          <span class="dash-crumb-sep" aria-hidden="true">/</span>
+          {#if pretext.dashNav.isQrStudio}
+            <a href="/dashboard">Dashboard</a>
+            <span class="dash-crumb-sep" aria-hidden="true">/</span>
+            <span class="dash-crumb-here">QR Studio</span>
+          {:else}
+            <span class="dash-crumb-here">Dashboard</span>
+          {/if}
+        </nav>
+        <p class="dash-workspace-label mono">Fin.sh workspace</p>
+      </div>
+      <nav class="dash-subnav mono" aria-label="Dashboard sections">
+        <a
+          class="dash-subnav-link {pretext.dashNav.isDashboardHome && !pretext.dashNav.isQrStudio
+            ? 'dash-subnav-link-active'
+            : ''}"
+          href="/dashboard"
+          aria-current={pretext.dashNav.isDashboardHome && !pretext.dashNav.isQrStudio ? 'page' : undefined}
+        >Overview</a>
+        <a
+          class="dash-subnav-link"
+          href={pretext.dashNav.isQrStudio ? '/dashboard#dash-create' : '#dash-create'}
+        >Create</a>
+        <a
+          class="dash-subnav-link"
+          href={pretext.dashNav.isQrStudio ? '/dashboard#dash-links' : '#dash-links'}
+        >Links</a>
+        <a
+          class="dash-subnav-link"
+          href={pretext.dashNav.isQrStudio ? '/dashboard#dash-billing' : '#dash-billing'}
+        >Plans</a>
+        <a
+          class="dash-subnav-link"
+          href={pretext.dashNav.isQrStudio ? '/dashboard#dash-link-ads' : '#dash-link-ads'}
+        >Link ads</a>
+        <a
+          class="dash-subnav-link {pretext.dashNav.isQrStudio ? 'dash-subnav-link-active' : ''}"
+          href={pretext.qrStudioEnabled ? '/dashboard/qr' : '/dashboard#dash-qr'}
+          aria-current={pretext.dashNav.isQrStudio ? 'page' : undefined}
+        >QR Studio</a>
+      </nav>
+    </header>
+    <div class="dash-page">
+      <!--nexus:slot-->
+    </div>
+  </div>
+</template>
+
+<style>
+  .dash-shell {
+    width: 100%;
+  }
+  .dash-page {
+    width: 100%;
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 0
+      max(clamp(4px, 1.5vw, 12px), env(safe-area-inset-right, 0px))
+      calc(max(48px, env(safe-area-inset-bottom, 0px)) + 76px)
+      max(clamp(4px, 1.5vw, 12px), env(safe-area-inset-left, 0px));
+    box-sizing: border-box;
+  }
+  .dash-topbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 16px 24px;
+    margin-bottom: 24px;
+    padding-bottom: 18px;
+    border-bottom: 1px solid var(--fin-border);
+  }
+  .dash-workspace-label {
+    margin: 6px 0 0;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: color-mix(in srgb, var(--fin-muted) 85%, var(--fin-fg));
+  }
+  .dash-subnav {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 4px;
+    padding: 4px;
+    max-width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    border-radius: 999px;
+    border: 1px solid var(--fin-border);
+    background: color-mix(in srgb, var(--fin-fg) 3%, var(--fin-bg-elevated));
+  }
+  .dash-subnav::-webkit-scrollbar {
+    height: 4px;
+  }
+  .dash-subnav::-webkit-scrollbar-thumb {
+    background: color-mix(in srgb, var(--fin-muted) 35%, transparent);
+    border-radius: 4px;
+  }
+  @media (min-width: 720px) {
+    .dash-subnav {
+      flex-wrap: wrap;
+      overflow-x: visible;
+    }
+  }
+  .dash-subnav-link {
+    flex: 0 0 auto;
+    min-height: 44px;
+    padding: 10px 14px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-decoration: none;
+    color: var(--fin-muted);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    touch-action: manipulation;
+    transition:
+      background 0.15s ease,
+      color 0.15s ease;
+  }
+  @media (hover: hover) {
+    .dash-subnav-link:hover {
+      color: var(--fin-fg);
+      background: color-mix(in srgb, var(--fin-accent) 10%, transparent);
+    }
+  }
+  .dash-subnav-link-active {
+    color: var(--fin-fg);
+    background: color-mix(in srgb, var(--fin-accent) 16%, transparent);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--fin-accent) 35%, transparent);
+  }
+  .dash-topbar .dash-crumb {
+    margin-bottom: 0;
+  }
+  .dash-crumb {
+    font-size: 11px;
+    color: var(--fin-muted);
+    margin-bottom: 20px;
+  }
+  .dash-crumb a {
+    color: var(--fin-muted);
+    text-decoration: none;
+  }
+  .dash-crumb a:hover {
+    color: var(--fin-accent);
+    text-decoration: underline;
+  }
+  .dash-crumb-sep {
+    margin: 0 6px;
+    opacity: 0.5;
+  }
+  .dash-crumb-here {
+    color: var(--fin-fg);
+    font-weight: 500;
+  }
+  .mono {
+    font-family: var(--fin-mono, 'JetBrains Mono', monospace);
+  }
+</style>

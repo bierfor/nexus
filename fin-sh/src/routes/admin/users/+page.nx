@@ -1,0 +1,180 @@
+---
+import { createAction } from '@nexus_js/server';
+import { finShGql } from '$lib/graphql';
+import { pageSeo } from '$lib/seo';
+
+const USERS_Q = `
+  query AdminUsers {
+    adminUsers {
+      id
+      email
+      name
+      plan
+      role
+    }
+  }
+`;
+
+// nexus:pretext
+export async function load(ctx) {
+  let users = [];
+  let gqlError = '';
+  try {
+    const data = await finShGql(USERS_Q, undefined, ctx.request, ctx.secrets);
+    users = data.adminUsers;
+  } catch (e) {
+    gqlError = e instanceof Error ? e.message : 'GraphQL error';
+  }
+  return {
+    users,
+    gqlError,
+    ...pageSeo(ctx, {
+      title: 'Users · Admin · Fin.sh',
+      description: 'Assign free, premium, or business plans and review user roles.',
+      robots: 'noindex, nofollow',
+    }),
+  };
+}
+
+const updatePlan = createAction(
+  async (input, ctx) => {
+    const fd = input instanceof FormData ? input : null;
+    if (!fd) throw new Error('Expected FormData');
+    const userId = String(fd.get('userId') ?? '');
+    const plan = String(fd.get('plan') ?? 'free');
+    const q = `
+      mutation Up($id: ID!, $p: String!) {
+        adminUpdateUserPlan(userId: $id, plan: $p) {
+          id
+          plan
+        }
+      }
+    `;
+    await finShGql(q, { id: userId, p: plan }, ctx.request, ctx.secrets);
+    return ctx.redirect('/admin/users');
+  },
+  {
+    csrf: false,
+    rateLimit: { window: '1m', max: 120 },
+    race: 'ignore',
+  },
+);
+---
+
+<template>
+  <section>
+    <h1 class="title">Users &amp; plans</h1>
+    <p class="sub mono">Changing plan affects dashboard experience (e.g. free shows sponsored tile).</p>
+
+    {#if pretext.gqlError}
+      <p class="err mono">{pretext.gqlError}</p>
+    {/if}
+
+    {#if !(pretext.users ?? []).length && !pretext.gqlError}
+      <p class="empty mono">No users.</p>
+    {:else}
+      <ul class="user-list">
+        {#each pretext.users as u}
+          <li class="user-row">
+            <div class="who">
+              <span class="email mono">{u.email}</span>
+              <span class="meta mono">{u.name} · {u.role}</span>
+            </div>
+            <form class="plan-form" method="post" action="/_nexus/action/updatePlan">
+              <input type="hidden" name="userId" value={u.id} />
+              <select class="select mono" name="plan">
+                <option value="free" selected={u.plan === 'free'}>free</option>
+                <option value="premium" selected={u.plan === 'premium'}>premium</option>
+                <option value="business" selected={u.plan === 'business'}>business</option>
+              </select>
+              <button type="submit" class="btn">Save</button>
+            </form>
+          </li>
+        {/each}
+      </ul>
+    {/if}
+  </section>
+</template>
+
+<style>
+  .title {
+    font-size: 24px;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    margin-bottom: 8px;
+  }
+  .sub {
+    font-size: 12px;
+    color: var(--fin-muted, #666);
+    margin-bottom: 24px;
+  }
+  .err {
+    color: #b45309;
+    margin-bottom: 16px;
+  }
+  .empty {
+    color: var(--fin-muted, #666);
+  }
+  .user-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    border: 1px solid var(--fin-border, #eaeaea);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .user-row {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 12px;
+    align-items: center;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--fin-border, #eaeaea);
+  }
+  .user-row:last-child {
+    border-bottom: none;
+  }
+  .who {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+  }
+  .email {
+    font-weight: 600;
+    font-size: 13px;
+  }
+  .meta {
+    font-size: 11px;
+    color: var(--fin-muted, #666);
+  }
+  .plan-form {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+  .select {
+    height: 36px;
+    padding: 0 10px;
+    border-radius: 8px;
+    border: 1px solid var(--fin-border, #eaeaea);
+    background: var(--fin-bg, #fafafa);
+    color: var(--fin-fg, #000);
+    font-size: 12px;
+  }
+  .btn {
+    height: 36px;
+    padding: 0 14px;
+    border-radius: 8px;
+    border: 1px solid var(--fin-border, #eaeaea);
+    background: var(--fin-fg, #000);
+    color: var(--fin-bg, #fafafa);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .mono {
+    font-family: var(--fin-mono, 'JetBrains Mono', monospace);
+  }
+</style>
