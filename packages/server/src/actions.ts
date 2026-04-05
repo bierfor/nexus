@@ -355,7 +355,7 @@ export async function handleActionRequest(request: Request): Promise<Response> {
   //
   // Tier 1 — Custom header (default): Browsers cannot add arbitrary headers to
   //   cross-origin requests without a CORS preflight the server will reject.
-  //   Requiring `x-nexus-action: 1` blocks all form-based CSRF attacks from
+  //   Requiring a non-empty `x-nexus-action` header blocks form-based CSRF from
   //   foreign origins without needing token generation on the server.
   //
   // Tier 2 — HMAC token (opt-in): When `x-nexus-action-token` is present the

@@ -2243,6 +2243,12 @@ export default toCloudflareHandler(server.fetch);</code></pre>
         <li><strong style="color:var(--text)">Secrets &amp; errors</strong> — Set <code>NEXUS_SECRET</code> in production. Unhandled action errors are masked unless <code>NEXUS_EXPOSE_ERRORS=true</code> (responses include <code>errorId</code>; details in server logs).</li>
       </ul>
 
+      <div class="callout info" style="margin-top:20px">
+        <strong>412 <code>BUILD_MISMATCH</code></strong> — If the client shows <code>{"error":"Application was updated. Please reload the page.","status":412,"code":"BUILD_MISMATCH"}</code>, the tab’s JS/HTML is from an <strong>older deploy</strong> than the server. <strong>Fix:</strong> reload the page; align <code>NEXUS_BUILD_ID</code> in CI between build and runtime; avoid serving cached HTML from a previous version. <em>(ES: recarga la página; en CI el mismo <code>NEXUS_BUILD_ID</code> en build y en el servidor.)</em>
+        <br><br>
+        <strong>Other action errors</strong> — Full table (403 CSRF, 429 rate limit, 409 concurrency, 413 body size, 500 + <code>errorId</code>, etc.): <a href="https://nexusjs.dev/docs/PRODUCTION.md#server-action-errors-reference" style="color:var(--accent2)">PRODUCTION.md → Server action errors (reference) ↗</a>
+      </div>
+
       <p style="font-size:14px;color:var(--muted)">Full reference (CSRF tiers, rate limits, body limits, URL helpers): <a href="https://nexusjs.dev/docs/PRODUCTION.md" style="color:var(--accent2)"><code>nexusjs.dev/docs/PRODUCTION.md</code> ↗</a> · Deploy repo: <a href="https://github.com/bierfor/nexusjs-site" style="color:var(--accent2)">nexusjs-site ↗</a> · Monorepo copy: <a href="https://github.com/bierfor/nexus/blob/main/docs/PRODUCTION.md" style="color:var(--accent2)">nexus/docs ↗</a></p>
     </section>
 
@@ -2452,9 +2458,9 @@ async function remove(id) {
       <p class="lead">Nexus treats security as a compilation concern, not a runtime afterthought. Compiler guardrails, action hardening, and optional Hardened Mode headers stack with zero ceremony for the basics.</p>
 
       <h3>1 — Anti-CSRF for server actions (dual tier, v0.7.5+)</h3>
-      <p><strong>Tier 1 (default):</strong> action requests must include the custom header <code>x-nexus-action: 1</code>. <code>callAction</code> and friends send it automatically; simple cross-origin form posts cannot forge it. <strong>Tier 2 (when <code>x-nexus-action-token</code> is present):</strong> the server validates the HMAC token — session-bound, single-use, ~15 minute TTL, with a small clock-skew guard against far-future <code>iat</code>. <code>Origin: null</code> (opaque contexts) is rejected. Set <code>NEXUS_SECRET</code> in production so tokens cannot be forged.</p>
+      <p><strong>Tier 1 (default):</strong> action requests must include a non-empty <code>x-nexus-action</code> header (<code>callAction</code> sends the <strong>action name</strong>). Simple cross-origin form posts cannot forge it. <strong>Tier 2 (when <code>x-nexus-action-token</code> is present):</strong> the server validates the HMAC token — session-bound, single-use, ~15 minute TTL, with a small clock-skew guard against far-future <code>iat</code>. <code>Origin: null</code> (opaque contexts) is rejected. Set <code>NEXUS_SECRET</code> in production so tokens cannot be forged.</p>
       <div class="code-title"><span>Conceptual flow — packages/server/src/csrf.ts</span><span class="code-lang">typescript</span></div>
-      <pre><code class="language-typescript">// Tier 1: fetch-based callers send x-nexus-action (blocks classic form CSRF)
+      <pre><code class="language-typescript">// Tier 1: non-empty x-nexus-action header (callAction uses the action name)
 
 // Tier 2 (optional token path): HMAC validation before your handler
 await validateActionToken(token, sessionId, secretKey);
