@@ -1,12 +1,25 @@
 # Publishing Nexus to npm
 
-This document is for **maintainers** who publish the `@nexus_js/*` packages (including **`@nexus_js/create-nexus`**, which powers **`npm create @nexus_js/nexus`**) and **`vite-plugin-nexus`**, to the public npm registry.
+This document is for **maintainers** who publish the **`@nexus_js/*`** packages (including **`@nexus_js/create-nexus`** for **`npm create @nexus_js/nexus`**, **`@nexus_js/vite-plugin-nexus`**, and the rest of the framework) to the public npm registry.
+
+### If `~/.npmrc` + `pnpm release` still fails (E404 on PUT)
+
+Use a **granular** token with **Bypass 2FA**, then publish **only in the shell where the var is set**:
+
+```bash
+export NODE_AUTH_TOKEN=npm_PASTE_GRANULAR_TOKEN_AQUI
+pnpm run release:env
+```
+
+That runs **`pnpm release`** (still **only** `packages/*` — **`docs/` is never uploaded to npm**). If this works but bare `pnpm release` does not, keep using `release:env` or fix duplicate / broken lines in `~/.npmrc`.
+
+**Token checklist on [npmjs.com → Access Tokens](https://www.npmjs.com/settings/~/tokens):** type **Granular** (not read-only legacy) → scope **`@nexus_js/*`** → **Read and write** → turn on **Bypass two-factor authentication** for publishing. Revoke old tokens you no longer need.
 
 **Unscoped CLI aliases** on npm — **`nexus-js`** and **`nexus_js`** — are thin meta packages (under `packages/nexus-js` and `packages/nexus_js`); they depend on `@nexus_js/cli` and are published together with `pnpm release` so users can run `npm install -g nexus-js` or `npm install -g nexus_js`.
 
-**Where the framework lives:** the installable framework is **only** under [`packages/`](../packages/). Folders like `examples/` and `docs/` are sample apps and marketing content — they are **not** published to npm. Release commands only touch **`packages/*`**.
+**Where the framework lives:** the installable framework is **only** under [`packages/`](../packages/). **`docs/`** (Markdown, `index.html`, assets) and **`examples/`** are **never** published as npm packages — they live in the repo for contributors, demos, and optional static hosting. **`pnpm release`** / the release workflow only publish **`packages/*`**.
 
-**npm organization:** scoped packages use the **`@nexus_js`** scope, which belongs to the **`nexus_js`** org on npm. Maintainers can see and manage published packages here: **[npmjs.com/settings/nexus_js/packages](https://www.npmjs.com/settings/nexus_js/packages)**. (The unscoped **`vite-plugin-nexus`** package appears under your account or team that owns it, not inside that org’s scoped list.)
+**npm organization:** all framework libraries—including the Vite plugin—ship as **`@nexus_js/*`**. Manage them under **[npmjs.com/settings/nexus_js/packages](https://www.npmjs.com/settings/nexus_js/packages)**. The legacy unscoped name **`vite-plugin-nexus`** was retired from the registry; use **`@nexus_js/vite-plugin-nexus`** in `package.json` and imports.
 
 ## Pre-release: verify locally
 
@@ -16,7 +29,7 @@ Before you bump versions or run `pnpm release`:
 2. **Tests** — `pnpm test` (includes compiler island codegen checks where present).
 3. **Smoke** (recommended) — install deps in a sample app, then `nexus build` and/or `nexus dev` (e.g. an app under `examples/*` or a project created with `create-nexus`).
 
-When that looks good, align versions with `pnpm version:framework -- <semver>`, commit, then publish with `pnpm release`. If **`vite-plugin-nexus`** is still in npm’s post-unpublish cooldown, use `pnpm release:skip-vite-plugin` first, then `pnpm publish:package -- vite-plugin-nexus` when allowed.
+When that looks good, align versions with `pnpm version:framework -- <semver>`, commit, then publish with **`pnpm release`** (builds and publishes **every** `packages/*` tarball, including **`@nexus_js/vite-plugin-nexus`**). To run tests before publish: **`pnpm release:safe`**.
 
 ## Full framework release (what most teams do)
 
@@ -24,7 +37,7 @@ This is the same idea as **Next.js**, **Svelte**, **Remix**, etc.: one repo, man
 
 ### 1. Log in to npm (or set `NPM_TOKEN`)
 
-See [Authenticate](#authenticate-local-or-ci) below. Publishing needs a token with rights on **`@nexus_js/*`**, **`vite-plugin-nexus`**, and (for CI) **bypass 2FA** if your org requires it.
+See [Authenticate](#authenticate-local-or-ci) below. Publishing needs a token with rights on **`@nexus_js/*`** (including **`@nexus_js/vite-plugin-nexus`**) and, for CI, **bypass 2FA** if your org requires it.
 
 ### 2. Align the version on every package
 
@@ -45,14 +58,6 @@ pnpm release
 This runs **`pnpm build`** for everything under `packages/*`, then **`pnpm publish -r --filter './packages/*'`** with **`--access public`**, **`--no-git-checks`**, and **`--report-summary`** (writes **`pnpm-publish-summary.json`** at the repo root listing what was published — useful for CI logs). pnpm resolves the graph and publishes in the right order; `workspace:*` dependencies in `package.json` are rewritten to real versions on the tarballs that go to npm.
 
 **Aliases:** `pnpm publish:npm` is the same as `pnpm release`.
-
-If **`vite-plugin-nexus`** fails with *“cannot be republished until 24 hours have passed”*, npm is enforcing the cooldown after an **unpublish** of that package (see [npm unpublish policy](https://docs.npmjs.com/policies/unpublish)). Publish everything else now, then publish the plugin after the window:
-
-```bash
-pnpm release:skip-vite-plugin
-# …wait until npm allows it (often ~24h from unpublish, server time)…
-pnpm publish:package -- vite-plugin-nexus
-```
 
 **Requirements:**
 
@@ -97,9 +102,7 @@ The **`...` suffix** (`@nexus_js/assets...`) means “this package and its works
 ## Prerequisites
 
 - **Node.js** ≥ 22 and **pnpm** ≥ 9 (see root `package.json` → `engines` and **`.nvmrc`**).
-- An npm account with permission to publish:
-  - the **`@nexus_js` scope** (create an [npm org](https://www.npmjs.com/org/create) whose scope matches **`@nexus_js`** on npm), and
-  - the unscoped package **`vite-plugin-nexus`** (if that name is available on npm).
+- An npm account with permission to publish the **`@nexus_js` scope** (create or join an [npm org](https://www.npmjs.com/org/create) that owns **`@nexus_js`** on npm).
 - A valid **granular access token** from [npm Access Tokens](https://www.npmjs.com/settings/~/tokens).  
   If your account uses **two-factor authentication (2FA)** for publishing, a classic token is not enough for `npm publish`—see **403 / Two-factor authentication** under [Troubleshooting](#troubleshooting) below.  
   **Never commit tokens**, paste them into issues/chats, or store them in this repository.
@@ -204,7 +207,7 @@ Each published package includes `homepage`, `repository`, and `bugs` fields poin
 
 ## CI: GitHub Actions (example)
 
-To automate publish from GitHub, store an npm **granular token** as a repository secret (e.g. `NPM_TOKEN`) with permission to publish to `@nexus_js/*` and `vite-plugin-nexus`, including **bypass 2FA** if your account requires it.
+To automate publish from GitHub, store an npm **granular token** as a repository secret (e.g. `NPM_TOKEN`) with permission to publish to **`@nexus_js/*`**, including **bypass 2FA** if your account requires it.
 
 Example workflow (adjust branches and Node version as needed):
 
@@ -269,31 +272,70 @@ Then your account requires 2FA for publishing. Fix it in one of these ways:
 3. **Account 2FA settings**  
    Under [npm account security](https://www.npmjs.com/settings/~/security), check whether “Authorization and publishing” requires 2FA; that is what triggers this rule for tokens.
 
-### `404 Not Found` on `PUT …/@nexus_js/…`
+### `404 Not Found` on `PUT …/@nexus_js/…` (most common: **2FA**, not “wrong org”)
 
 If npm shows something like:
 
 > `404 Not Found - PUT https://registry.npmjs.org/@nexus_js%2fassets`  
 > The requested resource `@nexus_js/assets@…` could not be found or you do not have permission
 
-then authentication may have succeeded, but **your npm user cannot publish under the `@nexus_js` scope**. npm often returns **404** (not 403) when the scope exists but you are not a member, or when the name is taken by another org.
+**TL;DR — do this first:** run **`pnpm doctor:npm-publish`**. If it reports **`otplease`** in the latest log, or you use **2FA on npm**, put a **granular token** (with **Bypass 2FA**) into **`~/.npmrc`**.
 
-**Fix:**
+**Do not** paste `//registry.npmjs.org/:_authToken=…` alone into the shell — **zsh** will treat `//…` as a path and error (*no such file or directory*). Either:
 
-1. **Create or join the org** — This repo publishes scoped packages as **`@nexus_js/*`**. On [npm Organizations](https://www.npmjs.com/org/create), create or join an organization that owns the **`@nexus_js`** scope and ensure your user is an **owner** or **member with publish** rights.
-2. **If `@nexus_js` is taken** — Choose another npm scope, then rename all `name` fields in `packages/*/package.json` and all imports from `@nexus_js/` to your scope (same kind of change as migrating off `@nexus`).
+- **Append one line** (replace `npm_YOUR_TOKEN` with your real token):  
+  `printf '%s\n' '//registry.npmjs.org/:_authToken=npm_YOUR_TOKEN' >> ~/.npmrc`
+- Or open the file in an editor: **`nano ~/.npmrc`** and add a single line:  
+  `//registry.npmjs.org/:_authToken=npm_YOUR_TOKEN`
 
-3. **User scope** — Alternatively publish under **`@your-npm-username/package-name`**, which always works for your account with `publishConfig.access: public`.
+Then run **`pnpm release`** again. `npm login` alone is often **not** enough for non-interactive multi-package publish.
 
-Until your account may publish **`@nexus_js/*`**, `pnpm release` will fail at the first scoped package.
+The failed run’s log under **`~/.npm/_logs/`** usually contains **`otplease`** in the stack trace: npm wanted **publish 2FA** but did not accept the credentials you sent, and **npm 10/11 often turn that into `E404` on PUT**.
+
+**Still `E404` after putting the token in `~/.npmrc`?** Try this order:
+
+1. **Create a new [granular token](https://www.npmjs.com/settings/~/tokens)** (revoke the old one if unsure). It must be **Granular** (not a read-only legacy token), with **Read and write** on **`@nexus_js/*`** (or each package), and **Bypass two-factor authentication** enabled for publishing — without that last toggle, `otplease` will keep firing.
+2. **Use the env var for `pnpm release`** (often more reliable than relying on config merge when pnpm spawns npm from a temp dir):
+   ```bash
+   export NODE_AUTH_TOKEN=npm_PASTE_NEW_TOKEN_HERE
+   pnpm release
+   ```
+   Do not commit the token; `export` only lasts for that shell session.
+3. In **`~/.npmrc`**, keep **at most one** line of the form `//registry.npmjs.org/:_authToken=…` (remove duplicates or old tokens).
+
+**Fix (pick one):**
+
+1. **Granular token + bypass 2FA (required for full `pnpm release`)**  
+   `pnpm release` publishes **many** packages; a TOTP code **expires in ~30s**, so you cannot use `--otp` for the whole monorepo. After creating the token as above, either:
+   - **`export NODE_AUTH_TOKEN=…`** then **`pnpm release`** (recommended first try), or  
+   - one line in **`~/.npmrc`**:  
+     `//registry.npmjs.org/:_authToken=npm_YOUR_TOKEN_HERE`  
+     Safe append: `printf '%s\n' '//registry.npmjs.org/:_authToken=npm_YOUR_TOKEN_HERE' >> ~/.npmrc`
+
+2. **Single-package trial with OTP** (sanity check only):  
+   ```bash
+   cd packages/assets && npm publish --access public --otp=123456
+   ```  
+   Replace `123456` with a fresh authenticator code. This confirms 2FA was the issue; for a full release, still use (1).
+
+3. **If you truly have no publish role on `@nexus_js`** (rare when you’re already owner): join the org with **publish** rights, or see below.
+
+**If it is not 2FA** (no `otplease` in the log, and a granular token still returns 404):
+
+1. **Create or join the org** — On [npm Organizations](https://www.npmjs.com/org/create), ensure your user is an **owner** or **member with publish** on **`@nexus_js`**.
+2. **If `@nexus_js` is taken by someone else** — Rename scope in all `packages/*/package.json` and imports.
+3. **User scope** — Alternatively publish under **`@your-npm-username/…`** with `publishConfig.access: public`.
+
+**Noise in the terminal:** `npm warn Unknown env config "_nexus-js-registry"` came from **pnpm** exporting `npm_config__nexus_js_registry` when the repo had `@nexus_js:registry` in `.npmrc`; npm 11 mis-read that key. This repo’s **`.npmrc` no longer sets `@nexus_js:registry`** (the default registry is already `registry.npmjs.org`). If you still see the warning, run **`pnpm doctor:npm-publish`** and remove stray `npm_config_*` / `NPM_CONFIG_*` from your environment.
 
 ### Other issues
 
 | Issue | What to check |
 |--------|----------------|
+| `E404` on **PUT** while `npm whoami` / `npm view @nexus_js/…` work | Almost always **publish 2FA**: use a **granular token** with **bypass 2FA** for `pnpm release` (see section above). Check `~/.npm/_logs/*-debug-0.log` for **`otplease`**. |
 | `403 Forbidden` on `@nexus_js/*` (other causes) | Scope ownership and token permissions (publish to that scope). |
-| `403` on `vite-plugin-nexus` — *cannot be republished until 24 hours* | npm blocks **new publishes** to a name for **~24 hours** after **all versions were unpublished**. Use **`pnpm release:skip-vite-plugin`**, then **`pnpm publish:package -- vite-plugin-nexus`** when the cooldown ends. Clock is **npm’s servers (UTC)**; “not 24h locally” can still be inside the window. |
-| `403` on `vite-plugin-nexus` (other) | Name taken by another account, or no publish permission. |
+| Migrating from unscoped `vite-plugin-nexus` | Install **`@nexus_js/vite-plugin-nexus`** and update imports (`from '@nexus_js/vite-plugin-nexus'`). The old unscoped package was removed from npm. |
+| Extra words after `pnpm test` / `pnpm release` break Vitest or publish | pnpm forwards trailing arguments to **every** workspace script. Run only `pnpm test` or `pnpm release` on its own line — **do not** paste prose after the command. |
 | `workspace:*` still inside the tarball on npm | You published from outside the workspace root or without pnpm’s workspace publish flow. Run **`pnpm release`** from the monorepo root so pnpm rewrites `workspace:*` to concrete versions. |
 | Missing `dist/` | Run `pnpm build` before publish; `files` in `package.json` only includes `dist` and `README.md`. |
 | `Cannot implicitly apply the "latest" tag … 1.3.0 is higher than … 0.6.0` | You tried to publish a package named **`nexus`** whose version is **below** the version already on npm for that name. Use **`pnpm release`** (only `packages/*`), not `npm publish` from the repo root. If you really must publish an older line, use an explicit dist-tag: `npm publish --tag 0.x`. |

@@ -44,7 +44,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- All **`@nexus_js/*`** and **`vite-plugin-nexus`** package versions aligned to **0.7.4**.
+- All **`@nexus_js/*`** package versions aligned to **0.7.4**; the Vite plugin is published as **`@nexus_js/vite-plugin-nexus`** (replaces the removed unscoped **`vite-plugin-nexus`** name on npm).
 - Sample **`news`** app (when present in the workspace): SEO helpers, i18n/auth tweaks, **`failOnIslandSecurity`** and observability options in **`nexus.config`**.
 
 **Documentation & public monorepo (2026-04-05)**
@@ -176,8 +176,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 **Usage Example (`nexus.config.ts`)**
 ```typescript
-import { defineNexusConfig } from 'vite-plugin-nexus';
-import { nexusSecurity } from 'vite-plugin-nexus';
+import { defineNexusConfig } from '@nexus_js/vite-plugin-nexus';
+import { nexusSecurity } from '@nexus_js/vite-plugin-nexus';
 
 export default defineNexusConfig({
   plugins: [

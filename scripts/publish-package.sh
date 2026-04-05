@@ -2,7 +2,7 @@
 # Publish a single package from packages/ only (not examples/ or docs/).
 # Usage from repo root:
 #   pnpm publish:package -- @nexus_js/assets
-#   pnpm publish:package -- vite-plugin-nexus
+#   pnpm publish:package -- @nexus_js/vite-plugin-nexus
 # pnpm forwards a literal "--" before the package name; strip it so $1 is the name.
 set -euo pipefail
 while [ "${1:-}" = "--" ]; do shift; done

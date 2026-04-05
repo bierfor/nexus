@@ -24,7 +24,7 @@ body:
         - "@nexus_js/serialize"
         - "@nexus_js/types"
         - "@nexus_js/testing"
-        - "vite-plugin-nexus"
+        - "@nexus_js/vite-plugin-nexus"
         - "@nexus_js/db"
         - "New Package"
         - "Cross-cutting / Architecture"

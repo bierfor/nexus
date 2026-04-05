@@ -25,7 +25,7 @@ fi
 
 # shellcheck disable=SC2206
 PACKAGES=(
-  vite-plugin-nexus
+  @nexus_js/vite-plugin-nexus
   @nexus_js/create-nexus
   @nexus_js/cli
   @nexus_js/testing

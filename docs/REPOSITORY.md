@@ -56,7 +56,7 @@ git push -u origin main
 
 | Include | Reason |
 |---------|--------|
-| `packages/` | Published `@nexus_js/*` packages and `vite-plugin-nexus` |
+| `packages/` | Published `@nexus_js/*` packages (incl. `@nexus_js/vite-plugin-nexus`) |
 | `examples/` | Small demo apps wired in `pnpm-workspace.yaml` |
 | `docs/` | In-repo technical docs and static assets |
 | `.github/` | CI and templates |

@@ -10,6 +10,7 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.4-3178c6.svg)](https://www.typescriptlang.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-9-f69220.svg)](https://pnpm.io/)
 [![Node](https://img.shields.io/badge/Node-≥22-5fa04e.svg)](https://nodejs.org/)
+[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-FFDD00?logo=buymeacoffee&logoColor=000)](https://buymeacoffee.com/bierfor084)
 
 [Website — nexusjs.dev](https://nexusjs.dev) · [Docs in this repo](./docs/README.md) · [Contributing](./CONTRIBUTING.md) · [Changelog](./CHANGELOG.md)
 

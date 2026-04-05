@@ -549,6 +549,14 @@
     }
     .btn-outline:hover { border-color: var(--text); color: var(--text); }
 
+    .btn-coffee {
+      background: #FFDD00;
+      color: #000;
+      border: 1px solid rgba(0,0,0,.08);
+      font-weight: 700;
+    }
+    .btn-coffee:hover { background: #ffe733; transform: translateY(-1px); box-shadow: 0 4px 16px rgba(255,221,0,.4); }
+
     .hero-stats {
       display: flex;
       justify-content: center;
@@ -1064,8 +1072,8 @@
       <input type="search" class="nav-filter" id="nav-filter" placeholder="Filter sections…" autocomplete="off" spellcheck="false">
     </div>
     <div class="nav-section" data-i18n="nav.gettingStarted">Getting Started</div>
-    <a href="#install" class="active">⚡ Installation</a>
-    <a href="#quickstart">🚀 Quick Start</a>
+    <a href="#install" class="active" data-i18n="nav.install">⚡ Installation</a>
+    <a href="#quickstart" data-i18n="nav.quickStart">🚀 Quick Start</a>
     <a href="#project-structure">📁 Project Structure</a>
 
     <div class="nav-section" data-i18n="nav.core">Core Concepts</div>
@@ -1092,7 +1100,7 @@
     <a href="#local-first">📴 Local-First Sync</a>
     <a href="#zero-bundle">✨ Zero-Bundle UI</a>
 
-    <div class="nav-section">Security</div>
+    <div class="nav-section" data-i18n="nav.security">Security</div>
     <a href="#security">🛡️ Security by Default</a>
     <a href="#audit">🔍 nexus audit</a>
     <a href="#supply-chain">⛓️ Supply Chain Guard</a>
@@ -1126,6 +1134,7 @@
     <div class="hero-actions">
       <a href="#quickstart" class="btn btn-primary" data-i18n="hero.cta1">Get Started →</a>
       <a href="https://github.com/bierfor/nexus" class="btn btn-outline" target="_blank" data-i18n="hero.cta2">GitHub ↗</a>
+      <a href="https://buymeacoffee.com/bierfor084" class="btn btn-coffee" target="_blank" rel="noopener" aria-label="Buy Me a Coffee">☕ Buy me a coffee</a>
     </div>
     <div class="hero-stats">
       <div class="stat"><div class="stat-num">18</div><div class="stat-label" data-i18n="hero.stat1">Packages</div></div>
@@ -1252,7 +1261,7 @@ pnpm --version   # Must be ≥ 9.0.0</code></pre>
           <div class="step-content">
             <h4 data-i18n="qs.step1">Scaffold a new project</h4>
             <div class="code-title"><span>terminal</span><span class="code-lang">bash</span></div>
-            <pre><code class="language-bash">pnpm create nexus@latest my-app
+            <pre><code class="language-bash">pnpm create @nexus_js/nexus@latest my-app
 cd my-app</code></pre>
           </div>
         </div>
@@ -2585,7 +2594,7 @@ nexus audit --json       # Machine-readable output</code></pre>
 
       <h3>Build-time blocking (Vite plugin)</h3>
       <div class="code-title"><span>vite.config.ts</span><span class="code-lang">typescript</span></div>
-      <pre><code class="language-typescript">import { nexus, nexusSecurity } from 'vite-plugin-nexus';
+      <pre><code class="language-typescript">import { nexus, nexusSecurity } from '@nexus_js/vite-plugin-nexus';
 
 export default {
   plugins: [
@@ -2807,7 +2816,7 @@ nexus fix --force        # Also fix medium + low severity</code></pre>
           <tr><td><code>@nexus_js/serialize</code></td><td>SuperJSON-like: Date, Map, Set, BigInt, RegExp, URL, Uint8Array, Error</td></tr>
           <tr><td><code>@nexus_js/types</code></td><td>E2E type generation for routes, params, and Server Actions</td></tr>
           <tr><td><code>@nexus_js/testing</code></td><td><code>renderSSR</code>, <code>mountIsland</code>, <code>createActionTestHarness</code> for Vitest</td></tr>
-          <tr><td><code>vite-plugin-nexus</code></td><td>Vite plugin for HMR, CSS preprocessing, island manifest emission, CVE blocking</td></tr>
+          <tr><td><code>@nexus_js/vite-plugin-nexus</code></td><td>Vite plugin for HMR, CSS preprocessing, island manifest emission, CVE blocking</td></tr>
           <tr><td><code>@nexus_js/db</code></td><td>BYOD DB adapter: Prisma, Drizzle ORM, libSQL/Turso, or custom</td></tr>
           <tr><td><code>@nexus_js/sync</code></td><td><code>$localSync</code> rune — IndexedDB offline writes + background server sync + conflict resolution</td></tr>
           <tr><td><code>@nexus_js/ui</code></td><td>Zero-Bundle CSS-only interactive components (Accordion, Tabs, Modal, Tooltip, Progress Ring)</td></tr>
@@ -2820,9 +2829,14 @@ nexus fix --force        # Also fix medium + low severity</code></pre>
 
       <hr>
 
-      <p style="text-align:center; color: var(--muted); font-size:13px; margin-top:32px">
-        <strong style="color:var(--text)">Nexus</strong> — MIT License © 2026 Nexus Contributors ·
+      <p style="text-align:center; color: var(--muted); font-size:13px; margin-top:32px; display:flex; flex-wrap:wrap; gap:12px; justify-content:center; align-items:center;">
+        <span><strong style="color:var(--text)">Nexus</strong> — MIT License © 2026 Nexus Contributors</span>
         <a href="https://github.com/bierfor/nexus" style="color:var(--accent2); text-decoration:none">GitHub ↗</a>
+        <a href="https://buymeacoffee.com/bierfor084" target="_blank" rel="noopener"
+           style="display:inline-flex;align-items:center;gap:5px;background:#FFDD00;color:#000;font-weight:700;font-size:12px;padding:4px 12px;border-radius:8px;text-decoration:none;transition:opacity .15s;"
+           onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">
+          ☕ Buy me a coffee
+        </a>
       </p>
     </section>
 
@@ -2866,9 +2880,10 @@ const translations = {
     'hero.stat1': 'Packages', 'hero.stat2': 'JS by Default', 'hero.stat3': 'TypeScript', 'hero.stat4': 'Latest',
     'nav.gettingStarted': 'Getting Started', 'nav.core': 'Core Concepts', 'nav.data': 'Data & Server',
     'nav.advanced': 'Advanced', 'nav.tooling': 'Tooling', 'nav.reference': 'Reference',
-    'install.title': 'Installation', 'install.lead': 'Nexus requires Node.js ≥ 22 and pnpm ≥ 9.',
+    'nav.install': '⚡ Installation', 'nav.quickStart': '🚀 Quick Start', 'nav.security': 'Security',
+    'install.title': 'Installation', 'install.lead': 'Nexus requires Node.js ≥ 22 and pnpm ≥ 9. It works on any OS.',
     'install.prereq': 'Prerequisites',
-    'qs.title': 'Quick Start', 'qs.lead': 'Create a new Nexus project in seconds.',
+    'qs.title': 'Quick Start', 'qs.lead': 'Create a new Nexus project in seconds with the official scaffolder.',
     'qs.step1': 'Scaffold a new project', 'qs.step2': 'Install dependencies', 'qs.step3': 'Start the dev server',
     'struct.title': 'Project Structure', 'struct.lead': 'A typical Nexus app looks like this:',
     'nx.title': 'The .nx Component Format', 'nx.lead': 'Every Nexus page and component is a .nx file with up to four sections.',
@@ -2935,9 +2950,10 @@ const translations = {
     'hero.stat1': 'Paquetes', 'hero.stat2': 'JS por Defecto', 'hero.stat3': 'TypeScript', 'hero.stat4': 'Último',
     'nav.gettingStarted': 'Primeros pasos', 'nav.core': 'Conceptos Core', 'nav.data': 'Datos y Servidor',
     'nav.advanced': 'Avanzado', 'nav.tooling': 'Herramientas', 'nav.reference': 'Referencia',
-    'install.title': 'Instalación', 'install.lead': 'Nexus requiere Node.js ≥ 22 y pnpm ≥ 9.',
+    'nav.install': '⚡ Instalación', 'nav.quickStart': '🚀 Inicio rápido', 'nav.security': 'Seguridad',
+    'install.title': 'Instalación', 'install.lead': 'Nexus requiere Node.js ≥ 22 y pnpm ≥ 9. Funciona en cualquier sistema operativo.',
     'install.prereq': 'Requisitos previos',
-    'qs.title': 'Inicio rápido', 'qs.lead': 'Crea un proyecto Nexus en segundos.',
+    'qs.title': 'Inicio rápido', 'qs.lead': 'Crea un proyecto Nexus en segundos con el scaffolder oficial.',
     'qs.step1': 'Genera un nuevo proyecto', 'qs.step2': 'Instala las dependencias', 'qs.step3': 'Inicia el servidor de desarrollo',
     'struct.title': 'Estructura del proyecto', 'struct.lead': 'Una app Nexus típica luce así:',
     'nx.title': 'El formato de componente .nx', 'nx.lead': 'Cada página y componente es un archivo .nx con hasta cuatro secciones.',
@@ -3004,9 +3020,10 @@ const translations = {
     'hero.stat1': 'Pacotes', 'hero.stat2': 'JS por Padrão', 'hero.stat3': 'TypeScript', 'hero.stat4': 'Último',
     'nav.gettingStarted': 'Primeiros passos', 'nav.core': 'Conceitos Core', 'nav.data': 'Dados e Servidor',
     'nav.advanced': 'Avançado', 'nav.tooling': 'Ferramentas', 'nav.reference': 'Referência',
-    'install.title': 'Instalação', 'install.lead': 'Nexus requer Node.js ≥ 22 e pnpm ≥ 9.',
+    'nav.install': '⚡ Instalação', 'nav.quickStart': '🚀 Início rápido', 'nav.security': 'Segurança',
+    'install.title': 'Instalação', 'install.lead': 'Nexus requer Node.js ≥ 22 e pnpm ≥ 9. Funciona em qualquer sistema operacional.',
     'install.prereq': 'Pré-requisitos',
-    'qs.title': 'Início rápido', 'qs.lead': 'Crie um projeto Nexus em segundos.',
+    'qs.title': 'Início rápido', 'qs.lead': 'Crie um projeto Nexus em segundos com o scaffold oficial.',
     'qs.step1': 'Gere um novo projeto', 'qs.step2': 'Instale as dependências', 'qs.step3': 'Inicie o servidor de desenvolvimento',
     'struct.title': 'Estrutura do projeto', 'struct.lead': 'Um app Nexus típico se parece com isso:',
     'nx.title': 'O formato de componente .nx', 'nx.lead': 'Cada página e componente é um arquivo .nx com até quatro seções.',

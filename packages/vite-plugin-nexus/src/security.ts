@@ -87,7 +87,7 @@ const _scanned = new Map<string, boolean>();
  *
  * @example
  * // vite.config.ts
- * import { nexus, nexusSecurity } from 'vite-plugin-nexus';
+ * import { nexus, nexusSecurity } from '@nexus_js/vite-plugin-nexus';
  * export default { plugins: [nexus(), nexusSecurity({ mode: 'block' })] };
  */
 export function nexusSecurity(opts: NexusSecurityPluginOptions = {}): Plugin {

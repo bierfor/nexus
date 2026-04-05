@@ -44,6 +44,10 @@
   "bugs": {
     "url": "https://github.com/bierfor/nexus/issues"
   },
+  "funding": {
+    "type": "individual",
+    "url": "https://buymeacoffee.com/bierfor084"
+  },
   "keywords": [
     "nexus",
     "framework",

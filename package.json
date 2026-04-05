@@ -21,10 +21,12 @@
     "example": "pnpm --filter basic dev",
     "studio": "nexus studio",
     "clean": "pnpm -r clean && rm -rf node_modules",
-    "release": "pnpm build && pnpm publish -r --filter './packages/*' --access public --no-git-checks --report-summary",
-    "release:skip-vite-plugin": "pnpm build && pnpm publish -r --filter './packages/*' --filter '!vite-plugin-nexus' --access public --no-git-checks --report-summary",
+    "release": "pnpm build && pnpm publish -r --filter './packages/*' --filter '!nexus-js' --filter '!nexus_js' --access public --no-git-checks --report-summary",
+    "release:env": "bash scripts/npm-release-local.sh",
+    "release:safe": "pnpm build && pnpm test && pnpm publish -r --filter './packages/*' --filter '!nexus-js' --filter '!nexus_js' --access public --no-git-checks --report-summary",
     "publish:npm": "pnpm release",
     "publish:package": "bash scripts/publish-package.sh",
+    "doctor:npm-publish": "bash scripts/doctor-npm-publish.sh",
     "version:framework": "node scripts/bump-framework-version.mjs"
   },
   "devDependencies": {

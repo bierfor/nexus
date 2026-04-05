@@ -97,7 +97,7 @@ pnpm --filter @nexus_js/compiler dev
 
 ## Project Structure
 
-**Published framework:** everything users install from npm (`@nexus_js/*`, `vite-plugin-nexus`) is developed under **`packages/`** only. **`examples/`** are sample apps; **`docs/`** is the static site — neither is published as a framework package.
+**Published framework:** everything users install from npm (`@nexus_js/*`, including `@nexus_js/vite-plugin-nexus`) is developed under **`packages/`** only. **`examples/`** are sample apps; **`docs/`** is the static site — neither is published as a framework package.
 
 ```
 nexus/
@@ -304,3 +304,11 @@ Use the GitHub Issues bug report template. Include:
 ## Questions?
 
 Open **GitHub Discussions** on your repository (e.g. `https://github.com/<org>/nexus/discussions`) for questions, ideas, or RFCs. Issues are for actionable bugs and feature requests.
+
+---
+
+## Support the Project
+
+If Nexus has saved you time or brought value to your work, consider buying the author a coffee — it directly supports ongoing development and maintenance:
+
+[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-FFDD00?logo=buymeacoffee&logoColor=000&style=for-the-badge)](https://buymeacoffee.com/bierfor084)

@@ -1,6 +1,10 @@
 # Nexus — documentation in this repository
 
-This folder complements the official site **[nexusjs.dev](https://nexusjs.dev)**. Use it for contributor-focused and version-controlled reference. Local preview of **`index.html`**: use **Node.js ≥ 22** (repo **`.nvmrc`**) and serve the `docs` folder as you prefer.
+This folder complements the official site **[nexusjs.dev](https://nexusjs.dev)**. Use it for contributor-focused and version-controlled reference.
+
+**Not on npm:** nothing under **`docs/`** is published to the npm registry. End users get the framework from **`@nexus_js/*`** packages (built from [`packages/`](../packages/)); `docs/` is for GitHub, local preview, and optional hosting (e.g. static site). See [`PUBLISHING.md`](./PUBLISHING.md) — `pnpm release` only publishes **`packages/*`**.
+
+Local preview of **`index.html`**: use **Node.js ≥ 22** (repo **`.nvmrc`**) and serve the `docs` folder as you prefer.
 
 | Document | Purpose |
 |----------|---------|
