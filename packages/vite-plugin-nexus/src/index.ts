@@ -60,6 +60,11 @@ export function nexus(opts: NexusPluginOptions = {}): Plugin[] {
   // Compiled cache: filepath → { serverCode, clientCode, css, manifest }
   const compiledCache = new Map<string, ReturnType<typeof compile>>();
 
+  // Set to false when Vite is running in build mode (vite build).
+  // Used to pass the correct `dev` flag to the compiler so production code-paths
+  // (JS-first $lib resolution, no cache-bust timestamps) are used during builds.
+  let isDevMode = true;
+
   let devServer: ViteDevServer | null = null;
   let typeGenDebounce: ReturnType<typeof setTimeout> | null = null;
 
@@ -82,8 +87,10 @@ export function nexus(opts: NexusPluginOptions = {}): Plugin[] {
     enforce: 'pre',
 
     configResolved(config) {
+      // `config.command` is 'serve' for dev server, 'build' for vite build.
+      isDevMode = config.command === 'serve';
       if (opts.debug) {
-        console.log('[vite-plugin-nexus] Root:', root, 'SSR:', opts.ssr ?? config.build.ssr);
+        console.log('[vite-plugin-nexus] Root:', root, 'SSR:', opts.ssr ?? config.build.ssr, 'dev:', isDevMode);
       }
     },
 
@@ -156,7 +163,7 @@ export function nexus(opts: NexusPluginOptions = {}): Plugin[] {
       try {
         const result = compile(code, filepath, {
           mode: isSSR ? 'server' : 'client',
-          dev: true,
+          dev: isDevMode,
           ssr: isSSR,
           emitIslandManifest: true,
           target: isSSR ? 'node' : 'browser',
