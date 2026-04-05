@@ -7,9 +7,12 @@
     "packages/*",
     "examples/*",
     "my-nexus-app",
-    "news"
+    "news",
+    "fin-sh",
+    "fin-sh/api"
   ],
   "scripts": {
+    "preinstall": "node scripts/ensure-pnpm.mjs",
     "build": "pnpm -r --filter './packages/*' build",
     "dev": "pnpm -r --filter './packages/*' --parallel dev",
     "dev:pokedex": "pnpm --filter pokedex dev",

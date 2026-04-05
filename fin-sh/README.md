@@ -5,6 +5,8 @@ Link shortener stack: **Nexus** (UI + SSR + islands), **Apollo GraphQL** + **Mon
 ## Requisitos
 
 - Node 20+
+- **pnpm 9+** (este monorepo no usa `npm install` en la raíz; el `preinstall` del repo lo indica si fallas)
+- Opcional: `corepack enable` y `corepack prepare pnpm@9.14.0 --activate` para fijar la versión de pnpm
 - MongoDB en `localhost:27017` (ej. `docker run -d -p 27017:27017 --name fin-mongo mongo:7`)
 
 ## Arranque

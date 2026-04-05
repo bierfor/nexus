@@ -4,6 +4,11 @@
   "private": true,
   "type": "module",
   "description": "Fin.sh — Nexus + Apollo GraphQL + MongoDB link shortener (workspace demo).",
+  "packageManager": "pnpm@9.14.0",
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  },
   "scripts": {
     "predev": "node ./scripts/check-node-modules.mjs",
     "dev": "concurrently -k -n api,web -c blue,magenta \"pnpm --filter fin-sh-api dev\" \"node --env-file-if-exists=.env ./node_modules/@nexus_js/cli/dist/bin.js dev --port 3050\"",

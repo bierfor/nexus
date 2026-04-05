@@ -58,7 +58,7 @@ Nexus:              ▓                     18kb JS (only the like button)
 ### Prerequisites
 
 - Node.js ≥ 20
-- pnpm ≥ 9
+- pnpm ≥ 9 (install from the **repository root** with **`pnpm install` only** — `npm install` / `yarn` at the root are blocked by `preinstall` because this monorepo relies on `pnpm-workspace.yaml` and `workspace:` links)
 
 ### Create a new project
 
