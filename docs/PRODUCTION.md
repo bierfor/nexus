@@ -1,6 +1,6 @@
 # Production deployment and hardening
 
-This document describes what **`nexus build`** produces, how **server actions** are secured in current releases (0.7.5+), and which **environment variables** matter in production. For the full version history, see [`CHANGELOG.md`](../CHANGELOG.md) in the repository root.
+This document describes what **`nexus build`** produces, how **server actions** are secured in current releases (0.7.5+), and which **environment variables** matter in production. For the full version history, see **[CHANGELOG.md](https://github.com/bierfor/nexus/blob/main/CHANGELOG.md)** in the framework monorepo.
 
 ## Build output (`.nexus/`)
 
@@ -70,9 +70,9 @@ From **`@nexus_js/server`**:
 
 ## Publishing the framework (maintainers)
 
-See **[`PUBLISHING.md`](./PUBLISHING.md)**. Prefer **`pnpm release:safe`** (build + test + publish) over **`pnpm release`** when you want tests to gate the release.
+See **[PUBLISHING.md](https://github.com/bierfor/nexus/blob/main/docs/PUBLISHING.md)**. Prefer **`pnpm release:safe`** (build + test + publish) over **`pnpm release`** when you want tests to gate the release.
 
 ## Further reading
 
-- **nexusjs.dev** (marketing / landing): deployed from **[github.com/bierfor/nexusjs-site](https://github.com/bierfor/nexusjs-site)**; mirror in this repo: [`docs/index.html`](./index.html) (sections **Production hardening**, **Security by Default**, **Changelog**).
-- Changelog: [`CHANGELOG.md`](../CHANGELOG.md).
+- **nexusjs.dev** — deployed from **[github.com/bierfor/nexusjs-site](https://github.com/bierfor/nexusjs-site)**; this file is served at **[nexusjs.dev/docs/PRODUCTION.md](https://nexusjs.dev/docs/PRODUCTION.md)**. Landing source in the monorepo: **[docs/index.html](https://github.com/bierfor/nexus/blob/main/docs/index.html)**.
+- Changelog: **[CHANGELOG.md](https://github.com/bierfor/nexus/blob/main/CHANGELOG.md)**.
