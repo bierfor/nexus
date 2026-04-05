@@ -25,10 +25,19 @@ import { handleNavigationRequest } from './navigate.js';
 import { bumpDevReloadGeneration, preloadRegisteredServerActions } from './load-module.js';
 import { createContext, RedirectSignal, NotFoundSignal } from './context.js';
 import type { RenderOptions } from './renderer.js';
+import { nexusVault } from '@nexus_js/security';
+import { handleDevVaultPost } from './dev-vault.js';
+import {
+  refreshShieldAllowlist,
+  isActionBlockedByShield,
+  setShieldLite,
+} from './shield-runtime.js';
+import { emitDevRadar } from './devradar.js';
 
 export { STUDIO_DEFAULT_PORT } from './constants.js';
-export { createAction, registerAction, ActionError } from './actions.js';
+export { createAction, registerAction, ActionError, getRegisteredActionNames } from './actions.js';
 export { createContext } from './context.js';
+export { nexusVault } from '@nexus_js/security';
 export type { NexusContext, CookieOptions } from './context.js';
 export type { RenderResult, RenderOptions } from './renderer.js';
 export { mergeRoutePretext } from './renderer.js';
@@ -93,13 +102,16 @@ export interface NexusServerOptions {
   onRequest?: (info: RequestLogInfo) => void;
   /**
    * From `nexus.config.ts` `security` — when `hardened: true`, HTML and API responses get baseline security headers.
+   * `shieldLite`: unknown server action names return 403 (manifest + registry allowlist) instead of 404.
    */
-  security?: { hardened?: boolean };
+  security?: { hardened?: boolean; shieldLite?: boolean };
   /**
    * Flush the HTML shell (head + skeleton) before `nxPretext` resolves — improves TTFB when Pretext is slow.
    * Fragment layouts only (route output must not be a full `&lt;html&gt;` document).
    */
   streamingPretext?: boolean;
+  /** Merged into document import map for island `import()` resolution (from `nexus.config` `browser.importMap`). */
+  browserImportMap?: Record<string, string>;
 }
 
 /** Merge Hardened Mode headers (changelog v0.5) — CSP nonces are a future enhancement. */
@@ -147,11 +159,14 @@ export async function createNexusServer(opts: NexusServerOptions) {
   const routesDir = join(opts.root, 'src', 'routes');
   const publicDir = join(opts.root, opts.publicDir ?? 'public');
 
+  setShieldLite(opts.security?.shieldLite === true);
+
   let manifest: RouteManifest = await buildRouteManifest(routesDir);
 
   const renderOpts: RenderOptions = {
     dev,
     appRoot: opts.root,
+    ...(opts.browserImportMap ? { browserImportMap: opts.browserImportMap } : {}),
     assets: {
       /** ESM entry + chunks served from @nexus_js/runtime/dist via /_nexus/rt/* */
       runtime: '/_nexus/rt/index.js',
@@ -191,9 +206,43 @@ export async function createNexusServer(opts: NexusServerOptions) {
       return;
     }
 
+    // ── Vault-lite (dev) — hot-reload secrets without restart ───────────────
+    if (dev && method === 'POST' && url.pathname === '/_nexus/dev/vault') {
+      const request = await incomingMessageToWebRequest(req);
+      const response = await handleDevVaultPost(request);
+      await webToNodeResponse(response, res, sec);
+      return;
+    }
+
     // ── Server Actions ──────────────────────────────────────────────────────
     if (url.pathname.startsWith('/_nexus/action/')) {
       _isAction = true;
+      const actionName = url.pathname.slice('/_nexus/action/'.length).replace(/\/.*$/, '');
+      if (actionName !== '' && isActionBlockedByShield(actionName)) {
+        emitDevRadar({
+          type: 'security:audit',
+          payload: {
+            kind: 'shield_action',
+            message: 'Blocked: action not in Shield-lite allowlist',
+            action: actionName,
+          },
+        });
+        res.writeHead(
+          403,
+          sec({
+            'content-type': 'application/json',
+            'x-nexus-shield': 'block',
+          }) as Record<string, string | string[] | number>,
+        );
+        res.end(
+          JSON.stringify({
+            error: 'Forbidden',
+            status: 403,
+            code: 'SHIELD_BLOCK',
+          }),
+        );
+        return;
+      }
       const request = await incomingMessageToWebRequest(req);
       const response = await handleActionRequest(request);
       await webToNodeResponse(response, res, sec);
@@ -348,7 +397,9 @@ export async function createNexusServer(opts: NexusServerOptions) {
       return new Promise((resolve, reject) => {
         void (async () => {
           try {
+            nexusVault.seedFromProcessEnv();
             await preloadRegisteredServerActions(opts.root, dev);
+            refreshShieldAllowlist(opts.root, dev);
           } catch (err) {
             console.error('[Nexus] Server action preload failed:', err);
           }
@@ -364,6 +415,7 @@ export async function createNexusServer(opts: NexusServerOptions) {
       manifest = await buildRouteManifest(routesDir);
       if (dev) {
         await preloadRegisteredServerActions(opts.root, true);
+        refreshShieldAllowlist(opts.root, true);
         broadcastDevHotReload();
       }
     },

@@ -173,9 +173,17 @@ async function runDev(opts: { root: string; port: number }): Promise<void> {
     port: opts.port,
     dev: true,
     ...(cfg.security !== undefined
-      ? { security: { hardened: cfg.security.hardened === true } }
+      ? {
+          security: {
+            hardened: cfg.security.hardened === true,
+            ...(cfg.security.shieldLite === true ? { shieldLite: true } : {}),
+          },
+        }
       : {}),
     ...(cfg.server?.streamingPretext === true ? { streamingPretext: true } : {}),
+    ...(cfg.browser?.importMap && Object.keys(cfg.browser.importMap).length > 0
+      ? { browserImportMap: cfg.browser.importMap }
+      : {}),
 
     onRequest(info: RequestLogInfo) {
       const mCol = info.method === 'GET' ? c.cyan : c.mag;
@@ -393,6 +401,7 @@ async function runBuild(opts: { root: string }): Promise<void> {
       dev: false,
       emitIslandManifest: true,
       appRoot: opts.root,
+      routePattern: route.pattern,
     });
 
     for (const w of result.warnings ?? []) {
@@ -445,6 +454,15 @@ async function runBuild(opts: { root: string }): Promise<void> {
   await writeFile(
     join(outDir, 'manifest.json'),
     JSON.stringify(manifest, null, 2),
+    'utf-8',
+  );
+
+  const { collectActionNamesFromOutputDir } = await import('@nexus_js/security');
+  const shieldActions = collectActionNamesFromOutputDir(outDir);
+  const shieldRoutes = [...new Set(manifest.routes.map((r) => r.pattern))].sort();
+  await writeFile(
+    join(outDir, 'shield-manifest.json'),
+    JSON.stringify({ version: 1, routes: shieldRoutes, actions: shieldActions }, null, 2),
     'utf-8',
   );
 
@@ -544,9 +562,17 @@ async function runStart(opts: { root: string; port?: number }): Promise<void> {
     port,
     dev: false,
     ...(cfg.security !== undefined
-      ? { security: { hardened: cfg.security.hardened === true } }
+      ? {
+          security: {
+            hardened: cfg.security.hardened === true,
+            ...(cfg.security.shieldLite === true ? { shieldLite: true } : {}),
+          },
+        }
       : {}),
     ...(cfg.server?.streamingPretext === true ? { streamingPretext: true } : {}),
+    ...(cfg.browser?.importMap && Object.keys(cfg.browser.importMap).length > 0
+      ? { browserImportMap: cfg.browser.importMap }
+      : {}),
   });
 
   await server.listen();

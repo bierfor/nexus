@@ -13,6 +13,7 @@
  *   5. Cache Inspector — Current cache entries, TTLs, hit/miss ratio.
  *   6. Store Viewer    — Live snapshot of the Global State Store.
  *   7. Security Report — Snapshot from `nexus dev` (serialize, compiler scans, hardened mode, roadmap rows).
+ *   8. Vault-lite      — Proxy to the dev app `/_nexus/dev/vault` (Vault tab).
  */
 
 import { createServer as createHttpServer } from 'node:http';
@@ -32,6 +33,7 @@ export type StudioEvent =
   | { type: 'island:state'; payload: { id: string; state: unknown } }
   | { type: 'action:call'; payload: ActionCall }
   | { type: 'action:result'; payload: ActionResult }
+  | { type: 'action:redirect'; payload: ActionRedirect }
   | { type: 'action:error'; payload: ActionError }
   | { type: 'devtools:pretext'; payload: { pattern: string; durationMs: number; parallelCount: number } }
   | { type: 'security:audit'; payload: { kind: string; message: string; action?: string } }
@@ -78,6 +80,14 @@ export interface ActionResult {
   output: unknown;
   duration: number;
   cached: boolean;
+}
+
+export interface ActionRedirect {
+  id: string;
+  name: string;
+  location: string;
+  status: number;
+  duration: number;
 }
 
 export interface ActionError {
@@ -467,6 +477,7 @@ function studioHtml(port: number): string {
       <button data-panel="actions">Actions</button>
       <button data-panel="cache">Cache</button>
       <button data-panel="store">Store</button>
+      <button data-panel="vault">Vault</button>
       <button data-panel="security">Security</button>
     </nav>
   </header>
@@ -590,6 +601,11 @@ function studioHtml(port: number): string {
         case 'action:result':
           const a = state.actions.find(x => x.id === event.payload.id);
           if (a) { Object.assign(a, event.payload, { status: 'success' }); renderActionLog(); }
+          break;
+
+        case 'action:redirect':
+          const ar = state.actions.find(x => x.id === event.payload.id);
+          if (ar) { Object.assign(ar, event.payload, { status: 'redirect' }); renderActionLog(); }
           break;
 
         case 'action:error':
@@ -844,6 +860,89 @@ function studioHtml(port: number): string {
         rows;
     }
 
+    function renderVaultPanel() {
+      const el = document.getElementById('centerContent');
+      const title = document.getElementById('centerPanelTitle');
+      if (document.querySelector('nav button.active')?.dataset.panel !== 'vault') return;
+      title.textContent = 'Vault-lite';
+      const origin = localStorage.getItem('nexusStudioVaultAppOrigin') || 'http://127.0.0.1:3000';
+      const tok = localStorage.getItem('nexusStudioVaultToken') || '';
+      el.innerHTML =
+        '<p style="font-size:10px;color:var(--muted);margin:0 0 12px;line-height:1.45">' +
+        'Hot-reload secrets into the running dev server (<code>POST /_nexus/dev/vault</code>). ' +
+        '<strong>Save (merge)</strong> overlays keys; <strong>Reset from env + apply</strong> reloads <code>process.env</code> then applies the textarea (empty value removes a key). ' +
+        'Optional: set ' +
+        '<code>NEXUS_DEV_VAULT_TOKEN</code> on the app and paste the same token below.</p>' +
+        '<label style="display:block;font-size:10px;color:var(--muted);margin-bottom:4px">App origin</label>' +
+        '<input id="vaultAppOrigin" type="text" value="" style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-family:var(--mono);font-size:11px;margin-bottom:10px" />' +
+        '<label style="display:block;font-size:10px;color:var(--muted);margin-bottom:4px">Dev token (optional)</label>' +
+        '<input id="vaultToken" type="password" autocomplete="off" value="" placeholder="NEXUS_DEV_VAULT_TOKEN" style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-family:var(--mono);font-size:11px;margin-bottom:10px" />' +
+        '<label style="display:block;font-size:10px;color:var(--muted);margin-bottom:4px">KEY=value lines (empty value removes key)</label>' +
+        '<textarea id="vaultLines" rows="12" style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-family:var(--mono);font-size:11px;resize:vertical" placeholder="STRIPE_SECRET_KEY=sk_live_...\\nAPI_URL=https://api.example.com"></textarea>' +
+        '<div style="display:flex;gap:8px;margin-top:10px;align-items:center">' +
+        '<button type="button" id="vaultSavePatch" style="padding:8px 14px;border-radius:6px;border:none;background:var(--accent);color:#fff;font-family:var(--mono);font-size:11px;cursor:pointer">Save (merge)</button>' +
+        '<button type="button" id="vaultSaveReplace" style="padding:8px 14px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text);font-family:var(--mono);font-size:11px;cursor:pointer">Reset from env + apply</button>' +
+        '</div>' +
+        '<div id="vaultStatus" style="margin-top:12px;font-size:11px;color:var(--muted)"></div>';
+      document.getElementById('vaultAppOrigin').value = origin;
+      document.getElementById('vaultToken').value = tok;
+
+      function parseLines(text) {
+        const patch = {};
+        for (const line of text.split(/\\r?\\n/)) {
+          const t = line.trim();
+          if (!t || t.startsWith('#')) continue;
+          const eq = t.indexOf('=');
+          if (eq < 1) continue;
+          const k = t.slice(0, eq).trim();
+          patch[k] = t.slice(eq + 1);
+        }
+        return patch;
+      }
+
+      async function send(replace) {
+        const status = document.getElementById('vaultStatus');
+        status.textContent = '';
+        const appOrigin = document.getElementById('vaultAppOrigin').value.trim().replace(/\\/$/, '');
+        const token = document.getElementById('vaultToken').value;
+        const patch = parseLines(document.getElementById('vaultLines').value);
+        if (!appOrigin) {
+          status.style.color = 'var(--red)';
+          status.textContent = 'App origin is required.';
+          return;
+        }
+        localStorage.setItem('nexusStudioVaultAppOrigin', appOrigin);
+        localStorage.setItem('nexusStudioVaultToken', token);
+        try {
+          const r = await fetch('/_nexus/studio/vault', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ appOrigin, token: token || undefined, patch, replace }),
+          });
+          const text = await r.text();
+          let j;
+          try {
+            j = JSON.parse(text);
+          } catch {
+            j = { error: text || 'Invalid response' };
+          }
+          if (!r.ok) {
+            status.style.color = 'var(--red)';
+            status.textContent = (j && j.error) ? j.error : 'Request failed (' + r.status + ')';
+            return;
+          }
+          status.style.color = 'var(--green)';
+          status.textContent = (j.ok ? 'OK — ' : '') + (j.keys != null ? j.keys + ' keys' : 'saved');
+        } catch (e) {
+          status.style.color = 'var(--red)';
+          status.textContent = (e && e.message) ? e.message : String(e);
+        }
+      }
+
+      document.getElementById('vaultSavePatch').onclick = function () { send(false); };
+      document.getElementById('vaultSaveReplace').onclick = function () { send(true); };
+    }
+
     // ── Nav ───────────────────────────────────────────────────────────────────
     const panelRenderers = {
       overview: renderOverview,
@@ -851,6 +950,7 @@ function studioHtml(port: number): string {
       actions: () => {},
       cache: renderCachePanel,
       store: renderStorePanel,
+      vault: renderVaultPanel,
       security: renderSecurityPanel,
     };
 
@@ -891,6 +991,71 @@ export async function startStudio(preferredPort = STUDIO_PORT): Promise<StudioSe
   const port = await findFreePort(preferredPort);
 
   const server = createHttpServer((req, res) => {
+    const pathOnly = (req.url ?? '/').split('?')[0] ?? '/';
+
+    if (req.method === 'POST' && pathOnly === '/_nexus/studio/vault') {
+      void (async () => {
+        const chunks: Buffer[] = [];
+        try {
+          for await (const chunk of req) chunks.push(Buffer.from(chunk));
+        } catch {
+          res.writeHead(400).end();
+          return;
+        }
+        let parsed: unknown;
+        try {
+          parsed = JSON.parse(Buffer.concat(chunks).toString('utf-8') || '{}');
+        } catch {
+          res.writeHead(400, { 'content-type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Invalid JSON' }));
+          return;
+        }
+        const o = parsed as {
+          appOrigin?: string;
+          token?: string;
+          patch?: unknown;
+          replace?: boolean;
+        };
+        const appOrigin =
+          typeof o.appOrigin === 'string' ? o.appOrigin.replace(/\/$/, '') : '';
+        if (!appOrigin) {
+          res.writeHead(400, { 'content-type': 'application/json' });
+          res.end(JSON.stringify({ error: 'appOrigin required' }));
+          return;
+        }
+        if (typeof o.patch !== 'object' || o.patch === null) {
+          res.writeHead(400, { 'content-type': 'application/json' });
+          res.end(JSON.stringify({ error: 'patch object required' }));
+          return;
+        }
+        const headers: Record<string, string> = { 'content-type': 'application/json' };
+        if (typeof o.token === 'string' && o.token !== '') {
+          headers['authorization'] = `Bearer ${o.token}`;
+          headers['x-nexus-dev-vault-token'] = o.token;
+        }
+        try {
+          const r = await fetch(`${appOrigin}/_nexus/dev/vault`, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({ patch: o.patch, replace: o.replace === true }),
+          });
+          const body = await r.text();
+          res.writeHead(r.status, { 'content-type': 'application/json' });
+          res.end(body);
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          res.writeHead(502, { 'content-type': 'application/json' });
+          res.end(
+            JSON.stringify({
+              error: msg,
+              hint: 'Ensure nexus dev is running and the app origin matches (e.g. http://127.0.0.1:3000).',
+            }),
+          );
+        }
+      })();
+      return;
+    }
+
     if (req.url === '/_nexus/studio' && req.headers.upgrade?.toLowerCase() === 'websocket') {
       return; // Handled by upgrade event
     }

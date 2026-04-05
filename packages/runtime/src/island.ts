@@ -20,7 +20,11 @@ export type HydrationStrategy =
 export interface IslandOptions {
   /** Raw template (legacy) */
   template?: string;
-  /** Template with `__NX_0__` placeholders; event attrs stripped at compile time */
+  /**
+   * Serialized island HTML. With reactive `__NX_*` placeholders, an `$effect` rewrites the first child’s
+   * `outerHTML` on each update. With **no** placeholders, the template is applied **once** at hydrate; the host
+   * then dispatches `nexus:island-static-patch` (bubbles) so apps may re-attach listeners if needed.
+   */
   processedTemplate?: string;
   /** One thunk per placeholder, evaluated in an $effect (closes over rune signals) */
   exprFns?: Array<() => unknown>;
@@ -30,6 +34,9 @@ export interface IslandOptions {
   /** Event delegation target inside the island (survives DOM replacement each tick) */
   delegatedClickSelector?: string;
   onDelegatedClick?: (e: Event) => void;
+  /** Capture-phase submit on the island root — survives inner `outerHTML` updates from reactive templates */
+  delegatedSubmitFormId?: string;
+  onDelegatedSubmit?: (e: Event) => void;
 }
 
 export interface IslandInstance {
@@ -70,19 +77,29 @@ export function createIsland(
     const processed = opts.processedTemplate;
     const exprFns = opts.exprFns;
 
-    if (processed && exprFns?.length) {
-      const stop = $effect(() => {
-        let html = processed;
-        for (let i = 0; i < exprFns.length; i++) {
-          const thunk = exprFns[i];
-          if (!thunk) continue;
-          const v = thunk();
-          html = html.replace(`__NX_${i}__`, escapeIslandText(String(v)));
-        }
-        const inner = el.firstElementChild;
-        if (inner) inner.outerHTML = html;
-      });
-      cleanups.push(stop);
+    if (processed) {
+      const inner = el.firstElementChild;
+      if (exprFns?.length) {
+        const stop = $effect(() => {
+          let html = processed;
+          for (let i = 0; i < exprFns.length; i++) {
+            const thunk = exprFns[i];
+            if (!thunk) continue;
+            const v = thunk();
+            html = html.replace(`__NX_${i}__`, escapeIslandText(String(v)));
+          }
+          const child = el.firstElementChild;
+          if (child) child.outerHTML = html;
+        });
+        cleanups.push(stop);
+      } else if (inner) {
+        // Static island (no __NX_ placeholders): still apply client template once so markup matches
+        // the compiled bundle; otherwise hydrate-only islands never ran the replacement branch.
+        inner.outerHTML = processed;
+        el.dispatchEvent(
+          new CustomEvent('nexus:island-static-patch', { bubbles: true, composed: true }),
+        );
+      }
     }
 
     if (opts.delegatedClickSelector && opts.onDelegatedClick) {
@@ -94,6 +111,19 @@ export function createIsland(
       };
       el.addEventListener('click', fn);
       cleanups.push(() => el.removeEventListener('click', fn));
+    }
+
+    if (opts.delegatedSubmitFormId && opts.onDelegatedSubmit) {
+      const formId = opts.delegatedSubmitFormId;
+      const cb = opts.onDelegatedSubmit;
+      const fn = (e: Event) => {
+        const t = e.target;
+        if (!(t instanceof HTMLFormElement) || t.id !== formId) return;
+        e.preventDefault();
+        cb(e);
+      };
+      el.addEventListener('submit', fn, true);
+      cleanups.push(() => el.removeEventListener('submit', fn, true));
     }
 
     attachEventListeners(el, propSignals, cleanups);

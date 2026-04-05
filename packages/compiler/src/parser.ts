@@ -112,9 +112,13 @@ export function parse(source: string, filepath: string): ParsedComponent {
   const islandDirectives = extractIslandDirectives(templateContent);
 
   // --- Server Actions ---
+  // Include `// nexus:pretext` body: `createAction` / `use server` often live there, not in leading/server merge.
   const scriptContent = script?.content ?? '';
   const frontmatterContent = frontmatter?.content ?? '';
-  const serverActions = extractServerActionsFromSource(scriptContent + '\n' + frontmatterContent);
+  const pretextContent = pretext ?? '';
+  const serverActions = extractServerActionsFromSource(
+    scriptContent + '\n' + frontmatterContent + '\n' + pretextContent,
+  );
 
   if (serverActions.length > 0 && !source.includes('use server')) {
     warnings.push(

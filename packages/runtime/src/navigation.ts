@@ -578,12 +578,13 @@ function handleLinkClick(e: MouseEvent): void {
   const href = target.getAttribute('href');
   if (!href) return;
 
-  // Skip: external, hash-only, download, target="_blank", data-nx-prefetch="false"
+  // Skip: external, same-page #fragment (browser scroll — do not fetch /_nexus/navigate?path=%23…
+  // which resolves pathname to / and morphs the wrong route), download, target="_blank", …
   if (
     href.startsWith('http') ||
     href.startsWith('mailto:') ||
     href.startsWith('tel:') ||
-    href === '#' ||
+    href.startsWith('#') ||
     target.hasAttribute('download') ||
     target.getAttribute('target') === '_blank' ||
     target.getAttribute('data-nx-prefetch') === 'false' ||
@@ -617,7 +618,7 @@ function setupPrefetchObservers(): void {
         href.startsWith('http') ||
         href.startsWith('mailto:') ||
         href.startsWith('tel:') ||
-        href === '#' ||
+        href.startsWith('#') ||
         target.hasAttribute('download') ||
         target.getAttribute('target') === '_blank' ||
         target.getAttribute('data-nx-prefetch') === 'false' ||

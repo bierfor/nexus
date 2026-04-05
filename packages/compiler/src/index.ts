@@ -37,6 +37,7 @@ export function compile(
     target: opts.target ?? 'node',
     ...(opts.appRoot !== undefined ? { appRoot: opts.appRoot } : {}),
     ...(opts.libDepsMtime !== undefined ? { libDepsMtime: opts.libDepsMtime } : {}),
+    ...(opts.routePattern !== undefined ? { routePattern: opts.routePattern } : {}),
   };
 
   const parsed = parse(source, filepath);

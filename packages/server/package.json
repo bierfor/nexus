@@ -50,6 +50,7 @@
     "@nexus_js/compiler": "workspace:*",
     "@nexus_js/connect": "workspace:*",
     "@nexus_js/router": "workspace:*",
+    "@nexus_js/security": "workspace:*",
     "@nexus_js/serialize": "workspace:*"
   },
   "devDependencies": {

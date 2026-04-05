@@ -6,7 +6,7 @@ import { compile } from '@nexus_js/compiler';
 import { buildRouteManifest } from '@nexus_js/router';
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { mkdir, readdir, readFile, stat, unlink, writeFile } from 'node:fs/promises';
-import { dirname, join, relative } from 'node:path';
+import { basename, dirname, join, relative } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 export interface LoadRouteModuleOptions {
@@ -109,13 +109,35 @@ function actionsImportPreamble(appRoot: string, actionsCode: string): string {
   return lines.join('');
 }
 
+/**
+ * Sidecar does `import { … } from "./_page.nx.mjs"` — bare relative URL is a single ESM cache key.
+ * `loadRouteModule` loads the same file with `?t=…`, so after a hot edit Node can keep a stale
+ * bare `./_page.nx.mjs` graph (missing new exports) while the sidecar imports the new names.
+ * Append the server bundle mtime + dev reload generation so the sidecar always pulls the same
+ * revision it was emitted next to.
+ */
+function bustActionsImportFromServerBundle(
+  code: string,
+  serverOutPath: string,
+  serverMtimeMs: number,
+): string {
+  const base = basename(serverOutPath);
+  const rel = `./${base}`;
+  const needle = `from ${JSON.stringify(rel)}`;
+  if (!code.includes(needle)) return code;
+  const busted = `${rel}?t=${serverMtimeMs}_${devReloadGeneration}`;
+  return code.replaceAll(needle, `from ${JSON.stringify(busted)}`);
+}
+
 async function writeActionsSidecar(
   appRoot: string,
   serverOutPath: string,
   actionsModule: string,
 ): Promise<void> {
   const p = actionsSidecarPath(serverOutPath);
-  const code = actionsImportPreamble(appRoot, actionsModule) + actionsModule;
+  const st = await stat(serverOutPath);
+  let code = actionsImportPreamble(appRoot, actionsModule) + actionsModule;
+  code = bustActionsImportFromServerBundle(code, serverOutPath, st.mtimeMs);
   await writeFile(p, code, 'utf-8');
 }
 
@@ -166,9 +188,9 @@ async function collectFilesRecursive(
 }
 
 /**
- * Re-import every `*.actions.mjs` under `.nexus/dev-server` so `registerAction` picks up
- * code changes (including edits to files imported from the sidecar, e.g. `$lib/chat-room.js`).
- * Called from `server.reload()` when the CLI file watcher fires.
+ * Re-import `*.actions.mjs` only under the current compiler fingerprint dir (same as compiled routes).
+ * Importing every stale `dev-server/<oldFingerprint>/…` sidecar re-ran `registerAction` with obsolete
+ * generated code (e.g. duplicate `createAction` bodies without `$lib` imports) and overwrote the registry.
  */
 /**
  * Loads every route module once so generated `*.actions.*` sidecars run `registerAction`
@@ -211,7 +233,9 @@ export async function preloadRegisteredServerActions(appRoot: string, dev: boole
 }
 
 export async function reimportDevActionSidecars(appRoot: string): Promise<void> {
-  const root = join(appRoot, '.nexus', 'dev-server');
+  const cc = compilerDistMeta();
+  const fingerprint = cc?.fingerprint ?? 'unknown';
+  const root = join(appRoot, '.nexus', 'dev-server', fingerprint);
   let files: string[] = [];
   try {
     files = await collectFilesRecursive(root, (n) => n.endsWith('.actions.mjs'));
@@ -310,6 +334,7 @@ export async function loadRouteModule(
       target: 'node',
       appRoot,
       libDepsMtime: libM,
+      routePattern: pattern,
     });
     await mkdir(dirname(outPath), { recursive: true });
     await writeFile(outPath, result.serverCode, 'utf-8');

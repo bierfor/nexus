@@ -13,8 +13,9 @@ const CLIENT_DIR_RE = /\sclient:(load|idle|visible|media)(?:=["']([^"']*)["'])?/
  * `(?:[^>]*\\s)?` allows `client:load` as the first attribute (`<Foo client:load>`), not only
  * after another attribute (`<Foo class="x" client:load>`).
  */
+/** Optional `/` before `>` so `<Foo client:load />` matches (void-style components). */
 const OPEN_WITH_CLIENT_RE =
-  /<([a-zA-Z][\w-]*)(\s(?:[^>]*\s)?client:(?:load|idle|visible|media)(?:=["'][^"']*["'])?[^>]*)\s*>/;
+  /<([a-zA-Z][\w-]*)(\s(?:[^>]*\s)?client:(?:load|idle|visible|media)(?:=["'][^"']*["'])?[^>]*)\s*\/?>/;
 
 function extractBalanced(
   html: string,
@@ -101,15 +102,28 @@ export function wrapSelfClientIslandMarkers(
     const strategy = (strat?.[1] ?? 'load') as 'load' | 'idle' | 'visible' | 'media';
     const mediaQuery = strat?.[2];
 
-    const cleanAttrs = stripClientDirective(fullAttrs);
-    const balanced = extractBalanced(t, openTagEnd, tag);
-    if (!balanced) {
-      break;
-    }
-
+    /** `[^>]*` can capture a trailing `/` before `>` on void-style tags — drop it for valid `<Tag></Tag>`. */
+    const cleanAttrs = stripClientDirective(fullAttrs)
+      .replace(/\s*\/\s*$/u, '')
+      .trim();
     const innerRootOpen = `<${tag}${cleanAttrs ? ' ' + cleanAttrs : ''}>`;
     const innerRootClose = `</${tag}>`;
-    const clientTemplate = innerRootOpen + balanced.inner + innerRootClose;
+
+    let inner: string;
+    let closeEnd: number;
+    if (m[0].trimEnd().endsWith('/>')) {
+      inner = '';
+      closeEnd = openTagEnd;
+    } else {
+      const balanced = extractBalanced(t, openTagEnd, tag);
+      if (!balanced) {
+        break;
+      }
+      inner = balanced.inner;
+      closeEnd = balanced.closeEnd;
+    }
+
+    const clientTemplate = innerRootOpen + inner + innerRootClose;
     fragments.push(clientTemplate);
 
     const islandIdx = fragments.length - 1;
@@ -127,7 +141,7 @@ export function wrapSelfClientIslandMarkers(
     data-nexus-component="${islandUrl}"
     ${dataStrategy}
   >${clientTemplate}</nexus-island>` +
-      t.slice(balanced.closeEnd);
+      t.slice(closeEnd);
 
     t = wrapped;
   }

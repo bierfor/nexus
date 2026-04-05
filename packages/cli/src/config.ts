@@ -19,6 +19,11 @@ export interface NexusSecurityConfig {
      */
     blockBuild?: boolean;
   };
+  /**
+   * When true, unknown server action names are rejected with 403 (Shield-lite) using the build manifest + registry.
+   * `nexus build` writes `.nexus/output/shield-manifest.json`.
+   */
+  shieldLite?: boolean;
 }
 
 /** DevRadar / Studio telemetry (see `packages/server/src/devradar.ts`). */
@@ -82,6 +87,17 @@ export interface NexusConfig {
 
   /** Introspection: DevRadar → Nexus Studio WebSocket (development). */
   observability?: NexusObservabilityConfig;
+
+  /**
+   * Browser-only hooks merged into the HTML shell (import map for island `import()` specifiers, etc.).
+   */
+  browser?: {
+    /**
+     * Merged with Nexus defaults in `<script type="importmap">`. Use for packages your islands
+     * `import()` that are not native ESM in `node_modules` (map to `https://esm.sh/...` or a self-hosted URL).
+     */
+    importMap?: Record<string, string>;
+  };
 }
 
 export interface NexusPlugin {

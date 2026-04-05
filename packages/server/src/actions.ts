@@ -28,7 +28,7 @@
  *      The createOptimistic() pending flag blocks double-submit.
  */
 
-import { createContext } from './context.js';
+import { createContext, NotFoundSignal, RedirectSignal } from './context.js';
 import type { NexusContext } from './context.js';
 import { serialize, deserialize } from '@nexus_js/serialize';
 import {
@@ -134,6 +134,32 @@ interface RegisteredAction {
 }
 const actionRegistry = new Map<string, RegisteredAction>();
 
+/**
+ * SSR and islands coerce `action={myAction}` with `String(myAction)`. The value is the
+ * wrapper from `createAction`, whose default `Function#toString()` is the entire wrapper
+ * source (CSRF, rate limit, …) — that string was being used as the form URL. After
+ * registration we pin `toString` / `@@toPrimitive` to the real POST path.
+ */
+function patchRegisteredActionStringCoercion(fn: ActionFn<unknown, unknown>, name: string): void {
+  const url = ACTION_PREFIX + name;
+  Object.defineProperty(fn, 'toString', {
+    value: function nexusActionUrlString() {
+      return url;
+    },
+    configurable: true,
+    enumerable: false,
+  });
+  try {
+    Object.defineProperty(fn, Symbol.toPrimitive, {
+      value: () => url,
+      configurable: true,
+      enumerable: false,
+    });
+  } catch {
+    /* ignore */
+  }
+}
+
 // ── Public API ────────────────────────────────────────────────────────────────
 
 /**
@@ -211,7 +237,13 @@ export function registerAction(
 ): void {
   const limiter = opts.rateLimit ? createRateLimiter(opts.rateLimit) : null;
   if (limiter) registerLimiter(name, limiter);
+  patchRegisteredActionStringCoercion(fn, name);
   actionRegistry.set(name, { fn, opts, name });
+}
+
+/** Names of all registered server actions (after preload). Used by Shield-lite allowlists. */
+export function getRegisteredActionNames(): ReadonlySet<string> {
+  return new Set(actionRegistry.keys());
 }
 
 export class ActionError extends Error {
@@ -427,6 +459,7 @@ export async function handleActionRequest(request: Request): Promise<Response> {
         result = await fn(input, ctxWithSignal);
         break;
       } catch (err) {
+        if (err instanceof RedirectSignal || err instanceof NotFoundSignal) throw err;
         attempts++;
         if (err instanceof ActionError || err instanceof ActionAbortedError) throw err;
         if (attempts >= maxAttempts) throw err;
@@ -479,6 +512,24 @@ export async function handleActionRequest(request: Request): Promise<Response> {
         status: 409,
         code: 'CANCELLED',
       }, 409);
+    }
+
+    if (err instanceof RedirectSignal) {
+      emitDevRadar({
+        type: 'action:redirect',
+        payload: {
+          id: traceId,
+          name: actionName,
+          location: err.location,
+          status: err.status,
+          duration: Date.now() - startTime,
+        },
+      });
+      return redirectResponseFromSignal(err);
+    }
+
+    if (err instanceof NotFoundSignal) {
+      return jsonResponse({ error: 'Not Found', status: 404 }, 404);
     }
 
     if (err instanceof ActionError) {
@@ -608,6 +659,15 @@ function jsonResponse(body: unknown, status: number): Response {
     status,
     headers: { 'content-type': 'application/json' },
   });
+}
+
+function redirectResponseFromSignal(err: RedirectSignal): Response {
+  const headers = new Headers();
+  headers.set('Location', err.location);
+  err.responseHeaders.forEach((value, key) => {
+    headers.append(key, value);
+  });
+  return new Response(null, { status: err.status, headers });
 }
 
 async function waitInQueue(key: string): Promise<void> {

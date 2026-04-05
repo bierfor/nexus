@@ -68,6 +68,11 @@ export interface CompileOptions {
   /** App root — used for stable /_nexus/islands/client.mjs?path=… query strings */
   appRoot?: string;
   /**
+   * Route URL pattern from the manifest (e.g. `/dashboard`). When `dev` is false, the actions
+   * sidecar imports the server bundle via `./${segment}.js` matching `nexus build` output.
+   */
+  routePattern?: string;
+  /**
    * Dev only: max mtime of `src/lib/**` — appended as `?t=` on emitted `$lib` imports so Node ESM
    * reloads when shared modules change without restarting the dev server.
    */

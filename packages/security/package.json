@@ -1,0 +1,32 @@
+{
+  "name": "@nexus_js/security",
+  "version": "0.7.4",
+  "description": "Nexus Hardened Core — Vault-lite (hot secrets) and Shield-lite (build manifest helpers)",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsc -p tsconfig.json --watch",
+    "test": "vitest run",
+    "clean": "rm -rf dist"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.5.0",
+    "vitest": "^2.0.0"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bierfor/nexus.git",
+    "directory": "packages/security"
+  },
+  "files": ["dist", "README.md"]
+}

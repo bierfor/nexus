@@ -11,6 +11,7 @@ import { randomUUID } from 'node:crypto';
 export type DevRadarEvent =
   | { type: 'action:call'; payload: ActionCallPayload }
   | { type: 'action:result'; payload: ActionResultPayload }
+  | { type: 'action:redirect'; payload: ActionRedirectPayload }
   | { type: 'action:error'; payload: ActionErrorPayload }
   | { type: 'devtools:pretext'; payload: PretextProfilePayload }
   | { type: 'security:audit'; payload: SecurityAuditPayload }
@@ -34,6 +35,14 @@ export interface ActionResultPayload {
   cached: boolean;
 }
 
+export interface ActionRedirectPayload {
+  id: string;
+  name: string;
+  location: string;
+  status: number;
+  duration: number;
+}
+
 export interface ActionErrorPayload {
   id: string;
   name: string;
@@ -51,7 +60,14 @@ export interface PretextProfilePayload {
 }
 
 export interface SecurityAuditPayload {
-  kind: 'csrf_blocked' | 'rate_limited' | 'replay' | 'ghost_wall' | 'custom';
+  kind:
+    | 'csrf_blocked'
+    | 'rate_limited'
+    | 'replay'
+    | 'ghost_wall'
+    | 'shield_action'
+    | 'vault_updated'
+    | 'custom';
   message: string;
   action?: string;
 }

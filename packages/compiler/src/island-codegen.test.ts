@@ -59,4 +59,111 @@ const x = 1;
     expect(c).toContain('#c-btn');
     expect(c).toContain('count.value++');
   });
+
+  it('emits delegated submit on island root when form has data-nexus-submit', () => {
+    const src = `---
+---
+<script>
+  async function submitRegister() {}
+</script>
+<div client:load>
+  <form id="fin-auth-register-form" data-nexus-submit="submitRegister">
+    <button type="submit">Go</button>
+  </form>
+</div>
+`;
+    const r = compile(src, '/app/src/routes/register/+page.nx', {
+      mode: 'server',
+      dev: true,
+      ssr: true,
+      emitIslandManifest: false,
+      target: 'node',
+      appRoot: '/app',
+    });
+    expect(r.clientCode).toBeTruthy();
+    const c = r.clientCode!;
+    expect(c).toContain('__nxDelegatedSubmit');
+    expect(c).toContain('delegatedSubmitFormId');
+    expect(c).toContain('fin-auth-register-form');
+    expect(c).toContain('void submitRegister()');
+  });
+
+  it('rewrites $state assignments in handlers to .value (const-safe)', () => {
+    const src = `---
+---
+<script>
+  let err = $state('');
+  async function submitRegister() {
+    err = '';
+    err = 'x';
+  }
+</script>
+<div client:load><form id="f" data-nexus-submit="submitRegister"><button type="submit">x</button></form></div>
+`;
+    const r = compile(src, '/app/src/routes/register/+page.nx', {
+      mode: 'server',
+      dev: true,
+      ssr: true,
+      emitIslandManifest: false,
+      target: 'node',
+      appRoot: '/app',
+    });
+    expect(r.clientCode).toBeTruthy();
+    const c = r.clientCode!;
+    expect(c).toContain('err.value =');
+    expect(c).not.toMatch(/[^.]err = ''/); // not plain `err = ''` (would reassign const)
+  });
+
+  it('warns when client:* island fragment uses {#if} or bind:', () => {
+    const bad = `---
+---
+<script>
+  let x = $state(0);
+</script>
+<div client:load>
+  {#if x}
+    <p>y</p>
+  {/if}
+  <input bind:value={x} />
+</div>
+`;
+    const r = compile(bad, '/app/src/routes/bad/+page.nx', {
+      mode: 'server',
+      dev: true,
+      ssr: true,
+      emitIslandManifest: false,
+      target: 'node',
+      appRoot: '/app',
+    });
+    const msgs = r.warnings.map((w) => w.message).join(' ');
+    expect(msgs).toMatch(/\{#if\} inside client/);
+    expect(msgs).toMatch(/bind: inside client/);
+  });
+
+  it('extracts createAction from nexus:pretext and emits static /_nexus/action/ form URL', () => {
+    const src = `---
+import { createAction } from '@nexus_js/server';
+// nexus:pretext
+export async function load(ctx) {
+  return {};
+}
+const myAction = createAction(async () => ({}), { csrf: false });
+---
+<template>
+  <form action={myAction} method="post">
+    <button type="submit">Go</button>
+  </form>
+</template>
+`;
+    const r = compile(src, '/app/src/routes/p/+page.nx', {
+      mode: 'server',
+      dev: true,
+      ssr: true,
+      emitIslandManifest: false,
+      target: 'node',
+      appRoot: '/app',
+    });
+    expect(r.serverCode).toContain('/_nexus/action/myAction');
+    expect(r.serverCode).not.toContain('__ssrAttr(myAction)');
+  });
 });

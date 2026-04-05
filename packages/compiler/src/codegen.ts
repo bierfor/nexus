@@ -8,10 +8,11 @@ import type {
   ServerAction,
 } from './types.js';
 import { existsSync } from 'node:fs';
-import { join, normalize } from 'node:path';
+import { basename, join, normalize, relative } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { scopeCSS, scopeTemplate, unwrapOuterTemplateElement } from './css-scope.js';
 import { wrapSelfClientIslandMarkers, type IslandWrapResult } from './island-wrap.js';
+import { scanSelfClientIslandTemplateWarnings } from './island-template-warnings.js';
 import {
   islandSsrStubLines,
   listRuneBindingNames,
@@ -27,6 +28,45 @@ function islandId(filepath: string, componentName: string): string {
 }
 
 const LIB_IMPORT_EXT_ORDER = ['.ts', '.tsx', '.mts', '.js', '.mjs', '.cjs'] as const;
+
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * `export const x = createAction` so the generated `*.actions.mjs` can import the same
+ * binding SSR uses — otherwise registerAction patches a duplicate wrapper instance.
+ */
+function exportCreateActionBindingsInSource(source: string, names: Set<string>): string {
+  let out = source;
+  for (const name of names) {
+    const re = new RegExp(
+      `(^|\\n)(\\s*)(?:export\\s+)?(const)\\s+(${escapeRegExp(name)})\\s*=\\s*createAction\\b`,
+      'gm',
+    );
+    out = out.replace(re, '$1$2export $3 $4 = createAction');
+  }
+  return out;
+}
+
+/**
+ * Server bundle filename adjacent to `*.actions.{mjs,js}`.
+ * Dev must match `devServerCachePath` in packages/server load-module.ts (`+` → `_` in the rel path).
+ */
+function actionsServerImportFilename(opts: CompileOptions, filepath: string): string {
+  if (opts.dev) {
+    if (opts.appRoot) {
+      const rel = relative(normalize(opts.appRoot), normalize(filepath));
+      const safe = rel.replace(/[^a-zA-Z0-9._/-]/g, '_');
+      return basename(safe + '.mjs');
+    }
+    return basename(filepath).replace(/[^a-zA-Z0-9._/-]/g, '_') + '.mjs';
+  }
+  const p = opts.routePattern ?? '';
+  const seg = p === '/' ? 'index' : p.replace(/^\//u, '');
+  const base = seg || basename(filepath).replace(/\.nx$/u, '');
+  return `${base}.js`;
+}
 
 /** Resolve `$lib/…` to an on-disk path so Node ESM can load it (extension required). */
 function resolveDollarLibFilePath(appRoot: string, rel: string): string {
@@ -84,6 +124,7 @@ export function generate(
 
   const islandWrap = wrapSelfClientIslandMarkers(processedTemplate, parsed.filepath, opts.appRoot);
   processedTemplate = islandWrap.template;
+  warnings.push(...scanSelfClientIslandTemplateWarnings(islandWrap, parsed.filepath));
 
   // ── Server module ──────────────────────────────────────────────────────────
   const serverCode = generateServerModule(parsed, opts, processedTemplate, islandWrap);
@@ -117,7 +158,7 @@ export function generate(
   // ── Server Actions module ──────────────────────────────────────────────────
   const actionsModule =
     parsed.serverActions.length > 0
-      ? generateActionsModule(parsed.serverActions, parsed.filepath)
+      ? generateActionsModule(parsed.serverActions, parsed.filepath, opts)
       : null;
 
   return {
@@ -146,16 +187,30 @@ function generateServerModule(
   lines.push(`// DO NOT EDIT — this file is auto-generated`);
   lines.push('');
 
-  if (parsed.pretext) {
-    lines.push('// ── Pretext — merged into ctx.pretext (parallel across layout + page before render) ──');
-    lines.push(rewriteDollarLibImports(transformPretextExport(parsed.pretext), opts));
+  const createActionBindingNames = new Set(
+    parsed.serverActions.filter((a) => a.createActionSource).map((a) => a.name),
+  );
+
+  // Leading imports + // nexus:server first so `export const x = createAction` in pretext closes over $lib.
+  if (parsed.frontmatter) {
+    lines.push('// ── Imports & server-only (leading + // nexus:server) ──');
+    lines.push(
+      rewriteDollarLibImports(
+        exportCreateActionBindingsInSource(parsed.frontmatter.content.trim(), createActionBindingNames),
+        opts,
+      ),
+    );
     lines.push('');
   }
 
-  // Frontmatter imports + data fetching (after pretext split: leading + // nexus:server)
-  if (parsed.frontmatter) {
-    lines.push('// ── Server-only data fetching (runs per request) ──');
-    lines.push(rewriteDollarLibImports(parsed.frontmatter.content.trim(), opts));
+  if (parsed.pretext) {
+    lines.push('// ── Pretext — merged into ctx.pretext (parallel across layout + page before render) ──');
+    lines.push(
+      rewriteDollarLibImports(
+        exportCreateActionBindingsInSource(transformPretextExport(parsed.pretext), createActionBindingNames),
+        opts,
+      ),
+    );
     lines.push('');
   }
 
@@ -188,7 +243,9 @@ function generateServerModule(
   lines.push(
     "  const __ssrAttr = (v) => String(v ?? '').replace(/&/g, '&amp;').replace(/\"/g, '&quot;').replace(/</g, '&lt;');",
   );
-  lines.push(`  return \`${templateToSSR(processedTemplate)}\`;`);
+  // Concat — not nested template literal: SSR body can contain `` ` `` and `${` (nested if/each).
+  const actionNamesForSsr = new Set(parsed.serverActions.map((a) => a.name));
+  lines.push('  return ' + '`' + templateToSSR(processedTemplate, actionNamesForSsr) + '`;');
   lines.push('}');
 
   return lines.join('\n');
@@ -215,10 +272,11 @@ function generateClientIsland(parsed: ParsedComponent, _opts: CompileOptions, is
   const bindingNames = new Set(listRuneBindingNames(scriptSrc));
   const stateOnlyNames = new Set(extractDollarStateInitializers(scriptSrc).keys());
 
+  const actionNamesForClient = new Set(parsed.serverActions.map((a) => a.name));
   const processedFragments: string[] = [];
   const exprFnBlocks: string[][] = [];
   for (const frag of fragments) {
-    const { processed, exprLines } = processTemplateForClientIsland(frag, bindingNames);
+    const { processed, exprLines } = processTemplateForClientIsland(frag, bindingNames, actionNamesForClient);
     processedFragments.push(processed);
     exprFnBlocks.push(exprLines);
   }
@@ -244,6 +302,8 @@ function generateClientIsland(parsed: ParsedComponent, _opts: CompileOptions, is
   const delegated: Array<{ delegatedClickSelector: string; onDelegatedClick: string } | null> =
     fragments.map((frag) => extractDelegatedClickFromFragment(frag, stateOnlyNames));
 
+  const delegatedSubmits = fragments.map((frag) => extractDelegatedSubmitFromFragment(frag));
+
   // Script content — Nexus runes use .value; $derived needs () => fn
   if (parsed.script) {
     lines.push('// ── Reactive State (Runes) ──');
@@ -262,6 +322,19 @@ function generateClientIsland(parsed: ParsedComponent, _opts: CompileOptions, is
   lines.push('];');
   lines.push('');
 
+  lines.push('const __nxDelegatedSubmit = [');
+  for (const s of delegatedSubmits) {
+    if (!s) {
+      lines.push('  null,');
+      continue;
+    }
+    lines.push(
+      `  { delegatedSubmitFormId: ${JSON.stringify(s.delegatedSubmitFormId)}, onDelegatedSubmit: () => { void ${s.handlerName}(); } },`,
+    );
+  }
+  lines.push('];');
+  lines.push('');
+
   lines.push('export function mount(el, props = {}) {');
   lines.push(`  const idx = Number(el.getAttribute('data-nexus-island-index') ?? '0');`);
   lines.push('  const processedTemplate = __nxIslandProcessed[idx] ?? __nxIslandProcessed[0];');
@@ -270,6 +343,7 @@ function generateClientIsland(parsed: ParsedComponent, _opts: CompileOptions, is
   lines.push('    processedTemplate,');
   lines.push('    exprFns,');
   lines.push('    ...(__nxDelegated[idx] ?? {}),');
+  lines.push('    ...(__nxDelegatedSubmit[idx] ?? {}),');
   lines.push('    ...props,');
   lines.push('  });');
   lines.push('}');
@@ -280,26 +354,27 @@ function generateClientIsland(parsed: ParsedComponent, _opts: CompileOptions, is
 // ─────────────────────────────────────────────────────────────────────────────
 // Server Actions module: type-safe RPC stubs
 // ─────────────────────────────────────────────────────────────────────────────
-function generateActionsModule(actions: ServerAction[], filepath: string): string {
+function generateActionsModule(actions: ServerAction[], filepath: string, opts: CompileOptions): string {
   const lines: string[] = [];
 
   lines.push(`// [Nexus] Server Actions — generated from ${filepath}`);
   lines.push(`"use server";`);
   lines.push('');
-  const needsCreateAction = actions.some((a) => a.createActionSource);
-  lines.push(
-    needsCreateAction
-      ? "import { createAction, registerAction } from '@nexus_js/server/actions';"
-      : "import { registerAction } from '@nexus_js/server/actions';",
-  );
+  lines.push("import { registerAction } from '@nexus_js/server/actions';");
   lines.push('');
+
+  const createActionImports = actions.filter((a) => a.createActionSource);
+  if (createActionImports.length > 0) {
+    const names = createActionImports.map((a) => a.name).join(', ');
+    const serverFile = actionsServerImportFilename(opts, filepath);
+    lines.push(`import { ${names} } from ${JSON.stringify('./' + serverFile)};`);
+    lines.push('');
+  }
 
   for (const action of actions) {
     lines.push(`/** @nexus-action "${action.name}" */`);
     if (action.createActionSource) {
-      lines.push(
-        `registerAction(${JSON.stringify(action.name)}, ${action.createActionSource}, { csrf: false });`,
-      );
+      lines.push(`registerAction(${JSON.stringify(action.name)}, ${action.name}, { csrf: false });`);
     } else {
       lines.push(
         `registerAction(${JSON.stringify(action.name)}, async (${action.params.join(', ')}) => {`,
@@ -341,6 +416,20 @@ function extractRuneDeclarations(code: string): RuneDeclaration[] {
   return runes;
 }
 
+/**
+ * After `let x = $state` → `const x = $state`, assignments like `x = 1` must become
+ * `x.value = 1`. Plain `x =` reassigns a const and throws at runtime (e.g. auth forms).
+ */
+function transformStateAssignmentsForClientScript(script: string): string {
+  const stateNames = extractDollarStateInitializers(script).keys();
+  let s = script;
+  for (const name of stateNames) {
+    const re = new RegExp(String.raw`(?<!const )\b${name}\s*=(?!=)`, 'g');
+    s = s.replace(re, `${name}.value =`);
+  }
+  return s;
+}
+
 /** Map Svelte-style rune usage in .nx to Nexus runtime ($state/$derived use `.value`). */
 function transformRunesForClientRuntime(script: string): string {
   let s = script.replace(/^\s*"use server"\s*;?\s*$/gm, '// [server-only removed]');
@@ -355,6 +444,7 @@ function transformRunesForClientRuntime(script: string): string {
       return `const ${name} = $derived(() => (${expr}))`;
     },
   );
+  s = transformStateAssignmentsForClientScript(s);
   return s;
 }
 
@@ -369,32 +459,113 @@ function exprToValueExpr(expr: string, bindingNames: Set<string>): string {
   return out;
 }
 
+/**
+ * HTML5 boolean attributes: presence means true — `disabled="false"` still disables.
+ * Emit `disabled` only when truthy: `${expr ? ' disabled' : ''}` (same order as `{expr}` in file).
+ */
+function interpolateClientIslandPlaceholders(
+  html: string,
+  bindingNames: Set<string>,
+  exprLines: string[],
+): string {
+  const re =
+    /\b(disabled|checked|readonly|required|selected|multiple|autofocus|open)\s*=\s*\{\s*([a-zA-Z_$][\w$]*)\s*\}|(?<!\$)\{([^}]+)\}/g;
+  return html.replace(re, (full, g1: string | undefined, g2: string | undefined, g3: string | undefined) => {
+    const idx = exprLines.length;
+    if (g1 !== undefined && g2 !== undefined) {
+      const expr = exprToValueExpr(g2.trim(), bindingNames);
+      exprLines.push(`() => (${expr}) ? ' ${g1}' : ''`);
+      return `__NX_${idx}__`;
+    }
+    if (g3 !== undefined) {
+      const code = exprToValueExpr(g3.trim(), bindingNames);
+      exprLines.push(`() => (${code})`);
+      return `__NX_${idx}__`;
+    }
+    return full;
+  });
+}
+
 /** Strip client event handlers and replace `{expr}` with `__NX_i__` + parallel expr functions. */
 function processTemplateForClientIsland(
   html: string,
   bindingNames: Set<string>,
+  actionNames?: Set<string>,
 ): { processed: string; exprLines: string[] } {
   const cleaned = html.replace(/\s+on[a-zA-Z][a-zA-Z0-9-]*\s*=\s*\{[^}]+\}/g, '');
+  const withActions = rewriteServerActionHtmlActionAttr(cleaned, actionNames);
+  const controlFlowExpanded = expandEachBlocks(expandIfBlocks(withActions));
   const exprLines: string[] = [];
-  const processed = cleaned.replace(/\{([^}]+)\}/g, (_, raw: string) => {
-    const code = exprToValueExpr(raw.trim(), bindingNames);
-    const i = exprLines.length;
-    exprLines.push(`() => (${code})`);
-    return `__NX_${i}__`;
-  });
+  const processed = interpolateClientIslandPlaceholders(controlFlowExpanded, bindingNames, exprLines);
   return { processed, exprLines };
 }
 
+/** Length of `<tag ...>` from `start` (at `<`), quote-aware so `>` in strings does not close early. */
+function openingTagScanLength(html: string, start: number): number {
+  if (html[start] !== '<') return 0;
+  let quote: '"' | "'" | null = null;
+  for (let i = start; i < html.length; i++) {
+    const c = html[i];
+    if (quote) {
+      if (c === quote) quote = null;
+      continue;
+    }
+    if (c === '"' || c === "'") quote = c;
+    else if (c === '>') return i - start + 1;
+  }
+  return 0;
+}
+
+/**
+ * Resolves `#id` for delegated click from the same opening tag that carries `onclick`, not the first `id` in the
+ * fragment (forms often put `<input id=…>` before `<button onclick=…>`).
+ */
 function extractDelegatedClickFromFragment(
   html: string,
   stateNames: Set<string>,
 ): { delegatedClickSelector: string; onDelegatedClick: string } | null {
   const m = /onclick=\{([^}]+)\}/.exec(html);
   if (!m?.[1]) return null;
-  const idMatch = /id\s*=\s*"([^"]+)"/.exec(html);
-  const delegatedClickSelector = idMatch ? `#${idMatch[1]}` : 'button';
+  const onclickIdx = m.index ?? 0;
+
+  let delegatedClickSelector = 'button';
+
+  outer: for (const tag of ['button', 'a'] as const) {
+    const re = new RegExp(`<${tag}\\b`, 'gi');
+    let match: RegExpExecArray | null;
+    while ((match = re.exec(html)) !== null) {
+      const s = match.index;
+      const len = openingTagScanLength(html, s);
+      if (len === 0) continue;
+      if (onclickIdx < s || onclickIdx >= s + len) continue;
+      const openTag = html.slice(s, s + len);
+      const idMatch = /\bid\s*=\s*"([^"]+)"/.exec(openTag);
+      if (idMatch?.[1]) delegatedClickSelector = `#${idMatch[1]}`;
+      else delegatedClickSelector = tag === 'a' ? 'a' : 'button';
+      break outer;
+    }
+  }
+
   const onDelegatedClick = rewriteClickHandlerBody(m[1].trim(), stateNames);
   return { delegatedClickSelector, onDelegatedClick };
+}
+
+const DATA_NEXUS_SUBMIT_RE = /data-nexus-submit\s*=\s*"(\w+)"/;
+
+/**
+ * `<form id="…" data-nexus-submit="handlerName">` — submit is delegated on the stable island root so it survives
+ * reactive `outerHTML` updates (listeners on the form element alone are lost each tick).
+ */
+function extractDelegatedSubmitFromFragment(
+  html: string,
+): { delegatedSubmitFormId: string; handlerName: string } | null {
+  const formOpen = /<form\b[^>]*>/.exec(html);
+  if (!formOpen?.[0]) return null;
+  const openTag = formOpen[0];
+  const idMatch = /\bid\s*=\s*"([^"]+)"/.exec(openTag);
+  const submitMatch = DATA_NEXUS_SUBMIT_RE.exec(openTag);
+  if (!idMatch?.[1] || !submitMatch?.[1]) return null;
+  return { delegatedSubmitFormId: idMatch[1], handlerName: submitMatch[1] };
 }
 
 function rewriteClickHandlerBody(body: string, stateNames: Set<string>): string {
@@ -412,6 +583,229 @@ function rewriteClickHandlerBody(body: string, stateNames: Set<string>): string 
 }
 
 const EACH_OPEN = '{#each ';
+const IF_OPEN = '{#if ';
+const ELSE_IF_OPEN = '{:else if ';
+
+/**
+ * Index of the `}` that closes `{#if expr}`, `{:else if expr}`, or `{#each expr as x}` when `expr`
+ * may contain `}`, e.g. `.filter((r) => r.x)`. Plain `indexOf('}', start)` breaks those tags.
+ */
+function findBlockTagExprEnd(t: string, exprStart: number): number {
+  let curly = 0;
+  let paren = 0;
+  let bracket = 0;
+  let i = exprStart;
+  while (i < t.length) {
+    const c = t[i]!;
+    if (c === '"' || c === "'") {
+      const q = c;
+      i++;
+      while (i < t.length) {
+        const ch = t[i]!;
+        if (ch === '\\') {
+          i += 2;
+          continue;
+        }
+        if (ch === q) {
+          i++;
+          break;
+        }
+        i++;
+      }
+      continue;
+    }
+    if (c === '`') {
+      i++;
+      while (i < t.length) {
+        const ch = t[i]!;
+        if (ch === '\\') {
+          i += 2;
+          continue;
+        }
+        if (ch === '`') {
+          i++;
+          break;
+        }
+        if (ch === '$' && t[i + 1] === '{') {
+          const nest = findBlockTagExprEnd(t, i + 2);
+          if (nest < 0) return -1;
+          i = nest + 1;
+          continue;
+        }
+        i++;
+      }
+      continue;
+    }
+    if (c === '/' && t[i + 1] === '/') {
+      i += 2;
+      while (i < t.length && t[i] !== '\n' && t[i] !== '\r') i++;
+      continue;
+    }
+    switch (c) {
+      case '(':
+        paren++;
+        break;
+      case ')':
+        if (paren > 0) paren--;
+        break;
+      case '[':
+        bracket++;
+        break;
+      case ']':
+        if (bracket > 0) bracket--;
+        break;
+      case '{':
+        curly++;
+        break;
+      case '}':
+        if (curly > 0) {
+          curly--;
+        } else if (paren === 0 && bracket === 0) {
+          return i;
+        }
+        break;
+      default:
+        break;
+    }
+    i++;
+  }
+  return -1;
+}
+
+/**
+ * Parse one `{#if}...{:else if}...{:else}...{/if}` starting at `openIdx` (must point at `{#if `).
+ * Nested `{#if}` inside branches is handled via depth counting.
+ */
+function parseTopLevelIfBlock(
+  t: string,
+  openIdx: number,
+): { closeEnd: number; branches: Array<{ cond: string | null; body: string }> } | null {
+  if (!t.startsWith(IF_OPEN, openIdx)) return null;
+  const condStart = openIdx + IF_OPEN.length;
+  const condEnd = findBlockTagExprEnd(t, condStart);
+  if (condEnd < 0) return null;
+  const firstCond = t.slice(condStart, condEnd).trim();
+
+  const branches: Array<{ cond: string | null; body: string }> = [];
+  let currentCond: string | null = firstCond;
+  let bodyStart = condEnd + 1;
+  let depth = 1;
+  let i = bodyStart;
+
+  while (i < t.length && depth >= 1) {
+    const pIf = t.indexOf(IF_OPEN, i);
+    const pClose = t.indexOf('{/if}', i);
+
+    let pElseIf = -1;
+    let pElse = -1;
+    if (depth === 1) {
+      pElseIf = t.indexOf(ELSE_IF_OPEN, i);
+      let pe = t.indexOf('{:else}', i);
+      while (pe !== -1 && t.startsWith(ELSE_IF_OPEN, pe)) {
+        pe = t.indexOf('{:else}', pe + 1);
+      }
+      pElse = pe;
+    }
+
+    type Tok = 'if' | 'close' | 'elseif' | 'else';
+    let nextPos = Infinity;
+    let kind: Tok | null = null;
+
+    const cand = (p: number, k: Tok) => {
+      if (p !== -1 && p >= i && p < nextPos) {
+        nextPos = p;
+        kind = k;
+      }
+    };
+
+    cand(pIf, 'if');
+    cand(pClose, 'close');
+    cand(pElseIf, 'elseif');
+    cand(pElse, 'else');
+
+    if (kind === null || nextPos === Infinity) return null;
+
+    if (kind === 'if' && pIf === nextPos) {
+      depth++;
+      const hEnd = findBlockTagExprEnd(t, pIf + IF_OPEN.length);
+      if (hEnd < 0) return null;
+      i = hEnd + 1;
+      continue;
+    }
+
+    if (kind === 'close' && pClose === nextPos) {
+      depth--;
+      if (depth === 0) {
+        branches.push({ cond: currentCond, body: t.slice(bodyStart, pClose) });
+        return { closeEnd: pClose + '{/if}'.length, branches };
+      }
+      i = pClose + '{/if}'.length;
+      continue;
+    }
+
+    if (depth === 1 && kind === 'elseif' && pElseIf === nextPos) {
+      branches.push({ cond: currentCond, body: t.slice(bodyStart, pElseIf) });
+      const cStart = pElseIf + ELSE_IF_OPEN.length;
+      const cEnd = findBlockTagExprEnd(t, cStart);
+      if (cEnd < 0) return null;
+      currentCond = t.slice(cStart, cEnd).trim();
+      bodyStart = cEnd + 1;
+      i = bodyStart;
+      continue;
+    }
+
+    if (depth === 1 && kind === 'else' && pElse === nextPos) {
+      branches.push({ cond: currentCond, body: t.slice(bodyStart, pElse) });
+      currentCond = null;
+      bodyStart = pElse + '{:else}'.length;
+      i = bodyStart;
+      continue;
+    }
+
+    return null;
+  }
+
+  return null;
+}
+
+function buildIfTernary(branches: Array<{ cond: string | null; body: string }>): string {
+  if (branches.length === 0) return '';
+
+  function aux(idx: number): string {
+    const b = branches[idx]!;
+    const last = idx === branches.length - 1;
+    if (last) {
+      if (b.cond === null) {
+        return '`' + b.body + '`';
+      }
+      return b.cond + ' ? `' + b.body + '` : \'\'';
+    }
+    if (b.cond === null) {
+      return '`' + b.body + '`';
+    }
+    return b.cond + ' ? `' + b.body + '` : (' + aux(idx + 1) + ')';
+  }
+
+  return '${' + aux(0) + '}';
+}
+
+/**
+ * Turns Svelte-style `{#if}` / `{:else if}` / `{:else}` into JS template ternary fragments.
+ * Must run before `interpolateExpressionsForSSR` — otherwise `{#if x}` is mistaken for `{expr}` and emits `${#if` (invalid private field `#if`).
+ */
+function expandIfBlocks(template: string): string {
+  if (!template.includes(IF_OPEN)) return template;
+  const open = template.indexOf(IF_OPEN);
+  const parsed = parseTopLevelIfBlock(template, open);
+  if (!parsed) return template;
+  const expandedBranches = parsed.branches.map(({ cond, body }) => ({
+    cond,
+    body: expandIfBlocks(body.trim()),
+  }));
+  const piece = buildIfTernary(expandedBranches);
+  const next = template.slice(0, open) + piece + template.slice(parsed.closeEnd);
+  return expandIfBlocks(next);
+}
 
 /**
  * Expands `{#each list as item}...{/each}` into `${list.map((item) => `...`).join('')}`.
@@ -421,8 +815,8 @@ function expandEachBlocks(template: string): string {
   let t = template;
   while (t.includes(EACH_OPEN)) {
     const start = t.indexOf(EACH_OPEN);
-    const closeHeader = t.indexOf('}', start);
-    if (closeHeader === -1) return t;
+    const closeHeader = findBlockTagExprEnd(t, start + EACH_OPEN.length);
+    if (closeHeader < 0) return t;
 
     const header = t.slice(start + EACH_OPEN.length, closeHeader);
     const hm = /^(.+?)\s+as\s+(\w+)\s*$/.exec(header.trim());
@@ -440,7 +834,9 @@ function expandEachBlocks(template: string): string {
       if (subEnd === -1) return t;
       if (subEach !== -1 && subEach < subEnd) {
         depth++;
-        pos = subEach + EACH_OPEN.length;
+        const innerHdrEnd = findBlockTagExprEnd(t, subEach + EACH_OPEN.length);
+        if (innerHdrEnd < 0) return t;
+        pos = innerHdrEnd + 1;
       } else {
         depth--;
         if (depth === 0) closeIdx = subEnd;
@@ -504,10 +900,27 @@ function interpolateExpressionsForSSR(s: string): string {
   return out;
 }
 
-function templateToSSR(template: string): string {
-  const attrSafe = transformDynamicAttributesForSSR(template);
-  const expanded = expandEachBlocks(attrSafe);
+function templateToSSR(template: string, actionNames?: Set<string>): string {
+  const attrSafe = transformDynamicAttributesForSSR(template, actionNames);
+  const ifExpanded = expandIfBlocks(attrSafe);
+  const expanded = expandEachBlocks(ifExpanded);
   return interpolateExpressionsForSSR(expanded);
+}
+
+/** Registered server actions post to `/_nexus/action/:name` (see packages/server actions). */
+const SERVER_ACTION_URL_PREFIX = '/_nexus/action/';
+
+/**
+ * `action={myAction}` must not flow through SSR __ssrAttr(fn) or island String(fn) — both stringify the handler.
+ * Simple identifier + extracted server action name → static action URL.
+ */
+function rewriteServerActionHtmlActionAttr(html: string, actionNames?: Set<string>): string {
+  if (!actionNames?.size) return html;
+  return html.replace(
+    /\baction\s*=\s*\{\s*([a-zA-Z_$][\w$]*)\s*\}/g,
+    (full, name: string) =>
+      actionNames.has(name) ? `action="${SERVER_ACTION_URL_PREFIX}${name}"` : full,
+  );
 }
 
 /**
@@ -515,8 +928,14 @@ function templateToSSR(template: string): string {
  * `onsubmit=${fn}` (function `toString()` injects `{}` into the document).
  * Event handlers are omitted here; the client island attaches them on hydrate.
  */
-function transformDynamicAttributesForSSR(html: string): string {
+function transformDynamicAttributesForSSR(html: string, actionNames?: Set<string>): string {
   let s = html.replace(/\s+on[a-zA-Z][a-zA-Z0-9-]*\s*=\s*\{[^}]+\}/g, '');
+  s = rewriteServerActionHtmlActionAttr(s, actionNames);
+  // Boolean attributes: omit when falsy (HTML5 — presence disables even if value is "false").
+  s = s.replace(
+    /\b(disabled|checked|readonly|required|selected|multiple|autofocus|open)\s*=\s*\{\s*([a-zA-Z_$][\w$]*)\s*\}/g,
+    (_full: string, name: string, expr: string) => '${' + expr + " ? ' " + name + "' : ''}",
+  );
   s = s.replace(
     /([a-zA-Z_:][-a-zA-Z0-9_:.]*)\s*=\s*\{\s*([a-zA-Z_$][\w$.]*)\s*\}/g,
     (_, name: string, expr: string) => `${name}="\${__ssrAttr(${expr})}"`,

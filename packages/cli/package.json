@@ -25,6 +25,7 @@
     "@nexus_js/audit": "workspace:*",
     "@nexus_js/compiler": "workspace:*",
     "@nexus_js/router": "workspace:*",
+    "@nexus_js/security": "workspace:*",
     "@nexus_js/server": "workspace:*",
     "jiti": "^2.6.1"
   },

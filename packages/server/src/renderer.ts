@@ -30,6 +30,11 @@ export interface RenderOptions {
   /** Required for loading `.nx` routes (dev compile + prod build path). */
   appRoot: string;
   assets: AssetManifest;
+  /**
+   * Extra `<script type="importmap">` `imports` entries (merged over Nexus defaults).
+   * Pass from `nexus.config.ts` `browser.importMap` for island bare imports (e.g. `qr-code-styling`).
+   */
+  browserImportMap?: Record<string, string>;
 }
 
 export interface AssetManifest {
@@ -501,6 +506,19 @@ function isFullHtmlDocument(content: string): boolean {
   return false;
 }
 
+/** Default + app `imports` for dynamically imported island bundles (bare specifiers). */
+function buildImportMapScript(extra?: Record<string, string> | null): string {
+  const base: Record<string, string> = {
+    '@nexus_js/runtime/island': '/_nexus/rt/island.js',
+    '@nexus_js/runtime': '/_nexus/rt/index.js',
+    '@nexus_js/serialize': '/_nexus/rt/serialize.js',
+  };
+  const imports =
+    extra && typeof extra === 'object' ? { ...base, ...extra } : base;
+  const json = JSON.stringify({ imports }, null, 2);
+  return `<script type="importmap">\n${json}\n</script>`;
+}
+
 function wrapWithDocument(
   content: string,
   opts: RenderOptions,
@@ -532,17 +550,8 @@ nexus-island {
 }
 </style>`;
 
-  // Import map — resolves @nexus_js/* bare specifiers inside dynamically-imported island bundles.
-  // Must appear before any <script type="module"> that uses these specifiers.
-  const importMap = `<script type="importmap">
-{
-  "imports": {
-    "@nexus_js/runtime/island": "/_nexus/rt/island.js",
-    "@nexus_js/runtime": "/_nexus/rt/index.js",
-    "@nexus_js/serialize": "/_nexus/rt/serialize.js"
-  }
-}
-</script>`;
+  // Import map — bare specifiers in island bundles (see `browser.importMap` in nexus.config.ts).
+  const importMap = buildImportMapScript(opts.browserImportMap ?? null);
 
   // Dev: SSE to /_nexus/dev/hot — server pushes `reload` after file watcher runs server.reload().
   const hmrScript = opts.dev

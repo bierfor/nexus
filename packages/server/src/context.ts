@@ -3,12 +3,19 @@
  * Inspired by SvelteKit's RequestEvent and Next.js's Request/Response pattern.
  */
 
+import { getVaultSecretsMap } from '@nexus_js/security';
+
 export interface NexusContext {
   request: Request;
   params: Record<string, string>;
   url: URL;
   headers: Headers;
   locals: Record<string, unknown>;
+  /**
+   * Vault-lite: merged `process.env` at boot plus hot patches (Studio / dev endpoint).
+   * Use `ctx.secrets.get('STRIPE_KEY')` instead of `process.env` when you need live rotation.
+   */
+  secrets: ReadonlyMap<string, string>;
   /**
    * Merged result of `nxPretext(ctx)` from each layout (outer→inner) and the page, in parallel.
    * Later routes override keys. Serialized to `__NEXUS_PRETEXT__` for `$pretext()` on the client.
@@ -62,6 +69,7 @@ export function createContext(
     url,
     headers: request.headers,
     locals: {},
+    secrets: getVaultSecretsMap(),
 
     setHeader(key, value) {
       responseHeaders.set(key, value);
