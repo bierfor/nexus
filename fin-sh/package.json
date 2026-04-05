@@ -3,11 +3,12 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Fin.sh — Nexus + Apollo GraphQL + MongoDB link shortener (workspace demo).",
+  "description": "Fin.sh — Nexus + Apollo GraphQL + MongoDB link shortener. Nexus (@nexus_js/*) installs from the npm registry (semver), not workspace: links.",
   "packageManager": "pnpm@9.14.0",
   "engines": {
     "node": ">=20.0.0",
-    "pnpm": ">=9.0.0"
+    "pnpm": ">=9.0.0",
+    "npm": ">=9.0.0"
   },
   "scripts": {
     "predev": "node ./scripts/check-node-modules.mjs",
@@ -22,17 +23,17 @@
     "audit": "node ./node_modules/@nexus_js/cli/dist/bin.js audit"
   },
   "dependencies": {
-    "@nexus_js/head": "workspace:^",
-    "@nexus_js/runtime": "workspace:^",
-    "@nexus_js/serialize": "workspace:^",
-    "@nexus_js/server": "workspace:^",
+    "@nexus_js/head": "^0.7.4",
+    "@nexus_js/runtime": "^0.7.4",
+    "@nexus_js/serialize": "^0.7.4",
+    "@nexus_js/server": "^0.7.4",
     "qr-code-styling": "^1.9.2",
     "qrcode": "^1.5.4"
   },
   "devDependencies": {
-    "@nexus_js/audit": "workspace:^",
-    "@nexus_js/cli": "workspace:^",
-    "@nexus_js/compiler": "workspace:^",
+    "@nexus_js/audit": "^0.7.4",
+    "@nexus_js/cli": "^0.7.4",
+    "@nexus_js/compiler": "^0.7.4",
     "@types/qrcode": "^1.5.6",
     "concurrently": "^9.1.0",
     "typescript": "^5.5.0"

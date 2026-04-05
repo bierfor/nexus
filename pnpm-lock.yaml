@@ -156,16 +156,16 @@ importers:
   fin-sh:
     dependencies:
       '@nexus_js/head':
-        specifier: workspace:^
+        specifier: ^0.7.4
         version: link:../packages/head
       '@nexus_js/runtime':
-        specifier: workspace:^
+        specifier: ^0.7.4
         version: link:../packages/runtime
       '@nexus_js/serialize':
-        specifier: workspace:^
+        specifier: ^0.7.4
         version: link:../packages/serialize
       '@nexus_js/server':
-        specifier: workspace:^
+        specifier: ^0.7.4
         version: link:../packages/server
       qr-code-styling:
         specifier: ^1.9.2
@@ -175,13 +175,13 @@ importers:
         version: 1.5.4
     devDependencies:
       '@nexus_js/audit':
-        specifier: workspace:^
+        specifier: ^0.7.4
         version: link:../packages/audit
       '@nexus_js/cli':
-        specifier: workspace:^
+        specifier: ^0.7.4
         version: link:../packages/cli
       '@nexus_js/compiler':
-        specifier: workspace:^
+        specifier: ^0.7.4
         version: link:../packages/compiler
       '@types/qrcode':
         specifier: ^1.5.6

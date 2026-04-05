@@ -5,13 +5,16 @@ Link shortener stack: **Nexus** (UI + SSR + islands), **Apollo GraphQL** + **Mon
 ## Requisitos
 
 - Node 20+
-- **pnpm 9+** (este monorepo no usa `npm install` en la raíz; el `preinstall` del repo lo indica si fallas)
-- Opcional: `corepack enable` y `corepack prepare pnpm@9.14.0 --activate` para fijar la versión de pnpm
+- **pnpm 9+** o **npm 9+** para instalar dependencias dentro de `fin-sh`
+- En la **raíz del monorepo Nexus**, sigue siendo obligatorio **pnpm** (`npm install` en la raíz está bloqueado por diseño).
+- **Nexus en npm:** las dependencias `@nexus_js/*` usan **`^0.7.4`** (registro público). Para el CLI global también puedes usar **`npm i -g nexus-js`** o **`nexus_js`**.
 - MongoDB en `localhost:27017` (ej. `docker run -d -p 27017:27017 --name fin-mongo mongo:7`)
 
 ## Arranque
 
-Desde la raíz del monorepo:
+### Dentro del monorepo (recomendado)
+
+Desde la raíz del repo:
 
 ```bash
 pnpm install
@@ -20,6 +23,24 @@ cp .env.example .env
 cp api/.env.example api/.env
 pnpm dev
 ```
+
+### Solo carpeta `fin-sh` (dependencias desde npm)
+
+Si trabajas solo con este directorio (o copias el proyecto), instala y arranca:
+
+```bash
+cd fin-sh
+npm install
+# o: pnpm install
+cp .env.example .env
+cp api/.env.example api/.env
+pnpm dev
+# o: npx nexus dev --port 3050   (si tienes @nexus_js/cli en node_modules)
+```
+
+El script `pnpm dev` del `package.json` sigue usando `pnpm --filter fin-sh-api` para la API; eso requiere estar en el **workspace** del monorepo. Fuera del monorepo, levanta la API en otra terminal: `cd api && npm install && npm run dev`.
+
+**Nota monorepo:** con `pnpm install` en la raíz, pnpm suele **enlazar** los paquetes `@nexus_js/*` locales si coinciden con `^0.7.4` (más rápido para desarrollar el framework). El `package.json` sigue declarando versiones de **npm** para que un clon solo de `fin-sh` resuelva desde **registry.npmjs.org**.
 
 Esto levanta:
 
