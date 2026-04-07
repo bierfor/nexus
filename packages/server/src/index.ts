@@ -5,7 +5,8 @@
 
 import { createServer, IncomingMessage, ServerResponse } from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
-import { join, extname } from 'node:path';
+import { join, extname, resolve, sep } from 'node:path';
+import { randomBytes } from 'node:crypto';
 import { buildRouteManifest, matchRoute } from '@nexus_js/router';
 import type { RouteManifest } from '@nexus_js/router';
 import { handleActionRequest } from './actions.js';
@@ -50,6 +51,8 @@ export { nexusVault } from '@nexus_js/security';
 export type { NexusContext, CookieOptions } from './context.js';
 export type { RenderResult, RenderOptions } from './renderer.js';
 export { mergeRoutePretext } from './renderer.js';
+export { defineMetadata, escapeHtml } from './metadata.js';
+export type { MetadataInput, MetadataResult } from './metadata.js';
 export { registerDevRadarSink, emitDevRadar, sanitizeTelemetryValue, newTraceId } from './devradar.js';
 export type {
   DevRadarEvent,
@@ -146,25 +149,49 @@ export interface NexusServerOptions {
   browserImportMap?: Record<string, string>;
 }
 
-/** Merge Hardened Mode headers (changelog v0.5) — CSP nonces are a future enhancement. */
+/** Merge Hardened Mode headers — includes per-request CSP nonce when hardened. */
 function mergeHardenedHeaders(
   headers: Record<string, string | string[] | number | undefined>,
   hardened: boolean | undefined,
   dev: boolean,
+  cspNonce?: string,
 ): Record<string, string | string[] | number> {
   const h: Record<string, string | string[] | number> = {};
   for (const [k, v] of Object.entries(headers)) {
     if (v !== undefined) h[k] = v;
   }
   if (!hardened) return h;
+
   h['x-frame-options'] = 'DENY';
   h['x-content-type-options'] = 'nosniff';
   h['referrer-policy'] = 'strict-origin-when-cross-origin';
   h['permissions-policy'] = 'camera=(), microphone=(), geolocation=()';
   h['x-nexus-security'] = 'hardened';
+
   if (!dev) {
     h['strict-transport-security'] = 'max-age=31536000; includeSubDomains';
   }
+
+  // Content-Security-Policy with per-request nonce for inline scripts.
+  // script-src: 'self' for external scripts, nonce for inline scripts.
+  // object-src: 'none' blocks Flash / legacy plugin execution.
+  // base-uri: 'self' prevents base tag injection (open redirect via <base href>).
+  if (cspNonce) {
+    const scriptSrc = dev
+      ? `'self' 'nonce-${cspNonce}' 'unsafe-eval'`   // unsafe-eval needed for Vite HMR in dev
+      : `'self' 'nonce-${cspNonce}'`;
+    h['content-security-policy'] =
+      `default-src 'self'; ` +
+      `script-src ${scriptSrc}; ` +
+      `style-src 'self' 'unsafe-inline'; ` +   // unsafe-inline for scoped component CSS
+      `img-src 'self' data: blob:; ` +
+      `font-src 'self'; ` +
+      `connect-src 'self'; ` +
+      `object-src 'none'; ` +
+      `base-uri 'self'; ` +
+      `form-action 'self'`;
+  }
+
   return h;
 }
 
@@ -210,13 +237,20 @@ export async function createNexusServer(opts: NexusServerOptions) {
     },
   };
 
+  const hardened = opts.security?.hardened === true;
+
+  // `sec` without a nonce — used for non-HTML responses (JSON, static files, actions).
   const sec = (h: Record<string, string | string[] | number | undefined>) =>
-    mergeHardenedHeaders(h, opts.security?.hardened, dev);
+    mergeHardenedHeaders(h, hardened, dev);
 
   const server = createServer(async (req: IncomingMessage, res: ServerResponse) => {
     const t0  = Date.now();
     const url = new URL(req.url ?? '/', `http://${req.headers.host ?? 'localhost'}`);
     const method = req.method ?? 'GET';
+
+    // Generate a per-request CSP nonce for HTML responses (hardened mode only).
+    // Same nonce is injected into inline <script> tags and the CSP header.
+    const cspNonce = hardened ? randomBytes(16).toString('base64url') : undefined;
 
     // Capture cache strategy before headers are flushed, then call onRequest hook
     let _cacheStrategy: string | undefined;
@@ -415,9 +449,14 @@ export async function createNexusServer(opts: NexusServerOptions) {
         return;
       }
 
-      const result = await renderRoute(matched, ctx, renderOpts);
+      const requestRenderOpts = cspNonce ? { ...renderOpts, cspNonce } : renderOpts;
+      const result = await renderRoute(matched, ctx, requestRenderOpts);
       _cacheStrategy = result.headers['x-nexus-cache-strategy'];
-      res.writeHead(result.status, sec(result.headers as Record<string, string | string[] | number | undefined>));
+      const htmlHeaders = mergeHardenedHeaders(
+        result.headers as Record<string, string | string[] | number | undefined>,
+        hardened, dev, cspNonce,
+      );
+      res.writeHead(result.status, htmlHeaders);
       res.end(result.html);
     } catch (err) {
       if (err instanceof RedirectSignal) {
@@ -446,15 +485,24 @@ export async function createNexusServer(opts: NexusServerOptions) {
     listen(): Promise<void> {
       return new Promise((resolve, reject) => {
         void (async () => {
-          // Security sanity check: warn loudly in production when the default
-          // HMAC secret is in use. Predictable secrets allow attackers to forge
-          // valid CSRF tokens, bypass replay protection, and impersonate sessions.
-          if (!dev && !process.env['NEXUS_SECRET']) {
-            console.warn(
-              '\x1b[33m[Nexus Security]\x1b[0m \x1b[1mNEXUS_SECRET is not set.\x1b[0m ' +
-              'Using the default dev secret in production allows CSRF token forgery. ' +
-              'Set NEXUS_SECRET to a random 32+ char secret in your environment.',
-            );
+          // Fail hard in production when NEXUS_SECRET is absent or is the
+          // well-known dev placeholder. A predictable secret lets anyone forge
+          // valid CSRF tokens, bypass replay protection, and hijack sessions.
+          const envSecret = process.env['NEXUS_SECRET'];
+          if (!dev) {
+            if (!envSecret || envSecret === 'nexus-dev-secret-change-me') {
+              throw new Error(
+                '[Nexus Security] NEXUS_SECRET is not set (or is the insecure dev default). ' +
+                'Set NEXUS_SECRET to a random 32+ character secret in your production environment ' +
+                'before starting the server. The server refuses to start without it.',
+              );
+            }
+            if (envSecret.length < 32) {
+              throw new Error(
+                `[Nexus Security] NEXUS_SECRET is too short (${envSecret.length} chars). ` +
+                'Use at least 32 random characters (e.g. openssl rand -base64 32).',
+              );
+            }
           }
 
           try {
@@ -541,7 +589,10 @@ async function serveStatic(
   pathname: string,
   publicDir: string,
 ): Promise<{ content: Buffer; mime: string } | null> {
-  const safePath = join(publicDir, pathname.replace(/^\/+/, ''));
+  const root = resolve(publicDir);
+  const safePath = resolve(join(root, pathname.replace(/^\/+/, '')));
+  // Prevent path-traversal: resolved path must be inside publicDir
+  if (safePath !== root && !safePath.startsWith(root + sep)) return null;
   try {
     const info = await stat(safePath);
     if (!info.isFile()) return null;

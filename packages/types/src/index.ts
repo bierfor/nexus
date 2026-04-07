@@ -121,10 +121,19 @@ async function buildTypeOutput(
   // ── Typed Router ──────────────────────────────────────────────────────────
   lines.push('// ── Typed Router ─────────────────────────────────────────────────────────────');
   lines.push(`declare module '@nexus_js/runtime/router' {`);
+  lines.push(`  export interface NavigateOptions {`);
+  lines.push(`    replace?: boolean;`);
+  lines.push(`    noCache?: boolean;`);
+  lines.push(`    scroll?: boolean;`);
+  lines.push(`  }`);
+  lines.push(`  /** Navigate to a typed route. Returns a Promise that resolves once the page has morphed. */`);
   lines.push(`  export function navigate<R extends keyof RouteParams>(`);
   lines.push(`    route: R,`);
-  lines.push(`    params: RouteParams[R]`);
-  lines.push(`  ): void;`);
+  lines.push(`    params: RouteParams[R],`);
+  lines.push(`    opts?: NavigateOptions`);
+  lines.push(`  ): Promise<void>;`);
+  lines.push(`  /** Prefetch a route's JSON payload in the background. */`);
+  lines.push(`  export function prefetch<R extends keyof RouteParams>(route: R): void;`);
   lines.push(`}`);
   lines.push('');
 

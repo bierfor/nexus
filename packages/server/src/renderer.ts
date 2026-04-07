@@ -19,6 +19,7 @@ import type { MatchedRoute } from '@nexus_js/router';
 import type { IslandManifest } from '@nexus_js/compiler';
 import { serialize } from '@nexus_js/serialize';
 import { NotFoundSignal, RedirectSignal, type NexusContext } from './context.js';
+import { SESSION_COOKIE_NAME } from './csrf.js';
 import { devErrorHtmlPage } from './dev-error-html.js';
 import { loadRouteModule } from './load-module.js';
 import { emitDevRadar } from './devradar.js';
@@ -40,6 +41,14 @@ export interface RenderOptions {
    * Pass from `nexus.config.ts` `browser.importMap` for island bare imports (e.g. `qr-code-styling`).
    */
   browserImportMap?: Record<string, string>;
+  /**
+   * Per-request CSP nonce (base64url, 16 bytes).
+   * When provided, all inline `<script>` tags in the rendered document carry
+   * `nonce="{nonce}"`, and the `Content-Security-Policy` header is generated
+   * by the caller using this value.
+   * Generate with `randomBytes(16).toString('base64url')` per request.
+   */
+  cspNonce?: string;
 }
 
 export interface AssetManifest {
@@ -74,8 +83,8 @@ export interface ServerBridgeLog {
 export interface BuildInfo {
   /** Estimated JS bytes for this route */
   totalJs?: number;
-  /** Estimated JS bytes if using React instead */
-  reactJs?: number;
+  /** Estimated JS bytes if using React instead (injected as `reactEquivalent`) */
+  reactEquivalent?: number;
 }
 
 // ── Cache TTL Registry — populated by cache() calls during render ─────────────
@@ -121,7 +130,7 @@ export function computeCacheControl(ctx: NexusContext): {
   const { ttls, hasSession, hasStream } = renderTtlContext;
 
   // Rule 5: Session data is always private
-  if (hasSession || ctx.request.headers.get('cookie')?.includes('nx-session=')) {
+  if (hasSession || ctx.request.headers.get('cookie')?.includes(`${SESSION_COOKIE_NAME}=`)) {
     return {
       header: 'private, no-store',
       ttl: 0,
@@ -381,11 +390,11 @@ export function renderRouteStreaming(
 
           const devBridgeScript =
             opts.dev && bridgeLogs.length > 0
-              ? `<script>window.__NEXUS_SERVER_LOGS__=${JSON.stringify(bridgeLogs)};window.__NEXUS_BUILD_INFO__=${JSON.stringify({
+              ? `<script>window.__NEXUS_SERVER_LOGS__=${escapeJsonForScriptPayload(JSON.stringify(bridgeLogs))};window.__NEXUS_BUILD_INFO__=${escapeJsonForScriptPayload(JSON.stringify({
                   totalJs: 8_400 + islandCount * 1_200,
                   reactEquivalent: 148_000,
                   islandCount,
-                })};</script>`
+                }))};</script>`
               : undefined;
 
           const payload: StreamingPromiseValue = devBridgeScript
@@ -510,9 +519,32 @@ function stripLeadingDoctype(html: string): string {
   return html.replace(/^\s*<!DOCTYPE[^>]*>/i, '').trimStart();
 }
 
-/** Avoid `</script>` breaking out of inline JSON when embedding serialized pretext. */
+/**
+ * Devalue-safe JSON serialization for inline `<script>` payloads.
+ *
+ * JSON.stringify alone is insufficient for embedding inside HTML `<script>` tags:
+ *   - `</script>` closes the script block even inside a string.
+ *   - `<!--` starts an HTML comment that swallows subsequent content.
+ *   - `<![CDATA[` / `]]>` cause parser confusion in XHTML.
+ *   - U+2028 / U+2029 are valid JSON but break JS string literals in ES5.
+ *
+ * Escape strategy (used by Django, Ruby on Rails, SvelteKit, and devalue):
+ *   < → \u003c   stops </script> and <!
+ *   > → \u003e   stops ]]>
+ *   & → \u0026   stops &lt; entities re-parsed by the HTML parser
+ *   \u2028 → \u2028 literal → escaped (line separator, breaks JS literals)
+ *   \u2029 → \u2029 literal → escaped (paragraph separator)
+ *
+ * The result is valid JSON that JSON.parse / JSON5 will parse identically
+ * to the original value — only the byte representation differs.
+ */
 function escapeJsonForScriptPayload(json: string): string {
-  return json.replace(/</g, '\\u003c');
+  return json
+    .replace(/</g,      '\\u003c')
+    .replace(/>/g,      '\\u003e')
+    .replace(/&/g,      '\\u0026')
+    .replace(/\u2028/g, '\\u2028')
+    .replace(/\u2029/g, '\\u2029');
 }
 
 function isFullHtmlDocument(content: string): boolean {
@@ -525,7 +557,7 @@ function isFullHtmlDocument(content: string): boolean {
 }
 
 /** Default + app `imports` for dynamically imported island bundles (bare specifiers). */
-function buildImportMapScript(extra?: Record<string, string> | null): string {
+function buildImportMapScript(extra?: Record<string, string> | null, nonce?: string): string {
   const base: Record<string, string> = {
     '@nexus_js/runtime/island': '/_nexus/rt/island.js',
     '@nexus_js/runtime': '/_nexus/rt/index.js',
@@ -534,7 +566,8 @@ function buildImportMapScript(extra?: Record<string, string> | null): string {
   const imports =
     extra && typeof extra === 'object' ? { ...base, ...extra } : base;
   const json = JSON.stringify({ imports }, null, 2);
-  return `<script type="importmap">\n${json}\n</script>`;
+  const nonceAttr = nonce ? ` nonce="${nonce}"` : '';
+  return `<script${nonceAttr} type="importmap">\n${json}\n</script>`;
 }
 
 function wrapWithDocument(
@@ -544,14 +577,16 @@ function wrapWithDocument(
   islandCount = 0,
   pretextWire: string | null = null,
 ): string {
+  const n = opts.cspNonce ? ` nonce="${opts.cspNonce}"` : '';
+
   const pretextScript =
     pretextWire !== null
-      ? `<script type="application/json" id="__NEXUS_PRETEXT__">${escapeJsonForScriptPayload(pretextWire)}</script>`
+      ? `<script${n} type="application/json" id="__NEXUS_PRETEXT__">${escapeJsonForScriptPayload(pretextWire)}</script>`
       : '';
 
   const buildIdScript =
     opts.buildId !== undefined && opts.buildId !== ''
-      ? `<script>window.__NEXUS_BUILD_ID__=${JSON.stringify(opts.buildId)};</script>`
+      ? `<script${n}>window.__NEXUS_BUILD_ID__=${escapeJsonForScriptPayload(JSON.stringify(opts.buildId))};</script>`
       : '';
 
   const styleLinks = opts.assets.styles
@@ -559,7 +594,7 @@ function wrapWithDocument(
     .join('\n    ');
 
   const runtimeScript = opts.assets.runtime
-    ? `<script type="module" src="${opts.assets.runtime}"></script>`
+    ? `<script${n} type="module" src="${opts.assets.runtime}"></script>`
     : '';
 
   /** Default host box for custom element — avoids full-width flex rows that steal hits on tiny/empty islands. */
@@ -574,23 +609,26 @@ nexus-island {
 </style>`;
 
   // Import map — bare specifiers in island bundles (see `browser.importMap` in nexus.config.ts).
-  const importMap = buildImportMapScript(opts.browserImportMap ?? null);
+  // importmap scripts also require the nonce in strict CSP environments.
+  const importMap = buildImportMapScript(opts.browserImportMap ?? null, opts.cspNonce);
 
   // Dev: SSE to /_nexus/dev/hot — server pushes `reload` after file watcher runs server.reload().
   const hmrScript = opts.dev
-    ? `<script>(function(){if(typeof EventSource==='undefined')return;new EventSource('/_nexus/dev/hot').addEventListener('reload',function(){location.reload()})})();</script>`
+    ? `<script${n}>(function(){if(typeof EventSource==='undefined')return;new EventSource('/_nexus/dev/hot').addEventListener('reload',function(){location.reload()})})();</script>`
     : '';
 
   // Server→browser log bridge (dev only)
-  const bridgeScript = opts.dev ? `<script>
+  // All user-controlled strings (route paths, cache keys, etc.) are passed through
+  // escapeJsonForScriptPayload to prevent </script> injection via log values.
+  const bridgeScript = opts.dev ? `<script${n}>
 window.__NEXUS_DEV__ = true;
-window.__NEXUS_SERVER_LOGS__ = ${JSON.stringify(bridgeLogs)};
+window.__NEXUS_SERVER_LOGS__ = ${escapeJsonForScriptPayload(JSON.stringify(bridgeLogs))};
 window.__NEXUS_BUILD_INFO__ = {
   totalJs: ${8_400 + islandCount * 1_200},
   reactEquivalent: 148_000,
   islandCount: ${islandCount}
 };
-</script>${nexusClientDevScript}` : '';
+</script>${nexusClientDevScript(n)}` : '';
 
   const headInjection = `
     ${buildIdScript}
@@ -625,7 +663,7 @@ window.__NEXUS_BUILD_INFO__ = {
  * Reads window.__NEXUS_SERVER_LOGS__ and prints them in the browser console.
  * Also sets up island hydration tracking hooks.
  */
-const nexusClientDevScript = `<script>
+function nexusClientDevScript(nonceAttr: string): string { return `<script${nonceAttr}>
 (function(){
   if (!window.__NEXUS_DEV__) return;
   const logs  = window.__NEXUS_SERVER_LOGS__ ?? [];
@@ -740,14 +778,21 @@ const nexusClientDevScript = `<script>
     }
   }, 1200);
 })();
-</script>`;
+</script>`; }
 
 /**
  * Serializes island props for client-side hydration.
- * Uses base64 to safely embed arbitrary JSON in HTML attributes.
+ *
+ * Encoding: base64url (URL-safe, no padding issues in HTML attributes).
+ * We JSON-stringify first so any type (Date, nested objects, arrays) survives
+ * the round-trip, then base64url-encode so the value is safe inside any HTML
+ * attribute without escaping — base64 never contains `<`, `>`, `"`, or `&`.
+ *
+ * Using Buffer.from().toString('base64url') instead of btoa() because btoa()
+ * throws RangeError on characters outside Latin-1 (e.g. emoji, CJK, etc.).
  */
 export function serializeIslandProps(props: Record<string, unknown>): string {
-  return btoa(JSON.stringify(props));
+  return Buffer.from(JSON.stringify(props), 'utf-8').toString('base64url');
 }
 
 /**

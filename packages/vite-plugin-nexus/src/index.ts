@@ -50,7 +50,28 @@ const RESOLVED_STYLE_BRIDGE = '\0' + VIRTUAL_STYLE_BRIDGE;
 const NX_FILE_RE = /\.nx(\?.*)?$/;
 const ACTION_ROUTE_RE = /^\/_nexus\/action\//;
 const IMAGE_ROUTE_RE = /^\/_nexus\/image/;
-const SYNC_ROUTE_RE = /^\/_nexus\/sync\//;
+
+/** Env vars with these prefixes are allowed in client bundles. */
+const CLIENT_SAFE_PREFIXES = ['NEXUS_PUBLIC_'];
+
+/**
+ * Server-only module patterns (SvelteKit-style tainted module isolation).
+ * Any client-side import that resolves to a path matching these patterns
+ * is blocked with a hard error at build time.
+ *
+ * Matches:
+ *   - *.server.ts / *.server.tsx / *.server.js
+ *   - anything under /lib/server/ (or \lib\server\ on Windows)
+ *   - anything under /src/server/
+ */
+const SERVER_ONLY_RE = /(?:[/\\]lib[/\\]server[/\\]|[/\\]src[/\\]server[/\\]|\.server\.[jt]sx?)(?:[?#]|$)/;
+
+/**
+ * Pattern matching bare `process.env.FOO` or `import.meta.env.FOO` accesses in
+ * client JS/TS files where FOO is not in the CLIENT_SAFE_PREFIXES allowlist.
+ * This is a heuristic — the authoritative filter is Vite's `envPrefix` option.
+ */
+const PRIVATE_ENV_RE = /(?:process\.env|import\.meta\.env)\.([A-Z][A-Z0-9_]*)/g;
 
 export function nexus(opts: NexusPluginOptions = {}): Plugin[] {
   const root = opts.root ?? process.cwd();
@@ -80,6 +101,104 @@ export function nexus(opts: NexusPluginOptions = {}): Plugin[] {
       }
     }, 300);
   }
+
+  // ── Tainted-modules plugin: .server.ts / lib/server/ isolation ───────────
+  // Inspired by SvelteKit's $lib/server isolation.
+  // Prevents accidental leaking of server-only code (DB clients, secrets,
+  // crypto operations) into client bundles by erroring at build time.
+  //
+  // Convention:
+  //   src/lib/server/**   → server-only (never client)
+  //   src/server/**       → server-only
+  //   *.server.ts/js      → server-only
+  //
+  // In SSR mode (ssr: true transform option) all imports are allowed.
+  const taintedModulesPlugin: Plugin = {
+    name: 'nexus:tainted-modules',
+    enforce: 'pre',
+
+    resolveId(source, importer, options) {
+      // Only guard client-side bundles
+      if (options?.ssr) return undefined;
+      if (!importer) return undefined;
+      // Skip virtual modules and node_modules
+      if (source.startsWith('\0') || source.includes('/node_modules/')) return undefined;
+
+      // Check if the raw import specifier already looks server-only
+      if (SERVER_ONLY_RE.test(source)) {
+        const tip = source.endsWith('.server.ts') || source.endsWith('.server.tsx')
+          ? `Move the logic to a Server Action (createAction) or the "---" server frontmatter block.`
+          : `Move the import to a Server Action or the "---" server frontmatter block.`;
+        this.error(
+          `[Nexus] Server-only module "${source}" was imported from a client bundle.\n` +
+          `  Importer: ${importer}\n` +
+          `  ${tip}\n` +
+          `  Files in "lib/server/", "src/server/", or with ".server.ts" extension\n` +
+          `  are server-only and must never reach the browser.`,
+        );
+      }
+      return undefined;
+    },
+
+    // Second pass: check resolved absolute paths so aliased imports are also caught.
+    load(id, options) {
+      if (options?.ssr) return undefined;
+      if (id.startsWith('\0') || id.includes('/node_modules/')) return undefined;
+      if (SERVER_ONLY_RE.test(id)) {
+        // Return an empty stub so Rollup keeps going (the resolveId error above
+        // already fired; this is a safety net for edge cases where resolveId ran in SSR pass).
+        return `throw new Error("[Nexus] Attempted to load server-only module at runtime: ${id.replace(/\\/g, '/')}");`;
+      }
+      return undefined;
+    },
+  };
+
+  // ── Env-guard plugin: NEXUS_PUBLIC_ prefix ────────────────────────────────
+  // Tells Vite which env vars to expose to the browser bundle and warns when
+  // client-side code tries to reference a private variable at build time.
+  const envGuardPlugin: Plugin = {
+    name: 'nexus:env-guard',
+    enforce: 'pre',
+
+    config(config) {
+      // Set envPrefix so only NEXUS_PUBLIC_* vars appear in import.meta.env.*
+      // Merge with any existing prefix the user already configured.
+      const existing = config.envPrefix;
+      const merged: string[] = CLIENT_SAFE_PREFIXES.slice();
+      if (Array.isArray(existing)) {
+        for (const p of existing) {
+          if (!merged.includes(p)) merged.push(p);
+        }
+      } else if (typeof existing === 'string' && !merged.includes(existing)) {
+        merged.push(existing);
+      }
+      return { envPrefix: merged };
+    },
+
+    transform(code, id, transformOpts) {
+      // Only scan client-side modules (not SSR/server bundles, not node_modules)
+      if (transformOpts?.ssr) return null;
+      if (id.includes('/node_modules/')) return null;
+      if (!/\.[jt]sx?$/.test(id) && !NX_FILE_RE.test(id)) return null;
+
+      PRIVATE_ENV_RE.lastIndex = 0;
+      let match: RegExpExecArray | null;
+      while ((match = PRIVATE_ENV_RE.exec(code)) !== null) {
+        const varName = match[1] ?? '';
+        const isAllowed = CLIENT_SAFE_PREFIXES.some((prefix) => varName.startsWith(prefix));
+        if (!isAllowed) {
+          this.warn(
+            `[Nexus] "${match[0]}" references a private environment variable in a client bundle. ` +
+            `Only variables prefixed with ${CLIENT_SAFE_PREFIXES.map((p) => `"${p}"`).join(' or ')} ` +
+            `are safe to expose to the browser. ` +
+            `Rename it to NEXUS_PUBLIC_${varName} if it is intentionally public, ` +
+            `or move it to a server module (behind "---" frontmatter or a Server Action).`,
+          );
+        }
+      }
+      return null; // never mutate — just warn
+    },
+  };
 
   // ── Main transform plugin ──────────────────────────────────────────────────
   const transformPlugin: Plugin = {
@@ -360,7 +479,7 @@ export function nexus(opts: NexusPluginOptions = {}): Plugin[] {
     },
   };
 
-  return [transformPlugin, cssPlugin, typesPlugin, manifestPlugin, styleBridgeHtmlPlugin];
+  return [taintedModulesPlugin, envGuardPlugin, transformPlugin, cssPlugin, typesPlugin, manifestPlugin, styleBridgeHtmlPlugin];
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -1,0 +1,107 @@
+{
+  "Nexus page (server + script + template)": {
+    "prefix": "nx-page",
+    "body": [
+      "---",
+      "// Server — runs per request",
+      "$1",
+      "---",
+      "",
+      "<script>",
+      "  $2",
+      "</script>",
+      "",
+      "<template>",
+      "  $3",
+      "</template>",
+      "",
+      "<style>",
+      "  $4",
+      "</style>"
+    ],
+    "description": "Scaffold .nx with --- server, script, template, style"
+  },
+  "Nexus server block": {
+    "prefix": "nx-server",
+    "body": [
+      "---",
+      "$1",
+      "---"
+    ],
+    "description": "Delimited server (TypeScript) frontmatter"
+  },
+  "use server action": {
+    "prefix": "nx-use-server",
+    "body": [
+      "async function ${1:myAction}(formData: FormData, ctx: NexusContext) {",
+      "  \"use server\";",
+      "  $2",
+      "}"
+    ],
+    "description": "Server action function with use server"
+  },
+  "Island client:visible": {
+    "prefix": "nx-client-visible",
+    "body": "<div client:visible>$1</div>",
+    "description": "Hydrate island when visible"
+  },
+  "Island client:load": {
+    "prefix": "nx-client-load",
+    "body": "<div client:load>$1</div>",
+    "description": "Hydrate island immediately"
+  },
+  "Island client:idle": {
+    "prefix": "nx-client-idle",
+    "body": "<div client:idle>$1</div>",
+    "description": "Hydrate island on browser idle"
+  },
+  "Nexus cache()": {
+    "prefix": "nx-cache",
+    "body": "await cache(() => ${1:loader}(), { tags: [${2:'tag'}], ttl: ${3:60} })",
+    "description": "cache() with tags and TTL"
+  },
+  "Nexus revalidate": {
+    "prefix": "nx-revalidate",
+    "body": "await revalidate([${1:'tag'}])",
+    "description": "revalidate cache tags"
+  },
+  "defineHead": {
+    "prefix": "nx-head",
+    "body": [
+      "defineHead({",
+      "  title: '${1:Title}',",
+      "  description: '${2:Description}',",
+      "})"
+    ],
+    "description": "defineHead metadata"
+  },
+  "Rune $state": {
+    "prefix": "nx-state",
+    "body": "let ${1:name} = $state($2);",
+    "description": "Svelte 5 $state"
+  },
+  "Rune $derived": {
+    "prefix": "nx-derived",
+    "body": "let ${1:name} = $derived($2);",
+    "description": "Svelte 5 $derived"
+  },
+  "Rune $effect": {
+    "prefix": "nx-effect",
+    "body": [
+      "$effect(() => {",
+      "  $1",
+      "});"
+    ],
+    "description": "Svelte 5 $effect"
+  },
+  "callAction": {
+    "prefix": "nx-call-action",
+    "body": "await callAction('${1:actionName}', $2)",
+    "description": "callAction from client"
+  },
+  "Pretext marker": {
+    "prefix": "nx-pretext",
+    "body": "// nexus:pretext $1",
+    "description": "Pretext loader marker in server block"
+  }
+}

@@ -84,6 +84,35 @@ function extractIP(request: Request): string {
   );
 }
 
+// ── Shared GC timer ───────────────────────────────────────────────────────────
+// Instead of one setInterval per limiter instance (which can accumulate when
+// many actions each call createRateLimiter), we register every limiter's hits
+// map into a module-level set and run a single shared GC pass.
+
+type LimiterEntry = { hits: Map<string, number[]>; windowMs: number };
+const _allLimiters = new Set<LimiterEntry>();
+
+let _gcTimer: ReturnType<typeof setInterval> | undefined;
+const GC_INTERVAL_MS = 60_000; // 1 min global sweep
+
+function ensureGcTimer(): void {
+  if (_gcTimer !== undefined) return;
+  _gcTimer = setInterval(() => {
+    const now = Date.now();
+    for (const entry of _allLimiters) {
+      for (const [key, timestamps] of entry.hits) {
+        const recent = timestamps.filter((t) => t > now - entry.windowMs);
+        if (recent.length === 0) {
+          entry.hits.delete(key);
+        } else {
+          entry.hits.set(key, recent);
+        }
+      }
+    }
+  }, GC_INTERVAL_MS);
+  _gcTimer.unref?.();
+}
+
 // ── Limiter factory ───────────────────────────────────────────────────────────
 
 /**
@@ -101,12 +130,17 @@ export function createRateLimiter(config: RateLimitConfig): RateLimiter {
   // key → sorted array of hit timestamps
   const hits     = new Map<string, number[]>();
 
+  // Register with the shared GC and start the timer if needed
+  const entry: LimiterEntry = { hits, windowMs };
+  _allLimiters.add(entry);
+  ensureGcTimer();
+
   function check(request: Request): RateLimitResult {
     const key    = keyFn(request);
     const now    = Date.now();
     const cutoff = now - windowMs;
 
-    // Evict expired timestamps (sliding window)
+    // Evict expired timestamps for this key inline (lazy eviction)
     const timestamps = (hits.get(key) ?? []).filter((t) => t > cutoff);
 
     const resetAt   = timestamps.length > 0 ? (timestamps[0]! + windowMs) : (now + windowMs);
@@ -147,19 +181,6 @@ export function createRateLimiter(config: RateLimitConfig): RateLimiter {
     }
     return h;
   }
-
-  // Periodic GC: clean up keys with no recent hits to prevent unbounded growth
-  setInterval(() => {
-    const now = Date.now();
-    for (const [key, timestamps] of hits) {
-      const recent = timestamps.filter((t) => t > now - windowMs);
-      if (recent.length === 0) {
-        hits.delete(key);
-      } else {
-        hits.set(key, recent);
-      }
-    }
-  }, windowMs).unref?.(); // .unref() prevents the timer from keeping the process alive
 
   return { check, reset, headers };
 }

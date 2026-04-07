@@ -1,0 +1,25 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Nexus NX",
+  "scopeName": "source.nx",
+  "comment": "Server block uses TypeScript; markup uses the built-in HTML grammar (script/style regions get HTML-embedded JS/CSS).",
+  "patterns": [
+    { "include": "#nx-server-block" },
+    { "include": "text.html.basic" }
+  ],
+  "repository": {
+    "nx-server-block": {
+      "begin": "^(---)\\s*$",
+      "beginCaptures": {
+        "1": { "name": "punctuation.section.block.begin.nx" }
+      },
+      "end": "^(---)\\s*$",
+      "endCaptures": {
+        "1": { "name": "punctuation.section.block.end.nx" }
+      },
+      "name": "meta.frontmatter.server.nx",
+      "contentName": "meta.embedded.block.typescript",
+      "patterns": [{ "include": "source.ts" }]
+    }
+  }
+}

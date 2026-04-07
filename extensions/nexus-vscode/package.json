@@ -1,0 +1,113 @@
+{
+  "name": "nexus-nx",
+  "displayName": "Nexus .nx",
+  "description": "Syntax highlighting, language config, and snippets for Nexus .nx files (Svelte-like islands, server frontmatter, server actions).",
+  "version": "0.1.0",
+  "publisher": "bierhffor",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Snippets"
+  ],
+  "keywords": [
+    "nexus",
+    "nx",
+    "svelte",
+    "full-stack",
+    "nexusjs"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bierfor/nexus.git",
+    "directory": "extensions/nexus-vscode"
+  },
+  "homepage": "https://nexusjs.dev",
+  "bugs": {
+    "url": "https://github.com/bierfor/nexus/issues"
+  },
+  "main": "./out/extension.js",
+  "scripts": {
+    "compile": "tsc -p .",
+    "postinstall": "npm run compile",
+    "watch": "tsc -p . --watch",
+    "vscode:prepublish": "npm run compile",
+    "package": "vsce package",
+    "publish:marketplace": "vsce publish"
+  },
+  "activationEvents": [
+    "onLanguage:nx"
+  ],
+  "devDependencies": {
+    "@types/vscode": "^1.85.0",
+    "@vscode/vsce": "^3.7.1",
+    "typescript": "^5.6.0"
+  },
+  "contributes": {
+    "languages": [
+      {
+        "id": "nx",
+        "aliases": [
+          "Nexus",
+          "Nexus NX"
+        ],
+        "extensions": [
+          ".nx"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "nx",
+        "scopeName": "source.nx",
+        "path": "./syntaxes/nx.tmLanguage.json",
+        "embeddedLanguages": {
+          "meta.embedded.block.typescript": "typescript"
+        }
+      }
+    ],
+    "snippets": [
+      {
+        "language": "nx",
+        "path": "./snippets/nx.json"
+      }
+    ],
+    "commands": [
+      {
+        "command": "nexus.nx.wrapClientVisible",
+        "title": "Nexus: Wrap with client:visible"
+      },
+      {
+        "command": "nexus.nx.wrapClientLoad",
+        "title": "Nexus: Wrap with client:load"
+      },
+      {
+        "command": "nexus.nx.wrapClientIdle",
+        "title": "Nexus: Wrap with client:idle"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "nexus.nx.wrapClientVisible",
+        "key": "ctrl+alt+v",
+        "mac": "cmd+alt+v",
+        "when": "editorTextFocus && editorLangId == nx"
+      },
+      {
+        "command": "nexus.nx.wrapClientLoad",
+        "key": "ctrl+alt+l",
+        "mac": "cmd+alt+l",
+        "when": "editorTextFocus && editorLangId == nx"
+      },
+      {
+        "command": "nexus.nx.wrapClientIdle",
+        "key": "ctrl+alt+i",
+        "mac": "cmd+alt+i",
+        "when": "editorTextFocus && editorLangId == nx"
+      }
+    ]
+  }
+}

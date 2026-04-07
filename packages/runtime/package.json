@@ -17,6 +17,14 @@
     "./runes": {
       "import": "./dist/runes.js",
       "types": "./dist/runes.d.ts"
+    },
+    "./router": {
+      "import": "./dist/router.js",
+      "types": "./dist/router.d.ts"
+    },
+    "./prefetch-ai": {
+      "import": "./dist/prefetch-ai.js",
+      "types": "./dist/prefetch-ai.d.ts"
     }
   },
   "scripts": {

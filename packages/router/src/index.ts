@@ -74,6 +74,25 @@ export async function buildRouteManifest(routesDir: string): Promise<RouteManife
   return { routes };
 }
 
+// Sorted page-route cache: keyed by the manifest object reference so it is
+// rebuilt only when buildRouteManifest returns a new object (e.g. on HMR).
+const sortedPageRoutesCache = new WeakMap<RouteManifest, RouteEntry[]>();
+
+function getSortedPageRoutes(manifest: RouteManifest): RouteEntry[] {
+  let sorted = sortedPageRoutesCache.get(manifest);
+  if (!sorted) {
+    sorted = manifest.routes
+      .filter((r) => !r.isLayout)
+      .sort((a, b) => {
+        // Static routes (no params) before dynamic; within same class sort by pattern.
+        const n = a.params.length - b.params.length;
+        return n !== 0 ? n : a.pattern.localeCompare(b.pattern);
+      });
+    sortedPageRoutesCache.set(manifest, sorted);
+  }
+  return sorted;
+}
+
 /**
  * Matches an incoming URL pathname against the route manifest.
  * Returns the matched route + resolved params + layout chain.
@@ -82,16 +101,7 @@ export function matchRoute(
   pathname: string,
   manifest: RouteManifest,
 ): MatchedRoute | null {
-  /** Prefer static segments over dynamic (`/blog/new` before `/blog/:slug`). */
-  const pageRoutes = manifest.routes
-    .filter((r) => !r.isLayout)
-    .sort((a, b) => {
-      const n = a.params.length - b.params.length;
-      if (n !== 0) return n;
-      return a.pattern.localeCompare(b.pattern);
-    });
-
-  for (const route of pageRoutes) {
+  for (const route of getSortedPageRoutes(manifest)) {
     const params = matchPattern(pathname, route.pattern);
     if (params !== null) {
       const layouts = resolveLayoutChain(route, manifest);
@@ -147,7 +157,12 @@ function matchPattern(
     const pp = patternParts[i] ?? '';
     const path = pathParts[i] ?? '';
     if (pp.startsWith(':')) {
-      params[pp.slice(1)] = decodeURIComponent(path);
+      try {
+        params[pp.slice(1)] = decodeURIComponent(path);
+      } catch {
+        // Malformed percent-encoding: treat as no match
+        return null;
+      }
     } else if (pp !== path) {
       return null;
     }
@@ -187,13 +202,20 @@ function linkLayouts(routes: RouteEntry[]): void {
   }
 }
 
-async function collectFiles(dir: string): Promise<string[]> {
+async function collectFiles(dir: string, _rootDir?: string): Promise<string[]> {
+  const root = _rootDir ?? dir;
   const results: string[] = [];
   let entries: string[];
 
   try {
     entries = await readdir(dir);
-  } catch {
+  } catch (err) {
+    // Top-level routesDir missing: surface as a clear error instead of silently returning [].
+    if (dir === root) {
+      const msg = err instanceof Error ? err.message : String(err);
+      throw new Error(`[Nexus Router] Cannot read routes directory "${dir}": ${msg}`);
+    }
+    // Nested directory suddenly disappeared (race): skip it gracefully.
     return results;
   }
 
@@ -201,7 +223,7 @@ async function collectFiles(dir: string): Promise<string[]> {
     const fullPath = join(dir, entry);
     const info = await stat(fullPath);
     if (info.isDirectory()) {
-      results.push(...(await collectFiles(fullPath)));
+      results.push(...(await collectFiles(fullPath, root)));
     } else {
       results.push(fullPath);
     }

@@ -55,10 +55,10 @@ export interface StreamingBoundary {
   id: string;
   /** The promise that will resolve to HTML (or a structured payload for Pretext streaming). */
   promise: Promise<StreamingPromiseValue>;
-  /** Fallback HTML shown while loading */
+  /** Fallback HTML shown while the promise is pending. Injected next to the hole immediately on page paint. */
   fallback?: string;
-  /** Error boundary HTML (overrides error.nx at component level) */
-  errorFallback?: string;
+  /** Error boundary HTML or factory. Overrides `onError` at the boundary level. */
+  errorFallback?: string | ((err: unknown) => string);
 }
 
 export interface StreamController {
@@ -73,24 +73,40 @@ export interface StreamController {
 /** Bootstrap script injected once per page */
 const BOOTSTRAP_SCRIPT = `<script id="__nx_stream_boot__">
 (function(){
+  // Inject fallback content next to each hole immediately so users see a skeleton/spinner
+  // while the real content is still loading on the server.
+  function __nx_init_fallbacks(){
+    document.querySelectorAll('template[data-nx-fallback]').forEach(function(tmpl){
+      var fb=tmpl.getAttribute('data-nx-fallback');
+      if(!fb)return;
+      var id=tmpl.id.replace('nx-hole-','');
+      var el=document.createElement('div');
+      el.setAttribute('data-nx-hole-fb',id);
+      el.innerHTML=fb;
+      tmpl.parentNode&&tmpl.parentNode.insertBefore(el,tmpl.nextSibling);
+    });
+  }
   function __nx_fill(id){
     var fill=document.getElementById('nx-fill-'+id);
     var hole=document.getElementById('nx-hole-'+id);
+    var fb=document.querySelector('[data-nx-hole-fb="'+id+'"]');
     if(fill&&hole){
       hole.replaceWith(fill.content.cloneNode(true));
       fill.remove();
     }
-  }
-  function __nx_fill_error(id,html){
-    var hole=document.getElementById('nx-hole-'+id);
-    if(hole){var d=document.createElement('div');d.innerHTML=html;hole.replaceWith(d);}
+    if(fb)fb.remove();
   }
   function __nx_stream_complete(){
     document.dispatchEvent(new Event('nexus:stream-complete'));
   }
   window.__nx_fill=__nx_fill;
-  window.__nx_fill_error=__nx_fill_error;
   window.__nx_stream_complete=__nx_stream_complete;
+  // Run after HTML is parsed so all holes are present.
+  if(document.readyState==='loading'){
+    document.addEventListener('DOMContentLoaded',__nx_init_fallbacks);
+  }else{
+    __nx_init_fallbacks();
+  }
 })();
 </script>`;
 
@@ -147,10 +163,13 @@ export function createStreamingResponse(
           const resolved = await boundary.promise;
           write(buildFillChunk(boundary.id, resolved));
         } catch (err) {
+          const ef = boundary.errorFallback;
           const errorHtml =
-            boundary.errorFallback ??
-            opts.onError?.(err) ??
-            buildDefaultErrorHTML(err);
+            typeof ef === 'function'
+              ? ef(err)
+              : ef ??
+                opts.onError?.(err) ??
+                buildDefaultErrorHTML(err);
           write(buildErrorChunk(boundary.id, errorHtml));
         }
       });
@@ -214,9 +233,8 @@ export function createSuspenseBoundary<T>(
   if (opts.fallback !== undefined) {
     boundary.fallback = opts.fallback;
   }
-  const ef = typeof opts.errorFallback !== 'function' ? opts.errorFallback : undefined;
-  if (ef !== undefined) {
-    boundary.errorFallback = ef;
+  if (opts.errorFallback !== undefined) {
+    boundary.errorFallback = opts.errorFallback;
   }
 
   return { id, placeholder, boundary };
@@ -270,7 +288,7 @@ function buildFillChunk(id: string, resolved: StreamingPromiseValue): string {
 
   const pretextScript =
     pretextWire !== undefined
-      ? `<script>(function(){var el=document.getElementById('__NEXUS_PRETEXT__');if(el)el.textContent=${JSON.stringify(pretextWire)};})();</script>`
+      ? `<script>(function(){var el=document.getElementById('__NEXUS_PRETEXT__');if(el)el.textContent=${JSON.stringify(pretextWire).replace(/</g, '\\u003c').replace(/>/g, '\\u003e')};})();</script>`
       : '';
   const bridge = devBridge ?? '';
 
@@ -291,7 +309,9 @@ function buildErrorChunk(id: string, html: string): string {
 
 function buildFatalErrorChunk(err: unknown): string {
   const msg = err instanceof Error ? err.message : String(err);
-  return `<script>console.error('[Nexus Stream] Fatal error:', ${JSON.stringify(msg)})</script>`;
+  // Escape < to prevent </script> injection inside the inline script tag.
+  const safeMsg = JSON.stringify(msg).replace(/</g, '\\u003c').replace(/>/g, '\\u003e');
+  return `<script>console.error('[Nexus Stream] Fatal error:',${safeMsg})</script>`;
 }
 
 function buildDefaultErrorHTML(err: unknown): string {

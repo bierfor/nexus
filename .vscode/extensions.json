@@ -1,5 +1,6 @@
 {
   "recommendations": [
+    "bierhffor.nexus-nx",
     "bradlc.vscode-tailwindcss",
     "dbaeumer.vscode-eslint",
     "esbenp.prettier-vscode",

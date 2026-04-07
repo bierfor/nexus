@@ -105,7 +105,14 @@ function parseCookies(header: string): Record<string, string> {
   const result: Record<string, string> = {};
   for (const part of header.split(';')) {
     const [key, ...vals] = part.trim().split('=');
-    if (key) result[key.trim()] = decodeURIComponent(vals.join('=').trim());
+    if (!key) continue;
+    const raw = vals.join('=').trim();
+    try {
+      result[key.trim()] = decodeURIComponent(raw);
+    } catch {
+      // Malformed cookie value: keep raw to avoid dropping the cookie entirely
+      result[key.trim()] = raw;
+    }
   }
   return result;
 }

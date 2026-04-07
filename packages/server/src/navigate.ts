@@ -15,7 +15,6 @@ import type { RenderOptions } from './renderer.js';
 export interface NavigationPayload {
   html: string;
   headHTML: string;
-  islandManifest: Array<{ id: string; componentPath: string; strategy: string }>;
   timestamp: number;
 }
 
@@ -69,7 +68,6 @@ export async function handleNavigationRequest(
     const payload: NavigationPayload = {
       html: bodyHTML,
       headHTML,
-      islandManifest: [],
       timestamp: Date.now(),
     };
 

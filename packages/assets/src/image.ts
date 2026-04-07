@@ -39,8 +39,21 @@ export interface ImageProps {
   quality?: number;
   /** Output formats in priority order */
   formats?: ImageFormat[];
-  /** Placeholder strategy */
+  /**
+   * Placeholder strategy.
+   * - 'blur':  Show a real LQIP inline base64 thumbnail until the image loads.
+   *            Pass a precomputed `blurDataURL` (from `generateBlurDataURL`) for best results;
+   *            otherwise falls back to a solid gray background.
+   * - 'empty': Transparent placeholder, no background fill.
+   * - 'none':  No placeholder at all.
+   */
   placeholder?: 'blur' | 'empty' | 'none';
+  /**
+   * Pre-computed base64 LQIP data URI (e.g. from `generateBlurDataURL`).
+   * When provided alongside `placeholder="blur"`, this is inlined as the
+   * `background-image` so the user sees a blurred preview immediately.
+   */
+  blurDataURL?: string;
   /** Fetch priority hint */
   fetchpriority?: 'high' | 'low' | 'auto';
 }
@@ -81,6 +94,7 @@ export function renderImage(props: ImageProps): string {
     quality = 80,
     formats = DEFAULT_FORMATS,
     placeholder = 'blur',
+    blurDataURL,
     fetchpriority,
   } = props;
 
@@ -119,11 +133,30 @@ export function renderImage(props: ImageProps): string {
     h ? `height="${h}"` : '',
   ].filter(Boolean).join(' ');
 
-  const blurAttr = placeholder === 'blur'
-    ? ` data-nx-blur style="${aspectStyle}${roundStyle}background:var(--nx-img-blur,#f0f0f0)"`
-    : ` style="${aspectStyle}${roundStyle}"`;
+  // ── Placeholder / blur strategy ──────────────────────────────────────────
+  // The blur background sits on the <picture> container. The <img> starts at
+  // opacity:0 so the LQIP shows through. When the real image fires `onload`
+  // the handler fades the img in and removes the data-nx-blur attribute so
+  // CSS can stop rendering the background (no extra repaints).
+  let pictureExtraAttrs = '';
+  let imgStyleAttr = '';
+  let imgOnload = '';
 
-  return `<picture${classAttr}>
+  if (placeholder === 'blur') {
+    const bgImage = blurDataURL
+      ? `background-image:url("${blurDataURL}");background-size:cover;background-position:center;`
+      : 'background:var(--nx-img-blur,#e8e8e8);';
+    pictureExtraAttrs =
+      ` data-nx-blur style="${aspectStyle}${roundStyle}overflow:hidden;${bgImage}"`;
+    imgStyleAttr = ` style="opacity:0;transition:opacity 0.4s ease;"`;
+    imgOnload = ` onload="this.style.opacity='1';this.parentElement.removeAttribute('data-nx-blur')"`;
+  } else {
+    pictureExtraAttrs = aspectStyle || roundStyle
+      ? ` style="${aspectStyle}${roundStyle}"`
+      : '';
+  }
+
+  return `<picture${classAttr}${pictureExtraAttrs}>
     ${sources}
     <img
       src="${imageUrl(src, w ?? 800, 'original', quality)}"
@@ -133,7 +166,7 @@ export function renderImage(props: ImageProps): string {
       ${dimensionAttrs}
       loading="${loading}"
       decoding="${decoding}"
-      fetchpriority="${fp}"${blurAttr}
+      fetchpriority="${fp}"${imgStyleAttr}${imgOnload}
       data-nx-img
     >
   </picture>`;
@@ -174,6 +207,7 @@ export async function handleImageRequest(
   const hasExplicitFormat = url.searchParams.has('f');
   const formatParam = (url.searchParams.get('f') ?? 'original') as ImageFormat | 'original';
   const quality = Math.min(Math.max(parseInt(url.searchParams.get('q') ?? '80', 10) || 80, 1), 100);
+  const isBlurRequest = url.searchParams.get('blur') === '1';
 
   // Only honor `f=` when present. Omitted `f` means "original" raster (JPEG/PNG), not Accept-based AVIF/WebP,
   // so <picture><source type=avif> and <img> fallback stay distinct.
@@ -213,6 +247,23 @@ export async function handleImageRequest(
       sourceLabel = src;
     } else {
       return new Response('Missing src or url', { status: 400 });
+    }
+
+    if (isBlurRequest) {
+      // Return a tiny LQIP JPEG (10×10, blurred) for inline data URI use.
+      const blurBuf = await sharp(input)
+        .resize(10, 10, { fit: 'inside', withoutEnlargement: false })
+        .blur(3)
+        .jpeg({ quality: 20, mozjpeg: true })
+        .toBuffer();
+      return new Response(new Uint8Array(blurBuf), {
+        status: 200,
+        headers: {
+          ...cacheHeaders,
+          'content-type': 'image/jpeg',
+          'x-nexus-image-source': encodeURIComponent(sourceLabel.slice(0, 200)),
+        },
+      });
     }
 
     const { body, contentType } = await encodeWithSharp(input, width, outputFormat, quality);
@@ -312,4 +363,39 @@ function defaultSizes(widths: number[]): string {
 
 function escapeAttr(str: string): string {
   return str.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+// ── LQIP (Low Quality Image Placeholder) ───────────────────────────────────
+
+/**
+ * Generates a tiny 10×10 blurred JPEG encoded as a base64 data URI.
+ * Inline this into `ImageProps.blurDataURL` so `renderImage` can embed it
+ * directly in the HTML without a round-trip fetch.
+ *
+ * ```ts
+ * // In a server load function or SSR route:
+ * const blurDataURL = await generateBlurDataURL(imageBuffer);
+ * return renderImage({ src: '/hero.jpg', alt: 'Hero', blurDataURL });
+ * ```
+ */
+export async function generateBlurDataURL(input: Buffer): Promise<string> {
+  const buf = await sharp(input)
+    .resize(10, 10, { fit: 'inside', withoutEnlargement: false })
+    .blur(3)
+    .jpeg({ quality: 30, mozjpeg: true })
+    .toBuffer();
+  return `data:image/jpeg;base64,${buf.toString('base64')}`;
+}
+
+/**
+ * Generates a LQIP data URI from a local public-dir file path.
+ * Convenience wrapper around `generateBlurDataURL`.
+ *
+ * ```ts
+ * const blur = await blurFromFile('/absolute/path/to/public/hero.jpg');
+ * ```
+ */
+export async function blurFromFile(absolutePath: string): Promise<string> {
+  const input = await readFile(absolutePath);
+  return generateBlurDataURL(input);
 }

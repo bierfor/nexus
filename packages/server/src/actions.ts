@@ -43,9 +43,24 @@ import {
   RateLimitError,
   type RateLimitConfig,
 } from './rate-limit.js';
-import { randomUUID } from 'node:crypto';
+import { randomUUID, createHmac, timingSafeEqual } from 'node:crypto';
 import { emitDevRadar, newTraceId, sanitizeTelemetryValue } from './devradar.js';
 import { getExpectedNexusBuildId } from './build-id.js';
+
+/**
+ * Zod-compatible schema interface.
+ * Supports `.parse()` (throws on failure) and optionally `.safeParse()` (returns structured errors).
+ * Works with Zod, Valibot, ArkType, Superstruct, and any schema library following this contract.
+ */
+export interface NexusSchema<T> {
+  parse(data: unknown): T;
+  /** Optional — when present, used to extract structured field errors (Zod format). */
+  safeParse?: (data: unknown) => {
+    success: boolean;
+    error?: { issues?: Array<{ path: Array<string | number>; message: string }> };
+    data?: T;
+  };
+}
 
 export type ActionFn<TInput = FormData, TOutput = void> = (
   input: TInput,
@@ -91,13 +106,23 @@ export interface ActionOptions {
    */
   csrf?: boolean;
   /**
-   * A Zod-compatible schema for input validation.
-   * If provided, the action will reject requests with invalid input before
-   * calling the handler. Prevents SQL injection and type coercion attacks.
+   * Zod-compatible schema for input validation.
+   * The action rejects invalid input **before** calling the handler —
+   * preventing SQL injection, type coercion attacks, and untrusted data reaching business logic.
+   *
+   * Accepts any object with a `.parse()` method (Zod, Valibot, ArkType, etc.)
+   * or `.safeParse()` for structured error extraction.
+   *
+   * @example
+   * ```ts
+   * import { z } from 'zod';
+   * export const updateUser = createAction({
+   *   schema: z.object({ name: z.string().min(1).max(100), age: z.number().int().min(0) }),
+   *   handler: async ({ name, age }, ctx) => { ... },
+   * });
+   * ```
    */
-  schema?: {
-    parse: (data: unknown) => unknown;
-  };
+  schema?: NexusSchema<unknown>;
   /**
    * Maximum request body size in bytes. Default: 10 MB.
    * Lower this for actions that only receive small form payloads (e.g. login forms).
@@ -144,13 +169,44 @@ interface RegisteredAction {
 const actionRegistry = new Map<string, RegisteredAction>();
 
 /**
+ * Generates an HMAC-SHA256 signature for an action name.
+ * Used to sign action URLs at SSR time so the server can verify they originated
+ * from a server-rendered page — not from an attacker enumerating action names.
+ * Skipped in dev (no NEXUS_SECRET required in dev mode).
+ */
+function signActionName(name: string): string | null {
+  const secret = process.env['NEXUS_SECRET'];
+  if (!secret || secret === 'nexus-dev-secret-change-me') return null;
+  return createHmac('sha256', secret).update(`action:${name}`).digest('base64url').slice(0, 16);
+}
+
+/**
+ * Verifies an action name signature. Returns true if the signature is valid or
+ * if we are in dev mode (no NEXUS_SECRET set — signature is optional in dev).
+ */
+export function verifyActionSig(name: string, sig: string | null): boolean {
+  const expected = signActionName(name);
+  if (expected === null) return true; // dev mode — skip verification
+  if (!sig) return false;
+  // Constant-time comparison (sig is 16 base64url chars = 96 bits)
+  try {
+    return timingSafeEqual(Buffer.from(expected), Buffer.from(sig));
+  } catch {
+    return false;
+  }
+}
+
+/**
  * SSR and islands coerce `action={myAction}` with `String(myAction)`. The value is the
  * wrapper from `createAction`, whose default `Function#toString()` is the entire wrapper
  * source (CSRF, rate limit, …) — that string was being used as the form URL. After
  * registration we pin `toString` / `@@toPrimitive` to the real POST path.
+ * In production (NEXUS_SECRET is set), the URL carries an HMAC query param
+ * (`?__sig=…`) so the server can reject calls with unsigned / forged action URLs.
  */
 function patchRegisteredActionStringCoercion(fn: ActionFn<unknown, unknown>, name: string): void {
-  const url = ACTION_PREFIX + name;
+  const sig = signActionName(name);
+  const url = sig ? `${ACTION_PREFIX}${name}?__sig=${sig}` : `${ACTION_PREFIX}${name}`;
   Object.defineProperty(fn, 'toString', {
     value: function nexusActionUrlString() {
       return url;
@@ -225,13 +281,35 @@ export function createAction<TInput = FormData, TOutput = void>(
       }
     }
 
-    // 3. Schema validation
+    // 3. Schema validation — fail-fast before any business logic or DB access
     if (opts.schema) {
-      try {
-        input = opts.schema.parse(input) as TInput;
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : 'Input validation failed';
-        throw new ActionError(`Invalid input: ${msg}`, 400, 'VALIDATION_ERROR');
+      if (typeof opts.schema.safeParse === 'function') {
+        // Structured path: extract field-level errors for the client
+        const result = opts.schema.safeParse(input);
+        if (!result.success) {
+          const issues = result.error?.issues ?? [];
+          const fieldErrors: Record<string, string> = {};
+          for (const issue of issues) {
+            const path = issue.path.join('.') || '_root';
+            fieldErrors[path] = issue.message;
+          }
+          throw new ActionError(
+            issues.length > 0
+              ? `Validation failed: ${issues.map((i) => `${i.path.join('.') || 'input'} — ${i.message}`).join('; ')}`
+              : 'Input validation failed',
+            400,
+            'VALIDATION_ERROR',
+            fieldErrors,
+          );
+        }
+        if (result.data !== undefined) input = result.data as TInput;
+      } else {
+        try {
+          input = opts.schema.parse(input) as TInput;
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : 'Input validation failed';
+          throw new ActionError(`Invalid input: ${msg}`, 400, 'VALIDATION_ERROR');
+        }
       }
     }
 
@@ -260,6 +338,8 @@ export class ActionError extends Error {
     message: string,
     public readonly status: number = 400,
     public readonly code?: string,
+    /** Structured field-level validation errors (Zod-style). Key: field path, Value: message. */
+    public readonly fieldErrors?: Record<string, string>,
   ) {
     super(message);
     this.name = 'ActionError';
@@ -270,6 +350,47 @@ export class ActionAbortedError extends ActionError {
   constructor() {
     super('Action was superseded by a newer request', 409, 'ABORTED');
   }
+}
+
+/**
+ * Detects whether a request originates from a plain HTML form (no JS).
+ *
+ * A "native form" request:
+ *   - Has `Content-Type: application/x-www-form-urlencoded`
+ *   - Does NOT have the `x-nexus-action` custom header (added by the JS runtime)
+ *   - Does NOT explicitly request `application/json` in Accept
+ *
+ * When true, the action handler responds with 303 redirects instead of JSON
+ * (Progressive Enhancement — the action works even when JS is disabled).
+ */
+function isNativeFormRequest(request: Request): boolean {
+  const ct = request.headers.get('content-type') ?? '';
+  const hasNexusHeader = request.headers.has('x-nexus-action');
+  const acceptsJson = (request.headers.get('accept') ?? '').includes('application/json');
+  return (
+    ct.includes('application/x-www-form-urlencoded') &&
+    !hasNexusHeader &&
+    !acceptsJson
+  );
+}
+
+/**
+ * Builds a 303 See Other redirect for progressive-enhancement form submissions.
+ * Follows the Post/Redirect/Get pattern to prevent duplicate submissions on refresh.
+ *
+ * Redirect target priority:
+ *   1. `__redirectTo` hidden field in the form
+ *   2. `Referer` header (the page that submitted the form)
+ *   3. `/` as final fallback
+ */
+function formRedirect(request: Request, formData: FormData, status: 303 = 303): Response {
+  const redirectTo =
+    (formData.get('__redirectTo') as string | null) ??
+    request.headers.get('referer') ??
+    '/';
+
+  const headers = new Headers({ location: redirectTo });
+  return new Response(null, { status, headers });
 }
 
 /**
@@ -289,6 +410,8 @@ export async function handleActionRequest(request: Request): Promise<Response> {
       headers: { allow: 'POST' },
     });
   }
+
+  const nativeForm = isNativeFormRequest(request);
 
   // ── Guard: opaque (null) Origin ────────────────────────────────────────────
   // Sandboxed iframes (<iframe sandbox> without allow-same-origin) and data:
@@ -318,6 +441,24 @@ export async function handleActionRequest(request: Request): Promise<Response> {
 
   if (!registered) {
     return jsonResponse({ error: `Action "${actionName}" not found`, status: 404 }, 404);
+  }
+
+  // ── Action URL signature verification (production only) ───────────────────
+  // In production (NEXUS_SECRET is set), action URLs are HMAC-signed during SSR.
+  // A request without a valid signature means the URL was manually crafted or
+  // the action name was enumerated — not server-rendered.
+  // In dev mode (no secret), signature check is skipped so hot-reload works.
+  const actionSig = url.searchParams.get('__sig');
+  if (!verifyActionSig(actionName, actionSig)) {
+    emitDevRadar({
+      type: 'security:audit',
+      payload: {
+        kind:    'csrf_blocked',
+        message: 'Action URL signature missing or invalid — possible action enumeration',
+        action:  actionName,
+      },
+    });
+    return jsonResponse({ error: 'Invalid action URL', status: 403, code: 'INVALID_ACTION_SIG' }, 403);
   }
 
   // ── Build ID (client–server contract) ─────────────────────────────────────
@@ -373,7 +514,13 @@ export async function handleActionRequest(request: Request): Promise<Response> {
 
     if (token) {
       // Tier 2: full HMAC validation
-      const secret    = process.env['NEXUS_SECRET'] ?? 'nexus-dev-secret-change-me';
+      const envSecret = process.env['NEXUS_SECRET'];
+      if (!envSecret && process.env['NODE_ENV'] === 'production') {
+        // listen() already blocks start without NEXUS_SECRET; this catches
+        // edge-runtimes / tests that bypass createNexusServer.
+        return jsonResponse({ error: 'Server misconfiguration: NEXUS_SECRET not set', status: 500, code: 'INSECURE_SECRET' }, 500);
+      }
+      const secret    = envSecret ?? 'nexus-dev-secret-change-me';
       const sessionId = extractSessionId(request);
       const validation = validateActionToken(token, sessionId, actionName, secret);
       if (!validation.valid) {
@@ -574,6 +721,12 @@ export async function handleActionRequest(request: Request): Promise<Response> {
       cleanIdempotencyCache();
     }
 
+    // Progressive Enhancement: native HTML form → Post/Redirect/Get pattern
+    if (nativeForm) {
+      const fd = input instanceof FormData ? input : new FormData();
+      return formRedirect(request, fd);
+    }
+
     // Serialize response with Nexus transport
     const serialized = serialize({ data: result, status: 200, duration, idempotencyKey });
     return new Response(serialized, {
@@ -626,7 +779,28 @@ export async function handleActionRequest(request: Request): Promise<Response> {
           ...(err.code !== undefined ? { code: err.code } : {}),
         },
       });
-      return jsonResponse({ error: err.message, status: err.status, code: err.code }, err.status);
+
+      // Progressive Enhancement: redirect back with error encoded in query string
+      if (nativeForm) {
+        const referer = request.headers.get('referer') ?? '/';
+        const target = new URL(referer, request.url);
+        target.searchParams.set('__nexus_error', err.message);
+        if (err.code) target.searchParams.set('__nexus_code', err.code);
+        return new Response(null, {
+          status: 303,
+          headers: { location: target.toString() },
+        });
+      }
+
+      return jsonResponse(
+        {
+          error:  err.message,
+          status: err.status,
+          code:   err.code,
+          ...(err.fieldErrors ? { fieldErrors: err.fieldErrors } : {}),
+        },
+        err.status,
+      );
     }
 
     const errorId = randomUUID();
@@ -686,14 +860,30 @@ export async function validateRequest(ctx: NexusContext): Promise<void> {
   // Same-origin and same-site fetch() calls either omit Origin or match the host.
   const origin  = ctx.request.headers.get('origin');
   const referer = ctx.request.headers.get('referer');
-  const host    = ctx.request.headers.get('host') ?? '';
+  const rawHost = ctx.request.headers.get('host') ?? '';
 
-  const suspectOrigin = origin && !origin.includes(host.split(':')[0] ?? host);
-  const suspectReferer = !origin && referer && !referer.includes(host.split(':')[0] ?? host);
+  // Derive scheme from X-Forwarded-Proto or default to http (covered by HTTPS terminator upstream)
+  const proto = ctx.request.headers.get('x-forwarded-proto') ?? 'http';
+  const expectedOrigin = `${proto}://${rawHost}`;
+
+  function isSameOrigin(headerValue: string): boolean {
+    try {
+      const parsed = new URL(headerValue);
+      const expected = new URL(expectedOrigin);
+      return parsed.protocol === expected.protocol
+          && parsed.hostname === expected.hostname
+          && parsed.port    === expected.port;
+    } catch {
+      return false;
+    }
+  }
+
+  const suspectOrigin  = origin  && !isSameOrigin(origin);
+  const suspectReferer = !origin && referer && !isSameOrigin(referer);
 
   if (suspectOrigin || suspectReferer) {
     throw new ActionError(
-      `Cross-origin action request blocked (host: ${host})`,
+      `Cross-origin action request blocked (host: ${rawHost})`,
       403,
       'CROSS_ORIGIN_BLOCKED',
     );

@@ -136,7 +136,11 @@ export function prefetch(path: string): void {
     .then((data) => {
       if (data.kind === 'ok') prefetchCache.set(path, data.payload);
     })
-    .catch(() => {})
+    .catch((err) => {
+      if (typeof window !== 'undefined' && (window as unknown as Record<string, unknown>)['__NEXUS_DEV__']) {
+        console.debug('[Nexus] prefetch failed for', path, err);
+      }
+    })
     .finally(() => {
       prefetchInFlight.delete(path);
     });
@@ -181,7 +185,6 @@ const PREFETCH_HOVER_GAP_MS = 400;
 interface NavigationPayload {
   html: string;
   headHTML: string;
-  islandManifest: Array<{ id: string; componentPath: string }>;
   timestamp: number;
 }
 
@@ -580,16 +583,7 @@ function handleLinkClick(e: MouseEvent): void {
 
   // Skip: external, same-page #fragment (browser scroll — do not fetch /_nexus/navigate?path=%23…
   // which resolves pathname to / and morphs the wrong route), download, target="_blank", …
-  if (
-    href.startsWith('http') ||
-    href.startsWith('mailto:') ||
-    href.startsWith('tel:') ||
-    href.startsWith('#') ||
-    target.hasAttribute('download') ||
-    target.getAttribute('target') === '_blank' ||
-    target.getAttribute('data-nx-prefetch') === 'false' ||
-    target.getAttribute('data-nx-external') !== null
-  ) {
+  if (shouldSkipPrefetch(href, target)) {
     return;
   }
 
@@ -604,28 +598,32 @@ function handlePopState(e: PopStateEvent): void {
   }
 }
 
+/** Returns true when the href should be skipped for prefetch (external/fragment/special). */
+function shouldSkipPrefetch(href: string, el: Element): boolean {
+  return (
+    href.startsWith('http') ||
+    href.startsWith('//') ||
+    href.startsWith('mailto:') ||
+    href.startsWith('tel:') ||
+    href.startsWith('javascript:') ||
+    href.startsWith('#') ||
+    el.hasAttribute('download') ||
+    el.getAttribute('target') === '_blank' ||
+    el.getAttribute('data-nx-prefetch') === 'false' ||
+    el.getAttribute('data-nx-external') !== null
+  );
+}
+
 function setupPrefetchObservers(): void {
-  // Hover prefetch (default) — throttle: mouseover fires on every child boundary inside `<a>`.
+  // ── Hover prefetch (default, data-nx-prefetch="hover" or no attr) ─────────
+  // Throttled: mouseover fires on every child boundary inside `<a>`.
   document.addEventListener(
     'mouseover',
     (e) => {
       const target = (e.target as Element).closest('a[href]');
       if (!target) return;
       const href = target.getAttribute('href');
-      if (!href) return;
-      // Keep in sync with `handleLinkClick` skips — avoid prefetching mailto/tel/external.
-      if (
-        href.startsWith('http') ||
-        href.startsWith('mailto:') ||
-        href.startsWith('tel:') ||
-        href.startsWith('#') ||
-        target.hasAttribute('download') ||
-        target.getAttribute('target') === '_blank' ||
-        target.getAttribute('data-nx-prefetch') === 'false' ||
-        target.getAttribute('data-nx-external') !== null
-      ) {
-        return;
-      }
+      if (!href || shouldSkipPrefetch(href, target)) return;
       const prefetchMode = target.getAttribute('data-nx-prefetch') ?? 'hover';
       if (prefetchMode !== 'hover' && prefetchMode !== '') return;
       const now = Date.now();
@@ -637,19 +635,53 @@ function setupPrefetchObservers(): void {
     { passive: true },
   );
 
-  // Viewport prefetch
+  // ── Viewport prefetch (data-nx-prefetch="visible") ────────────────────────
+  // Links entering the viewport within 200px are prefetched at low priority.
   const visibleObserver = new IntersectionObserver((entries) => {
     for (const entry of entries) {
       if (!entry.isIntersecting) continue;
       const target = entry.target as Element;
       const href = target.getAttribute('href') ?? '';
-      if (href && !href.startsWith('http')) prefetch(href);
+      if (href && !shouldSkipPrefetch(href, target)) {
+        prefetch(href);
+      }
       visibleObserver.unobserve(target);
     }
-  }, { rootMargin: '100px' });
+  }, { rootMargin: '200px' });
 
-  document.querySelectorAll('a[data-nx-prefetch="visible"]').forEach((el) => {
-    visibleObserver.observe(el);
+  function observeVisibleLinks(root: Element | Document = document): void {
+    root.querySelectorAll('a[data-nx-prefetch="visible"]').forEach((el) => {
+      visibleObserver.observe(el);
+    });
+  }
+
+  observeVisibleLinks();
+
+  // Watch for dynamically added links (e.g. SPA navigation updates DOM)
+  const mutationObserver = new MutationObserver((mutations) => {
+    for (const mutation of mutations) {
+      for (const node of mutation.addedNodes) {
+        if (node.nodeType !== Node.ELEMENT_NODE) continue;
+        const el = node as Element;
+        if (el.matches('a[data-nx-prefetch="visible"]')) {
+          visibleObserver.observe(el);
+        }
+        el.querySelectorAll('a[data-nx-prefetch="visible"]').forEach((a) => {
+          visibleObserver.observe(a);
+        });
+      }
+    }
+  });
+  mutationObserver.observe(document.body, { childList: true, subtree: true });
+
+  // ── Eager prefetch on page load (data-nx-prefetch="load") ────────────────
+  // Prefetch immediately on DOMContentLoaded — for critical next-step links.
+  // Only fires once per href; browser downloads at idle priority.
+  document.querySelectorAll<HTMLAnchorElement>('a[data-nx-prefetch="load"]').forEach((el) => {
+    const href = el.getAttribute('href');
+    if (href && !shouldSkipPrefetch(href, el)) {
+      prefetch(href);
+    }
   });
 }
 

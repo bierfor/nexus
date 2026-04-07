@@ -45,6 +45,15 @@ const USED_TOKENS = new Map<string, number>();
 /** Request header name for the action token. */
 export const ACTION_TOKEN_HEADER = 'x-nexus-action-token';
 
+/**
+ * Canonical session cookie name used across Nexus (CSRF binding, cache-control).
+ * Override with NEXUS_SESSION_COOKIE env var to match your auth layer's cookie name.
+ *
+ * Examples: 'next-auth.session-token', '__Secure-next-auth.session-token', 'sb-access-token'
+ */
+export const SESSION_COOKIE_NAME: string =
+  process.env['NEXUS_SESSION_COOKIE'] ?? 'nexus-session';
+
 export interface TokenValidationResult {
   valid:    boolean;
   reason?:  string;
@@ -186,23 +195,33 @@ function pruneUsedTokens(): void {
 // ── Middleware helper ─────────────────────────────────────────────────────────
 
 /**
- * Extracts session ID from a request using common patterns.
- * Override with your own session logic in production.
+ * Extracts session ID from a request using the canonical session cookie
+ * (SESSION_COOKIE_NAME / NEXUS_SESSION_COOKIE env var).
+ *
+ * Falls back to an HMAC fingerprint of IP + User-Agent when no session cookie
+ * is present (anonymous users). The fingerprint is keyed with the app secret
+ * so it cannot be reproduced without knowing NEXUS_SECRET.
+ *
+ * In production, override this by passing a custom `sessionId` to
+ * `generateActionToken` / `validateActionToken` from your auth middleware.
  */
 export function extractSessionId(request: Request): string {
-  // Try standard session cookie patterns
   const cookie = request.headers.get('cookie') ?? '';
-  const sessionMatch =
-    cookie.match(/(?:nexus-session|__session|session)=([^;]+)/) ??
-    cookie.match(/([a-f0-9]{32,})/);
-  if (sessionMatch?.[1]) return sessionMatch[1];
 
-  // Fall back to IP + User-Agent fingerprint (not ideal, but workable for anonymous sessions)
+  // Match only the canonical session cookie — avoids binding to an arbitrary
+  // hex-like value (previous broad regex could pick up tokens, IDs, etc.)
+  const cookieRe = new RegExp(`(?:^|;)\\s*${SESSION_COOKIE_NAME}=([^;]+)`);
+  const match = cookieRe.exec(cookie);
+  if (match?.[1]) return match[1].trim();
+
+  // Anonymous fingerprint: keyed with NEXUS_SECRET so it is unpredictable to
+  // external parties. Falls back to a fixed constant only in dev (no NEXUS_SECRET).
+  const secret = process.env['NEXUS_SECRET'] ?? 'nexus-dev-secret-change-me';
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
     ?? request.headers.get('x-real-ip')
     ?? 'unknown';
   const ua = request.headers.get('user-agent') ?? '';
-  return `anon:${sign(`${ip}:${ua}`, 'nexus-anon-fp').slice(0, 16)}`;
+  return `anon:${sign(`${ip}\x00${ua}`, secret).slice(0, 20)}`;
 }
 
 /**

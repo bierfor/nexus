@@ -247,9 +247,21 @@ function getPropsFromElement(el: Element): Record<string, unknown> {
   const raw = el.getAttribute('data-nexus-props');
   if (raw) {
     try {
-      Object.assign(props, JSON.parse(atob(raw)));
+      // Server encodes with Buffer.from(json, 'utf-8').toString('base64url').
+      // base64url uses '-' and '_' instead of '+' and '/'; no padding '='.
+      // atob() only handles standard base64, so we normalise first.
+      const standard = raw.replace(/-/g, '+').replace(/_/g, '/');
+      const json = decodeURIComponent(
+        atob(standard)
+          .split('')
+          .map((c) => '%' + c.charCodeAt(0).toString(16).padStart(2, '0'))
+          .join(''),
+      );
+      Object.assign(props, JSON.parse(json));
     } catch {
-      // Invalid props encoding
+      if (typeof window !== 'undefined' && (window as unknown as Record<string, unknown>)['__NEXUS_DEV__']) {
+        console.warn('[Nexus] Failed to deserialize island props from data-nexus-props attribute.');
+      }
     }
   }
   return props;

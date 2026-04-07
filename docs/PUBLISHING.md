@@ -324,6 +324,24 @@ PROMPT_OTP_EACH=1 ./scripts/unpublish-all-packages.sh
 
 See [npm 2FA guide](https://docs.npmjs.com/about-two-factor-authentication) and [npm unpublish policy](https://docs.npmjs.com/policies/unpublish). Expect **~24 h** before you can publish the same names again if all versions were removed.
 
+## VS Code extension (`nexus-nx`)
+
+The **Nexus `.nx`** language extension lives under [`extensions/nexus-vscode`](../extensions/nexus-vscode/). It is **not** published with `pnpm release`; ship it separately to the [Visual Studio Marketplace](https://marketplace.visualstudio.com/vscode) (and optionally [Open VSX](https://open-vsx.org/)).
+
+**Prerequisites:** npm dependencies in that folder (`npm install`), and a Marketplace publisher id matching `package.json` → **`publisher`** (currently **`bierhffor`**). For day-to-day packaging from any directory, install **`npm install -g @vscode/vsce`**; the extension still lists `@vscode/vsce` as a devDependency so `npm run package` works without the global CLI.
+
+**Package a `.vsix` (local or release artifact):**
+
+```bash
+cd extensions/nexus-vscode
+npm install
+npm run package
+```
+
+**Publish to the Marketplace:** create a PAT with **Marketplace (Manage)**, run `vsce login bierhffor` (global `vsce`) or `npx @vscode/vsce login bierhffor`, bump the extension `version`, then `npm run publish:marketplace` (or `VSCE_PAT=… npm run publish:marketplace` in CI). Details: [Publishing extensions](https://code.visualstudio.com/api/working-with-extensions/publishing-extension).
+
+The workspace recommends **`bierhffor.nexus-nx`** in [`.vscode/extensions.json`](../.vscode/extensions.json); that entry only resolves after the first successful Marketplace publish.
+
 ## Security reminder
 
 If a token was ever exposed, **revoke it immediately** in npm account settings and create a new token. Treat tokens like passwords.
