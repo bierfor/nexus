@@ -909,6 +909,7 @@ function expandEachBlocks(template: string): string {
 /**
  * `{foo}` → `${foo}` for the server `return \`...\`` template literal.
  * Skips `<style>` / `<script>` regions so CSS `{ ... }` and JS blocks are not treated as expressions.
+ * But DOES interpolate expressions inside attributes (like `nonce="{pretext.cspNonce}"`).
  */
 function interpolateExpressionsForSSR(s: string): string {
   const interp = (fragment: string): string =>
@@ -933,20 +934,25 @@ function interpolateExpressionsForSSR(s: string): string {
       skipFrom = i + styleRel;
       isStyle = true;
     }
-    out += interp(s.slice(i, skipFrom));
+    // Interpolate the opening <script> or <style> tag (for attributes like nonce="{pretext.cspNonce}")
     const gt = s.indexOf('>', skipFrom);
     if (gt === -1) {
-      out += s.slice(skipFrom);
+      out += interp(s.slice(i));
       break;
     }
+    const openTag = s.slice(skipFrom, gt + 1);
+    out += interp(s.slice(i, skipFrom)) + interp(openTag);
+    
     const closeTag = isStyle ? '</style>' : '</script>';
     const closeIdx = s.toLowerCase().indexOf(closeTag, gt + 1);
     if (closeIdx === -1) {
-      out += s.slice(skipFrom);
+      // If no closing tag, just append the rest without interpolation (treat as code)
+      out += s.slice(gt + 1);
       break;
     }
+    // Content between <script>...</script> or <style>...</style> is NOT interpolated
     const blockEnd = closeIdx + closeTag.length;
-    out += s.slice(skipFrom, blockEnd);
+    out += s.slice(gt + 1, blockEnd);
     i = blockEnd;
   }
   return out;

@@ -1,9 +1,0 @@
-{
-  "extends": "../../tsconfig.base.json",
-  "compilerOptions": {
-    "paths": {
-      "$lib/*": ["./src/lib/*"]
-    }
-  },
-  "include": ["src/**/*", "nexus.config.ts"]
-}

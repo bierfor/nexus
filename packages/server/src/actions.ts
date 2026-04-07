@@ -172,17 +172,18 @@ const actionRegistry = new Map<string, RegisteredAction>();
  * Generates an HMAC-SHA256 signature for an action name.
  * Used to sign action URLs at SSR time so the server can verify they originated
  * from a server-rendered page — not from an attacker enumerating action names.
- * Skipped in dev (no NEXUS_SECRET required in dev mode).
+ * Skipped in dev mode (NODE_ENV !== 'production').
  */
 function signActionName(name: string): string | null {
+  if (process.env['NODE_ENV'] !== 'production') return null; // dev mode — no signing
   const secret = process.env['NEXUS_SECRET'];
-  if (!secret || secret === 'nexus-dev-secret-change-me') return null;
+  if (!secret) return null; // no secret — skip signing
   return createHmac('sha256', secret).update(`action:${name}`).digest('base64url').slice(0, 16);
 }
 
 /**
  * Verifies an action name signature. Returns true if the signature is valid or
- * if we are in dev mode (no NEXUS_SECRET set — signature is optional in dev).
+ * if we are in dev mode (NODE_ENV !== 'production' — signature is optional in dev).
  */
 export function verifyActionSig(name: string, sig: string | null): boolean {
   const expected = signActionName(name);
@@ -334,15 +335,29 @@ export function getRegisteredActionNames(): ReadonlySet<string> {
 }
 
 export class ActionError extends Error {
+  public readonly status: number;
+  public readonly code?: string;
+  public readonly fieldErrors?: Record<string, string>;
+
   constructor(
     message: string,
-    public readonly status: number = 400,
-    public readonly code?: string,
-    /** Structured field-level validation errors (Zod-style). Key: field path, Value: message. */
-    public readonly fieldErrors?: Record<string, string>,
+    optionsOrStatus?: number | { status?: number; code?: string; fieldErrors?: Record<string, string> },
+    code?: string,
+    fieldErrors?: Record<string, string>,
   ) {
     super(message);
     this.name = 'ActionError';
+    
+    // Support both positional and options object formats
+    if (typeof optionsOrStatus === 'object') {
+      this.status = optionsOrStatus.status ?? 400;
+      if (optionsOrStatus.code !== undefined) this.code = optionsOrStatus.code;
+      if (optionsOrStatus.fieldErrors !== undefined) this.fieldErrors = optionsOrStatus.fieldErrors;
+    } else {
+      this.status = optionsOrStatus ?? 400;
+      if (code !== undefined) this.code = code;
+      if (fieldErrors !== undefined) this.fieldErrors = fieldErrors;
+    }
   }
 }
 
