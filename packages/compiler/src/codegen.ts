@@ -984,9 +984,13 @@ function rewriteServerActionHtmlActionAttr(html: string, actionNames?: Set<strin
 /**
  * SSR HTML must not emit unquoted `value=${nick}` (breaks tokenization) or
  * `onsubmit=${fn}` (function `toString()` injects `{}` into the document).
- * Event handlers are omitted here; the client island attaches them on hydrate.
+ * Event handlers with JS expressions are omitted; client islands attach them on hydrate.
+ * BUT we preserve string literal handlers for Progressive Enhancement (e.g. onsubmit="return handleFn(event)").
  */
 function transformDynamicAttributesForSSR(html: string, actionNames?: Set<string>): string {
+  // Remove event handlers that reference JS functions/expressions (e.g. onclick={() => foo++})
+  // but KEEP string literal handlers (e.g. onsubmit="return handleFn(event)")
+  // The { } syntax in Nexus means it's a JS expression, so we remove those
   let s = html.replace(/\s+on[a-zA-Z][a-zA-Z0-9-]*\s*=\s*\{[^}]+\}/g, '');
   s = rewriteServerActionHtmlActionAttr(s, actionNames);
   // Boolean attributes: omit when falsy (HTML5 — presence disables even if value is "false").

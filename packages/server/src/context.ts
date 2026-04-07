@@ -79,7 +79,7 @@ export function createContext(
   request: Request,
   params: Record<string, string> = {},
   cspNonce = '',
-): NexusContext {
+): NexusContext & { _responseHeaders: Headers } {
   const url = new URL(request.url);
   const responseHeaders = new Headers();
   const cookies = parseCookies(request.headers.get('cookie') ?? '');
@@ -92,6 +92,7 @@ export function createContext(
     locals: {},
     secrets: getVaultSecretsMap(),
     cspNonce,
+    _responseHeaders: responseHeaders, // Internal: expose headers for action responses
 
     setHeader(key, value) {
       responseHeaders.set(key, value);

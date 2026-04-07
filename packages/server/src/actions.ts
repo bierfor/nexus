@@ -744,13 +744,22 @@ export async function handleActionRequest(request: Request): Promise<Response> {
 
     // Serialize response with Nexus transport
     const serialized = serialize({ data: result, status: 200, duration, idempotencyKey });
+    
+    // Merge response headers from context (includes Set-Cookie from ctx.setCookie)
+    const responseHeaders = new Headers({
+      'content-type': 'application/json',
+      'x-nexus-duration': String(duration),
+      ...(idempotencyKey ? { 'x-nexus-idempotency': idempotencyKey } : {}),
+    });
+    
+    // Copy headers from context (cookies, custom headers, etc.)
+    ctxWithSignal._responseHeaders.forEach((value, key) => {
+      responseHeaders.append(key, value);
+    });
+    
     return new Response(serialized, {
       status: 200,
-      headers: {
-        'content-type': 'application/json',
-        'x-nexus-duration': String(duration),
-        ...(idempotencyKey ? { 'x-nexus-idempotency': idempotencyKey } : {}),
-      },
+      headers: responseHeaders,
     });
   } catch (err) {
     clearTimeout(timeoutId);
