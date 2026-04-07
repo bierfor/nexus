@@ -1051,11 +1051,13 @@
     <a href="#cache">💾 Cache & Revalidate</a>
     <a href="#database">🗄️ Database</a>
     <a href="#streaming">🌊 Streaming SSR</a>
+    <a href="#streaming" style="padding-left:28px;font-size:13px;opacity:.75">↳ Fallback &amp; errors</a>
 
     <div class="nav-section" data-i18n="nav.advanced">Advanced</div>
     <a href="#enterprise" data-i18n="nav.enterprise">🏢 Enterprise &amp; subdomains</a>
     <a href="#store">🌐 Global Store</a>
     <a href="#navigation">↔️ SPA Navigation</a>
+    <a href="#navigation" style="padding-left:28px;font-size:13px;opacity:.75">↳ Prefetch strategies</a>
     <a href="#middleware">🔒 Middleware</a>
     <a href="#seo">🔍 SEO & Head</a>
     <a href="#assets">🖼️ Assets</a>
@@ -1773,6 +1775,35 @@ const slowData = Suspense(
         <strong>How it works</strong>
         Nexus emits a <code>&lt;template&gt;</code> placeholder for each Suspense boundary. When the Promise resolves, the server sends a tiny script that teleports the resolved HTML into position — with zero client-side fetching.
       </div>
+
+      <h3>Fallback while loading</h3>
+      <p>The <code>fallback</code> HTML is injected next to the placeholder immediately on page paint — the user sees a skeleton or spinner while the slow promise resolves. When the real content arrives the fallback is removed atomically.</p>
+      <pre><code class="language-html">---
+const slowData = Suspense(
+  fetchAnalytics(),
+  {
+    // Shown immediately — no layout shift
+    fallback: '&lt;div class="skeleton" style="height:200px"&gt;&lt;/div&gt;',
+    render: (data) =&gt; `&lt;Chart data="${JSON.stringify(data)}" /&gt;`,
+    // String or factory function — both supported
+    errorFallback: (err) =&gt; `&lt;p class="error"&gt;${err.message}&lt;/p&gt;`,
+  }
+);
+---</code></pre>
+
+      <h3>Error boundaries</h3>
+      <p>Pass <code>errorFallback</code> as a string for a static error UI, or as a function to render the actual error message. Without it, the global <code>onError</code> handler is used.</p>
+      <pre><code class="language-typescript">createStreamingResponse((ctrl) => {
+  ctrl.writeShell(shell);
+  ctrl.defer({
+    id,
+    promise: fetchData(),
+    fallback: '&lt;Skeleton /&gt;',
+    errorFallback: (err) =&gt; `&lt;Alert type="error"&gt;${err.message}&lt;/Alert&gt;`,
+  });
+}, {
+  onError: (err) =&gt; '&lt;p&gt;Something went wrong.&lt;/p&gt;',
+});</code></pre>
     </section>
 
     <!-- ═══════════════════════════════════════════════════════════════════ -->
@@ -1836,22 +1867,48 @@ console.log(cart.value); // [{ id: 'sku-1', name: 'Widget', qty: 2 }]</code></pr
       <p>It works automatically — just use regular <code>&lt;a&gt;</code> tags. Nexus intercepts clicks, fetches the new page as HTML, and surgically updates the DOM while preserving live islands.</p>
 
       <h3>Programmatic Navigation</h3>
-      <pre><code class="language-typescript">import { navigate, prefetch } from '@nexus_js/runtime';
+      <pre><code class="language-typescript">import { navigate, prefetch } from '@nexus_js/runtime/router';
 
-// Navigate to a new route
+// Navigate — returns Promise&lt;void&gt; that resolves after DOM morph
 await navigate('/dashboard');
+await navigate('/search?q=nexus');
 
-// Navigate with a query string
-await navigate('/search?q=nexus&category=frameworks');
+// Replace current history entry (no back-button entry)
+await navigate('/onboarding/step-2', { replace: true });
 
-// Prefetch a route on hover (preloads HTML + JS)
-prefetch('/dashboard');
+// Prefetch JSON payload in the background (instant on click)
+prefetch('/dashboard');</code></pre>
 
-// In an island:
-&lt;a href="/dashboard"
-   onmouseenter={() =&gt; prefetch('/dashboard')}&gt;
-  Dashboard
-&lt;/a&gt;</code></pre>
+      <h3>Declarative prefetch strategies</h3>
+      <p>Add <code>data-nx-prefetch</code> to any <code>&lt;a&gt;</code> tag to control when the route is prefetched. Nexus automatically watches for dynamically added links via <code>MutationObserver</code>.</p>
+
+      <table class="dir-table">
+        <thead><tr><th>Attribute value</th><th>When it triggers</th><th>Use for</th></tr></thead>
+        <tbody>
+          <tr><td><code>hover</code> (default)</td><td>Mouse enters the link for &gt;100ms</td><td>Most links</td></tr>
+          <tr><td><code>visible</code></td><td>Link enters the viewport (200px margin)</td><td>Below-the-fold CTAs</td></tr>
+          <tr><td><code>load</code></td><td>DOMContentLoaded — immediately on page paint</td><td>Critical next-step links</td></tr>
+          <tr><td><code>false</code></td><td>Never — falls back to full page navigation</td><td>External / file downloads</td></tr>
+        </tbody>
+      </table>
+      <pre><code class="language-html">&lt;!-- Prefetched the moment the page loads --&gt;
+&lt;a href="/dashboard" data-nx-prefetch="load"&gt;Dashboard&lt;/a&gt;
+
+&lt;!-- Prefetched when scrolled into view --&gt;
+&lt;a href="/blog/latest" data-nx-prefetch="visible"&gt;Read more&lt;/a&gt;
+
+&lt;!-- Never intercepted — opens normally --&gt;
+&lt;a href="/report.pdf" data-nx-prefetch="false" download&gt;Download&lt;/a&gt;</code></pre>
+
+      <h3>Type-safe routes</h3>
+      <p>Vite plugin generates <code>.nexus/nexus-types.d.ts</code> with your route map. TypeScript will error on typos or missing params.</p>
+      <pre><code class="language-typescript">import { navigate } from '@nexus_js/runtime/router';
+
+// ✅ TypeScript infers params from your file-system routes
+await navigate('/user/[id]', { id: 42 });
+
+// ❌ Error: '/usarios/[id]' does not exist in RouteParams
+await navigate('/usarios/[id]', { id: 42 });</code></pre>
 
       <h3>How Island State Survives Navigation</h3>
       <div class="callout info">
@@ -1962,26 +2019,49 @@ useHead(() => ({
       <h3>Images</h3>
       <div class="code-title"><span>src/routes/+page.nx</span><span class="code-lang">.nx</span></div>
       <pre><code class="language-html">---
-import { renderImage } from '@nexus_js/assets';
+import { renderImage, generateBlurDataURL } from '@nexus_js/assets';
+import { readFile } from 'node:fs/promises';
 
-// Generates AVIF/WebP srcset, blur placeholder, lazy loading
-const heroImg = renderImage('/hero.jpg', {
-  width: 1200,
+// Generate a real 10×10 blurred LQIP inline — no extra request
+const heroBuffer = await readFile('public/hero.jpg');
+const blurDataURL = await generateBlurDataURL(heroBuffer);
+
+const heroImg = renderImage({
+  src: '/hero.jpg',
   alt: 'Nexus Framework hero',
-  priority: true,   // preload (LCP image)
+  width: 1200,
+  height: 630,
+  priority: true,      // LCP image — eager + fetchpriority="high"
   quality: 85,
+  blurDataURL,         // Real base64 LQIP — shown instantly
 });
 ---
 &lt;template&gt;
   {heroImg}
-  &lt;!-- Outputs:
-  &lt;picture&gt;
-    &lt;source srcset="/hero.avif 1200w" type="image/avif"&gt;
-    &lt;source srcset="/hero.webp 1200w" type="image/webp"&gt;
-    &lt;img src="/hero.jpg" width="1200" loading="eager" ...&gt;
-  &lt;/picture&gt;
-  --&gt;
+  &lt;!-- Outputs a &lt;picture&gt; with the LQIP as background-image.
+       The real image fades in (opacity 0→1) when it loads.
+       Works without JS — CSS fallback keeps layout stable. --&gt;
 &lt;/template&gt;</code></pre>
+
+      <div class="callout tip">
+        <strong>How LQIP works</strong>
+        <code>generateBlurDataURL(buffer)</code> uses Sharp to resize the image to 10×10px, applies a Gaussian blur, and encodes it as a tiny JPEG data URI (~200–400 bytes). This is inlined directly in the HTML so the user sees a blurred preview on the very first byte — no extra fetch, no layout shift.
+      </div>
+
+      <h3>Image props reference</h3>
+      <table class="dir-table">
+        <thead><tr><th>Prop</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><code>src</code></td><td><code>string</code></td><td>Local path or remote URL</td></tr>
+          <tr><td><code>alt</code></td><td><code>string</code></td><td>Required alt text (HTML-escaped)</td></tr>
+          <tr><td><code>width / height</code></td><td><code>number</code></td><td>Intrinsic dimensions — prevents CLS</td></tr>
+          <tr><td><code>priority</code></td><td><code>boolean</code></td><td>Eager loading + <code>fetchpriority="high"</code></td></tr>
+          <tr><td><code>blurDataURL</code></td><td><code>string</code></td><td>Pre-generated LQIP data URI from <code>generateBlurDataURL()</code></td></tr>
+          <tr><td><code>placeholder</code></td><td><code>'blur' | 'empty' | 'none'</code></td><td>Default <code>'blur'</code></td></tr>
+          <tr><td><code>formats</code></td><td><code>ImageFormat[]</code></td><td>Default <code>['avif', 'webp', 'original']</code></td></tr>
+          <tr><td><code>quality</code></td><td><code>1–100</code></td><td>Default <code>80</code></td></tr>
+        </tbody>
+      </table>
 
       <h3>Fonts</h3>
       <p style="color:var(--text-secondary);font-size:15px;margin-bottom:12px">Use regular <code>&lt;link&gt;</code> tags in your root <code>+layout.nx</code> (see the default scaffold from <code>create-nexus</code>). Image formats and responsive sizes are configured on <code>NexusConfig</code> via <code>images</code> — not a separate <code>assets.fonts</code> block.</p>
