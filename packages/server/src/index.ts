@@ -138,8 +138,38 @@ export interface NexusServerOptions {
   /**
    * From `nexus.config.ts` `security` — when `hardened: true`, HTML and API responses get baseline security headers.
    * `shieldLite`: unknown server action names return 403 (manifest + registry allowlist) instead of 404.
+   * `csp`: extend the generated Content-Security-Policy with additional allowed sources per directive.
    */
-  security?: { hardened?: boolean; shieldLite?: boolean };
+  security?: {
+    hardened?: boolean;
+    shieldLite?: boolean;
+    csp?: {
+      /**
+       * Extra origins for `style-src` — e.g. `['https://fonts.googleapis.com']` for Google Fonts.
+       * Nexus always includes `'self' 'unsafe-inline'`; these are appended after.
+       */
+      additionalStyleSrc?: string[];
+      /**
+       * Extra origins for `font-src` — e.g. `['https://fonts.gstatic.com']` for Google Fonts files.
+       * Nexus always includes `'self'`; these are appended after.
+       */
+      additionalFontSrc?: string[];
+      /**
+       * Extra origins for `script-src` — e.g. `['https://cdn.example.com']` for external scripts.
+       */
+      additionalScriptSrc?: string[];
+      /**
+       * Extra origins for `connect-src` — e.g. `['https://api.example.com']` for fetch/XHR/WS.
+       * Nexus always includes `'self'`; these are appended after.
+       */
+      additionalConnectSrc?: string[];
+      /**
+       * Extra origins for `img-src` — e.g. `['https://cdn.example.com']` for external images.
+       * Nexus always includes `'self' data: blob:`; these are appended after.
+       */
+      additionalImgSrc?: string[];
+    };
+  };
   /**
    * Flush the HTML shell (head + skeleton) before `nxPretext` resolves — improves TTFB when Pretext is slow.
    * Fragment layouts only (route output must not be a full `&lt;html&gt;` document).
@@ -149,12 +179,15 @@ export interface NexusServerOptions {
   browserImportMap?: Record<string, string>;
 }
 
+type CspOptions = NonNullable<NexusServerOptions['security']>['csp'];
+
 /** Merge Hardened Mode headers — includes per-request CSP nonce when hardened. */
 function mergeHardenedHeaders(
   headers: Record<string, string | string[] | number | undefined>,
   hardened: boolean | undefined,
   dev: boolean,
   cspNonce?: string,
+  cspOptions?: CspOptions,
 ): Record<string, string | string[] | number> {
   const h: Record<string, string | string[] | number> = {};
   for (const [k, v] of Object.entries(headers)) {
@@ -173,20 +206,28 @@ function mergeHardenedHeaders(
   }
 
   // Content-Security-Policy with per-request nonce for inline scripts.
-  // script-src: 'self' for external scripts, nonce for inline scripts.
+  // script-src: 'self' for external scripts, nonce for inline scripts (Nexus-generated).
+  //             Custom inline scripts in templates get the nonce via ctx.cspNonce.
   // object-src: 'none' blocks Flash / legacy plugin execution.
   // base-uri: 'self' prevents base tag injection (open redirect via <base href>).
   if (cspNonce) {
+    const extraStyle = cspOptions?.additionalStyleSrc?.join(' ') ?? '';
+    const extraFont = cspOptions?.additionalFontSrc?.join(' ') ?? '';
+    const extraScript = cspOptions?.additionalScriptSrc?.join(' ') ?? '';
+    const extraConnect = cspOptions?.additionalConnectSrc?.join(' ') ?? '';
+    const extraImg = cspOptions?.additionalImgSrc?.join(' ') ?? '';
+
     const scriptSrc = dev
-      ? `'self' 'nonce-${cspNonce}' 'unsafe-eval'`   // unsafe-eval needed for Vite HMR in dev
-      : `'self' 'nonce-${cspNonce}'`;
+      ? `'self' 'nonce-${cspNonce}' 'unsafe-eval'${extraScript ? ` ${extraScript}` : ''}`
+      : `'self' 'nonce-${cspNonce}'${extraScript ? ` ${extraScript}` : ''}`;
+
     h['content-security-policy'] =
       `default-src 'self'; ` +
       `script-src ${scriptSrc}; ` +
-      `style-src 'self' 'unsafe-inline'; ` +   // unsafe-inline for scoped component CSS
-      `img-src 'self' data: blob:; ` +
-      `font-src 'self'; ` +
-      `connect-src 'self'; ` +
+      `style-src 'self' 'unsafe-inline'${extraStyle ? ` ${extraStyle}` : ''}; ` +
+      `img-src 'self' data: blob:${extraImg ? ` ${extraImg}` : ''}; ` +
+      `font-src 'self'${extraFont ? ` ${extraFont}` : ''}; ` +
+      `connect-src 'self'${extraConnect ? ` ${extraConnect}` : ''}; ` +
       `object-src 'none'; ` +
       `base-uri 'self'; ` +
       `form-action 'self'`;
@@ -238,10 +279,11 @@ export async function createNexusServer(opts: NexusServerOptions) {
   };
 
   const hardened = opts.security?.hardened === true;
+  const cspConfig = opts.security?.csp;
 
   // `sec` without a nonce — used for non-HTML responses (JSON, static files, actions).
   const sec = (h: Record<string, string | string[] | number | undefined>) =>
-    mergeHardenedHeaders(h, hardened, dev);
+    mergeHardenedHeaders(h, hardened, dev, undefined, cspConfig);
 
   const server = createServer(async (req: IncomingMessage, res: ServerResponse) => {
     const t0  = Date.now();
@@ -439,7 +481,7 @@ export async function createNexusServer(opts: NexusServerOptions) {
     }
 
     const request = nodeToWebRequest(req);
-    const ctx = createContext(request, matched.params);
+    const ctx = createContext(request, matched.params, cspNonce ?? '');
 
     try {
       if (opts.streamingPretext === true && method === 'GET') {
@@ -454,7 +496,7 @@ export async function createNexusServer(opts: NexusServerOptions) {
       _cacheStrategy = result.headers['x-nexus-cache-strategy'];
       const htmlHeaders = mergeHardenedHeaders(
         result.headers as Record<string, string | string[] | number | undefined>,
-        hardened, dev, cspNonce,
+        hardened, dev, cspNonce, cspConfig,
       );
       res.writeHead(result.status, htmlHeaders);
       res.end(result.html);

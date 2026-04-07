@@ -21,6 +21,26 @@ export interface NexusContext {
    * Later routes override keys. Serialized to `__NEXUS_PRETEXT__` for `$pretext()` on the client.
    */
   pretext?: Record<string, unknown>;
+  /**
+   * Per-request Content-Security-Policy nonce.
+   * When `security.hardened` is enabled, every HTML response gets a fresh random nonce.
+   * Add `nonce="{ctx.cspNonce}"` to any custom inline `<script>` or `<style>` tags in your
+   * layout's template so they are not blocked by the CSP.
+   *
+   * Usage in a layout load function:
+   * ```ts
+   * export async function load(ctx) {
+   *   return { cspNonce: ctx.cspNonce, ... };
+   * }
+   * ```
+   * Then in the template:
+   * ```html
+   * <script nonce="{pretext.cspNonce}">...</script>
+   * ```
+   *
+   * Empty string when `security.hardened` is disabled.
+   */
+  cspNonce: string;
   /** Set a response header */
   setHeader: (key: string, value: string) => void;
   /** Set a cookie */
@@ -58,6 +78,7 @@ export class NotFoundSignal {}
 export function createContext(
   request: Request,
   params: Record<string, string> = {},
+  cspNonce = '',
 ): NexusContext {
   const url = new URL(request.url);
   const responseHeaders = new Headers();
@@ -70,6 +91,7 @@ export function createContext(
     headers: request.headers,
     locals: {},
     secrets: getVaultSecretsMap(),
+    cspNonce,
 
     setHeader(key, value) {
       responseHeaders.set(key, value);
