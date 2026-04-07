@@ -1,6 +1,6 @@
 {
   "name": "@nexus_js/vite-plugin-nexus",
-  "version": "0.9.1",
+  "version": "0.9.2",
   "description": "Official Vite plugin for Nexus — transforms .nx files, HMR, island manifests, Server Actions",
   "type": "module",
   "main": "./dist/index.js",
