@@ -7,6 +7,63 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.9.0] — 2026-04-07
+
+### Added — Smart Pre-fetching (`@nexus_js/runtime`)
+
+- **`data-nx-prefetch="load"`** — new mode that prefetches immediately on `DOMContentLoaded`. Ideal for critical next-step links.
+- **`data-nx-prefetch="visible"`** — extended `rootMargin` from 100px to 200px for earlier prefetch trigger.
+- **`MutationObserver`** — dynamically added `[data-nx-prefetch="visible"]` links are automatically observed after the initial page paint (e.g. after SPA navigation updates the DOM).
+- **`shouldSkipPrefetch()`** — unified guard applied consistently to `hover`, `visible`, `load`, and click interception. Now correctly skips `//`, `javascript:`, and `data-nx-external` in all code paths.
+
+### Added — Real LQIP Image Placeholders (`@nexus_js/assets`)
+
+- **`generateBlurDataURL(buffer: Buffer): Promise<string>`** — uses Sharp to generate a 10×10 blurred JPEG encoded as an inline base64 data URI (~200–400 bytes). Call server-side to embed a real thumbnail in the HTML without an extra network round-trip.
+- **`blurFromFile(absolutePath: string): Promise<string>`** — convenience wrapper that reads the file then calls `generateBlurDataURL`.
+- **`ImageProps.blurDataURL?: string`** — pass the precomputed data URI; `renderImage` inlines it as `background-image` on the `<picture>` container.
+- `<img>` starts at `opacity:0` and fades to `opacity:1` via a CSS transition on `onload`, with `data-nx-blur` removed atomically.
+- **`/_nexus/image?blur=1`** — new endpoint that returns a cached LQIP JPEG for any local or remote image.
+
+### Added — Type-safe Router (`@nexus_js/runtime/router`)
+
+- **New entry point `@nexus_js/runtime/router`** — real module (not types-only) that re-exports `navigate`, `prefetch`, and `NavigateOptions` from the navigation module.
+- `packages/runtime/package.json` now exposes `"./router"` and `"./prefetch-ai"` under `exports`.
+- Generated `nexus-types.d.ts` augments `@nexus_js/runtime/router` with:
+  - `navigate<R extends keyof RouteParams>(route, params, opts?): Promise<void>` (was incorrectly typed as `void`)
+  - `prefetch<R extends keyof RouteParams>(route): void`
+  - `NavigateOptions` interface
+
+### Fixed — Streaming SSR (`@nexus_js/server`)
+
+- **Fallback HTML now rendered on first paint** — `__nx_init_fallbacks()` in the bootstrap script reads `data-nx-fallback` from each `<template>` hole and inserts the skeleton/spinner HTML immediately. `__nx_fill()` removes it atomically when the real content arrives.
+- **Functional `errorFallback`** — `StreamingBoundary.errorFallback` now correctly accepts `string | ((err: unknown) => string)`. The function form was previously silently dropped by `createSuspenseBoundary`.
+- **`</script>` injection** — `buildFatalErrorChunk` and the pretextWire script now escape `<` → `\u003c` and `>` → `\u003e` inside `JSON.stringify` payloads.
+- Removed dead `__nx_fill_error` from the bootstrap script (used `innerHTML` with a raw JS string — XSS risk). Error boundaries now use the same safe `<template>` mechanism as successful fills.
+
+### Added — Security Stack (`@nexus_js/server`, `@nexus_js/vite-plugin-nexus`)
+
+- **Tainted modules** — `vite-plugin-nexus` blocks client-side imports of `*.server.ts` and `lib/server/**` files at build time.
+- **`NEXUS_PUBLIC_`** prefix enforced; `envGuardPlugin` warns at build time on accidental private env access in client code.
+- **`NEXUS_SECRET`** required ≥ 32 chars in production; server refuses to start without it.
+- **CSRF** — HMAC-signed single-use tokens, strict `Origin`/`Referer` validation (protocol + hostname + port), hardened anonymous fingerprint using `NEXUS_SECRET`.
+- **Action URL signing** — HMAC-signed `?__sig=` parameter; verified server-side with `timingSafeEqual`.
+- **Schema validation** — `createAction` uses `schema.safeParse()` and returns structured `fieldErrors` in `ActionError`.
+- **CSP nonce** — per-request random nonce injected into all inline `<script>` tags.
+- **`metadata.ts`** — new `defineMetadata()` helper with automatic XSS-safe escaping for `<meta>` tag values.
+- **Progressive enhancement** — Server Actions respond to native HTML form `POST` with HTTP 303 redirect (PRG pattern).
+- **Rate limiter** — single shared GC timer across all limiter instances (was O(n) `setInterval` leak).
+- **Path traversal** — `serveStatic` uses `resolve()` + `startsWith(root + sep)` guard.
+- **Safe JSON serialization** — island props use `base64url` (full Unicode); all `<script>` payloads escape `<`, `>`, `&`, `\u2028`, `\u2029`.
+
+### Added — VS Code Extension (`extensions/nexus-vscode`)
+
+- Full syntax highlighting for `.nx` files via TextMate grammar (embedded HTML, CSS, TypeScript).
+- Language configuration: bracket pairs, comment toggling, auto-closing.
+- Snippet library for islands, server frontmatter, actions, `$state`, `$derived`, `$effect`.
+- Commands + keybindings: wrap selection in `client:visible` / `client:load` / `client:idle` island divs.
+
+---
+
 ## [0.8.0] — 2026-04-06
 
 ### Added — build consistency
