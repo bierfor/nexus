@@ -1,0 +1,58 @@
+---
+// PayLinks - All Payment Links List
+export async function load(ctx) {
+  // TODO: Load from Prisma
+  const links = [
+    { id: '1', title: 'Premium Membership', amount: 9900, slug: 'premium-2024', usesCount: 5, maxUses: null, active: true, createdAt: new Date('2026-04-01') },
+    { id: '2', title: 'Consultation Fee', amount: 15000, slug: 'consult-jan', usesCount: 2, maxUses: 10, active: true, createdAt: new Date('2026-04-03') },
+    { id: '3', title: 'Workshop Ticket', amount: 4900, slug: 'workshop-q1', usesCount: 12, maxUses: 20, active: true, createdAt: new Date('2026-03-28') },
+    { id: '4', title: 'Pro License', amount: 29900, slug: 'pro-license-2026', usesCount: 0, maxUses: null, active: false, createdAt: new Date('2026-03-15') },
+  ];
+
+  return { links };
+}
+---
+
+<div class="container">
+  <div class="page-header">
+    <h1 class="page-title">Payment Links</h1>
+    <a href="/links/new" class="btn btn--primary">+ Create New Link</a>
+  </div>
+
+  <div class="table-card">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Title</th>
+          <th>Amount</th>
+          <th>Slug</th>
+          <th>Usage</th>
+          <th>Status</th>
+          <th>Created</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {#each pretext.links as link}
+        <tr>
+          <td><strong>{link.title}</strong></td>
+          <td>${(link.amount / 100).toFixed(2)}</td>
+          <td><code>{link.slug}</code></td>
+          <td>{link.usesCount}{link.maxUses ? ` / ${link.maxUses}` : ' / ∞'}</td>
+          <td>
+            {#if link.active}
+            <span class="badge badge--success">Active</span>
+            {:else}
+            <span class="badge badge--muted">Inactive</span>
+            {/if}
+          </td>
+          <td>{new Date(link.createdAt).toLocaleDateString()}</td>
+          <td>
+            <a href="/links/{link.id}" class="btn btn--ghost btn--sm">View</a>
+          </td>
+        </tr>
+        {/each}
+      </tbody>
+    </table>
+  </div>
+</div>

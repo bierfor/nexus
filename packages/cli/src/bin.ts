@@ -177,6 +177,7 @@ async function runDev(opts: { root: string; port: number }): Promise<void> {
           security: {
             hardened: cfg.security.hardened === true,
             ...(cfg.security.shieldLite === true ? { shieldLite: true } : {}),
+            ...(cfg.security.csp !== undefined ? { csp: cfg.security.csp } : {}),
           },
         }
       : {}),
@@ -584,6 +585,7 @@ async function runStart(opts: { root: string; port?: number }): Promise<void> {
           security: {
             hardened: cfg.security.hardened === true,
             ...(cfg.security.shieldLite === true ? { shieldLite: true } : {}),
+            ...(cfg.security.csp !== undefined ? { csp: cfg.security.csp } : {}),
           },
         }
       : {}),

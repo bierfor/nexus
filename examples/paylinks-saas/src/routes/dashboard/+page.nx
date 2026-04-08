@@ -1,0 +1,309 @@
+---
+// PayLinks - Dashboard
+// Overview: stats, recent links, recent transactions
+
+export async function load(ctx) {
+  // TODO: Load real data from Prisma
+  // For demo, return mock data
+  
+  const stats = {
+    totalLinks: 12,
+    activeLinks: 8,
+    totalRevenue: 45670, // cents = $456.70
+    totalTransactions: 34,
+  };
+
+  const recentLinks = [
+    { id: '1', title: 'Premium Membership', amount: 9900, slug: 'premium-2024', usesCount: 5, maxUses: null, active: true },
+    { id: '2', title: 'Consultation Fee', amount: 15000, slug: 'consult-jan', usesCount: 2, maxUses: 10, active: true },
+    { id: '3', title: 'Workshop Ticket', amount: 4900, slug: 'workshop-q1', usesCount: 12, maxUses: 20, active: true },
+  ];
+
+  const recentTransactions = [
+    { id: 't1', paymentLink: { title: 'Premium Membership' }, amount: 9900, status: 'succeeded', payerEmail: 'john@example.com', createdAt: new Date('2026-04-07T10:30:00') },
+    { id: 't2', paymentLink: { title: 'Consultation Fee' }, amount: 15000, status: 'succeeded', payerEmail: 'sarah@example.com', createdAt: new Date('2026-04-07T09:15:00') },
+    { id: 't3', paymentLink: { title: 'Workshop Ticket' }, amount: 4900, status: 'pending', payerEmail: 'mike@example.com', createdAt: new Date('2026-04-06T18:45:00') },
+  ];
+
+  return { stats, recentLinks, recentTransactions };
+}
+
+// Logout action
+export async function logout(formData, ctx) {
+  ctx.setCookie('pl_session', '', { maxAge: 0 });
+  return { redirect: '/login' };
+}
+---
+
+<div class="container">
+  <div class="page-header">
+    <h1 class="page-title">Dashboard</h1>
+    <a href="/links/new" class="btn btn--primary">+ New Payment Link</a>
+  </div>
+
+  <!-- Stats Grid -->
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-card__icon">🔗</div>
+      <div class="stat-card__content">
+        <div class="stat-card__value">{pretext.stats.totalLinks}</div>
+        <div class="stat-card__label">Total Links</div>
+      </div>
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-card__icon">✅</div>
+      <div class="stat-card__content">
+        <div class="stat-card__value">{pretext.stats.activeLinks}</div>
+        <div class="stat-card__label">Active Links</div>
+      </div>
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-card__icon">💰</div>
+      <div class="stat-card__content">
+        <div class="stat-card__value">${(pretext.stats.totalRevenue / 100).toFixed(2)}</div>
+        <div class="stat-card__label">Total Revenue</div>
+      </div>
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-card__icon">📊</div>
+      <div class="stat-card__content">
+        <div class="stat-card__value">{pretext.stats.totalTransactions}</div>
+        <div class="stat-card__label">Transactions</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Recent Links -->
+  <section class="dashboard-section">
+    <div class="section-header">
+      <h2 class="section-title">Recent Payment Links</h2>
+      <a href="/links" class="section-link">View all →</a>
+    </div>
+    
+    <div class="table-card">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Title</th>
+            <th>Amount</th>
+            <th>Slug</th>
+            <th>Usage</th>
+            <th>Status</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {#each pretext.recentLinks as link}
+          <tr>
+            <td><strong>{link.title}</strong></td>
+            <td>${(link.amount / 100).toFixed(2)}</td>
+            <td><code>{link.slug}</code></td>
+            <td>{link.usesCount}{link.maxUses ? ` / ${link.maxUses}` : ' / ∞'}</td>
+            <td>
+              {#if link.active}
+              <span class="badge badge--success">Active</span>
+              {:else}
+              <span class="badge badge--muted">Inactive</span>
+              {/if}
+            </td>
+            <td>
+              <a href="/links/{link.id}" class="btn btn--ghost btn--sm">View</a>
+            </td>
+          </tr>
+          {/each}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Recent Transactions -->
+  <section class="dashboard-section">
+    <div class="section-header">
+      <h2 class="section-title">Recent Transactions</h2>
+      <a href="/transactions" class="section-link">View all →</a>
+    </div>
+    
+    <div class="table-card">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Payment Link</th>
+            <th>Amount</th>
+            <th>Payer</th>
+            <th>Status</th>
+            <th>Date</th>
+          </tr>
+        </thead>
+        <tbody>
+          {#each pretext.recentTransactions as tx}
+          <tr>
+            <td>{tx.paymentLink.title}</td>
+            <td>${(tx.amount / 100).toFixed(2)}</td>
+            <td>{tx.payerEmail}</td>
+            <td>
+              {#if tx.status === 'succeeded'}
+              <span class="badge badge--success">Succeeded</span>
+              {:else if tx.status === 'pending'}
+              <span class="badge badge--warning">Pending</span>
+              {:else}
+              <span class="badge badge--danger">Failed</span>
+              {/if}
+            </td>
+            <td>{new Date(tx.createdAt).toLocaleDateString()}</td>
+          </tr>
+          {/each}
+        </tbody>
+      </table>
+    </div>
+  </section>
+</div>
+
+<style>
+  .page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+  }
+
+  .page-title {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--text);
+  }
+
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 3rem;
+  }
+
+  .stat-card {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+    padding: 1.5rem;
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+  }
+
+  .stat-card__icon {
+    font-size: 2rem;
+  }
+
+  .stat-card__value {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: var(--text);
+  }
+
+  .stat-card__label {
+    font-size: 0.875rem;
+    color: var(--text2);
+  }
+
+  .dashboard-section {
+    margin-bottom: 2.5rem;
+  }
+
+  .section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+  }
+
+  .section-title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--text);
+  }
+
+  .section-link {
+    color: var(--primary);
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 0.875rem;
+  }
+
+  .section-link:hover {
+    text-decoration: underline;
+  }
+
+  .table-card {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+    overflow: hidden;
+  }
+
+  .data-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .data-table thead {
+    background: var(--bg3);
+  }
+
+  .data-table th {
+    padding: 0.75rem 1rem;
+    text-align: left;
+    font-weight: 600;
+    font-size: 0.8125rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text2);
+  }
+
+  .data-table td {
+    padding: 0.875rem 1rem;
+    border-top: 1px solid var(--border);
+    font-size: 0.9375rem;
+  }
+
+  .data-table tbody tr:hover {
+    background: var(--bg-elevated);
+  }
+
+  .data-table code {
+    font-family: 'Monaco', 'Courier New', monospace;
+    font-size: 0.8125rem;
+    background: var(--bg3);
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+  }
+
+  .badge {
+    display: inline-block;
+    padding: 0.25rem 0.625rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+
+  .badge--success {
+    background: rgba(16, 185, 129, 0.1);
+    color: #059669;
+  }
+
+  .badge--warning {
+    background: rgba(245, 158, 11, 0.1);
+    color: #d97706;
+  }
+
+  .badge--danger {
+    background: rgba(239, 68, 68, 0.1);
+    color: #dc2626;
+  }
+
+  .badge--muted {
+    background: var(--bg3);
+    color: var(--text3);
+  }
+</style>

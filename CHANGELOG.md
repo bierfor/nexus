@@ -7,6 +7,139 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.9.3] — 2026-04-08
+
+### Added — GraphQL Integration (`@nexus_js/graphql`) 🆕
+
+A complete, security-first GraphQL adapter that integrates seamlessly with Nexus's server pipeline:
+
+- **`createGraphQLHandler({ schema, shield, mask, cors, ... })`** — Returns a Web-standard `(Request, NexusContext) => Promise<Response>` handler compatible with Nexus mounts. No Express dependency.
+- **Shield: Complexity & Depth Analysis** — `analyseComplexity()` scans the GraphQL AST before execution to prevent expensive queries:
+  - `maxCost` (default: 1000) — Total query cost limit
+  - `maxDepth` (default: 12) — Maximum nesting level
+  - `listMultiplier` (default: 10) — Cost multiplier for list fields
+  - `fieldCosts` — Per-field cost overrides (e.g., `{ 'Query.analytics': 50 }`)
+  - `allowIntrospection: false` — Blocks `__schema` / `__type` in production
+- **Field Masking** — `maskResult()` redacts sensitive fields after execution:
+  - Static replacement: `{ 'User.passwordHash': null, 'PaymentCard.cvv': 'REDACTED' }`
+  - Role-based: `allowWhen((ctx) => ctx.user?.role === 'admin')`
+  - Conditional: `redactUnless((ctx, val) => ctx.user?.id === ctx.vars?.userId, '***@***.***')`
+- **JWT with Vault Key Rotation** — `createJwtService(nexusVault, opts)`:
+  - HS256 signing/verification using `node:crypto`
+  - Vault-backed secret rotation with hot-reload (no server restart)
+  - Grace period (default: 5min) for old tokens during rotation
+  - `timingSafeEqual` comparison to prevent timing attacks
+- **DataLoader (N+1 Prevention)** — `createBatchLoader(batchFn)`:
+  - Batches requests within a microtask tick
+  - Deduplicates keys automatically
+  - Ensures values returned in same order as requested
+  - Per-request loader registry pattern
+- **CORS Handling** — Built into the handler:
+  - OPTIONS preflight (204 with `Access-Control-*` headers)
+  - Origin validation (array, wildcard, or predicate function)
+  - Rejects `credentials: true` with `origins: '*'` (browser will reject)
+  - No conflict with Nexus security headers (applied separately by server)
+- **GraphiQL Integration** — Serves interactive GraphiQL IDE in dev mode on GET requests with `Accept: text/html`
+- **Rate Limiting** — Per-IP sliding window rate limiting built into handler
+- **Error Handling** — Strips stack traces in production; returns safe error messages
+
+**Exports:** `createGraphQLHandler`, `analyseComplexity`, `maskResult`, `allowWhen`, `redactUnless`, `createJwtService`, `signJwt`, `verifyJwt`, `BatchLoader`, `createBatchLoader`, `createLoaderRegistry`
+
+### Added — Legacy Bridge (`@nexus_js/graphql`, `@nexus_js/server`, `@nexus_js/security`) 🆕
+
+Gradual migration tools for wrapping existing backends without downtime:
+
+**Remote GraphQL Proxy:**
+- **`createRemoteExecutor(opts)`** — Proxy to external GraphQL APIs with Nexus Shield applied on top
+  - Forward requests to legacy backends (e.g., `https://old-api.company.com/graphql`)
+  - Add rate limiting, complexity analysis, and field masking without modifying the legacy code
+  - Optional request batching, retry logic, timeout control
+  - Transform variables/results for format adaptation
+- **`createRemoteExecutorWithSchema(opts)`** — Fetch remote schema via introspection for stitching
+
+**Schema Stitching:**
+- **`stitchSchemas({ subschemas, typeMerging, resolvers })`** — Merge multiple GraphQL schemas into one unified API
+  - Combine remote schemas (legacy) with local Nexus schemas (new features)
+  - Type merging: add new fields to old types without touching legacy codebase
+  - Custom resolvers: add Shield protection to legacy fields
+- **`createGatewayResolver({ services, routing })`** — Route requests to different microservices
+
+**HTTP Fallback Proxy:**
+- **`fallbackProxy` option in `createNexusServer`** — Forward unmatched routes to legacy backend
+  - Nexus handles new routes (`/dashboard`, `/api/v2`, etc.)
+  - Unknown paths proxy to old server (e.g., `http://localhost:8080`)
+  - Preserves headers, cookies, request body
+  - Returns 502 if legacy backend unavailable
+
+**Express/Connect Wrapper:**
+- **`wrapExpressMiddleware(middleware)`** — Convert Express middleware to Nexus Server Actions
+- **`wrapExpressHandler(handler)`** — Wrap Express route handlers
+  - Mock `req.body`, `req.params`, `res.json()`, `next()`
+  - Existing business logic runs unchanged
+  - Automatically protected by Nexus CSRF, rate limiting, Shield
+
+**Vault Import:**
+- **`importToVault(opts)`** — Import secrets from .env, JSON, AWS/GCP Secrets Manager
+  - Filter by regex: `/^DB_|^API_KEY/`
+  - Prefix for namespacing: `LEGACY_DB_HOST` → `LEGACY_DB_HOST`
+  - Overwrite control for existing keys
+- **`autoImportEnv({ root, prefix, filter })`** — Auto-import `.env` file at startup
+  - Enable hot-reload rotation for imported secrets
+  - Delete old `.env` once migration completes
+
+**Vault Enhancement:**
+- **`NexusVault.set(key, value)`** — Public method for programmatic secret updates (used by `importToVault`)
+
+### Added — Deployment Infrastructure 🆕
+
+Production-ready deployment tooling for VPS, Docker, and CI/CD:
+
+**Docker Support:**
+- Multi-stage `Dockerfile` (builder + runner) optimized for minimal image size
+- Non-root user for security (`nexus:nexus`)
+- Health check endpoint integration
+- `.dockerignore` for clean builds
+
+**Docker Compose:**
+- Full stack: Nexus + PostgreSQL + Redis + Nginx
+- Persistent volumes for database and cache
+- Health checks for all services
+- Isolated network
+
+**Deployment Scripts:**
+- `scripts/deploy.sh` — Automated deployment with health checks and rollback
+- `scripts/rollback.sh` — One-command rollback to previous version
+- `scripts/migrate.sh` — Database migration support (Prisma or raw SQL)
+- Environment validation
+- Build ID tracking with git SHA
+
+**CI/CD:**
+- GitHub Actions workflow: lint → test → build → docker → deploy
+- Docker Buildx multi-platform support
+- SSH deployment to production
+- Automatic rollback on health check failure
+- pnpm cache for faster builds
+
+**Environment Management:**
+- Comprehensive `.env.example` with all configuration options documented
+- Support for multiple environments (`.env.production`, `.env.staging`)
+
+### Added — NexusMountDef (`@nexus_js/server`)
+
+- **`mounts` option in `NexusServerOptions`** — Mount custom HTTP handlers before static files and SSR
+  - Signature: `(Request, NexusContext) => Promise<Response>`
+  - Compatible with `@nexus_js/graphql` handlers
+  - Evaluated in order; first match wins
+  - Example: `mounts: [{ path: '/graphql', handler: gqlHandler }]`
+
+### Fixed — Package Exports
+
+- **`@nexus_js/graphql`** — All new types and functions correctly exported from `src/index.ts`
+- **`@nexus_js/server`** — `wrapExpressMiddleware`, `wrapExpressHandler`, `NexusMountDef` exported
+- **`@nexus_js/security`** — `importToVault`, `autoImportEnv` exported
+
+---
+
 ## [0.9.0] — 2026-04-07
 
 ### Added — Smart Pre-fetching (`@nexus_js/runtime`)

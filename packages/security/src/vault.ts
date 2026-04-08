@@ -29,6 +29,15 @@ export class NexusVault {
   }
 
   /**
+   * Set a single key-value pair.
+   * This method is used by the vault-import utility.
+   */
+  set(key: string, value: string): void {
+    this.store.set(key, value);
+    this.notify();
+  }
+
+  /**
    * Merge keys. Use empty string to remove a key from the vault (not from `process.env` on disk).
    */
   patch(entries: Record<string, string>): void {

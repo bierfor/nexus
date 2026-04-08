@@ -1,0 +1,116 @@
+// PayLinks SaaS Database Schema
+// SQLite for development, PostgreSQL for production
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Users & Authentication
+// ──────────────────────────────────────────────────────────────────────────────
+
+model User {
+  id            String   @id @default(uuid())
+  email         String   @unique
+  passwordHash  String
+  name          String?
+  role          String   @default("user") // user, admin
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  paymentLinks  PaymentLink[]
+  transactions  Transaction[]
+  apiKeys       ApiKey[]
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Payment Links
+// ──────────────────────────────────────────────────────────────────────────────
+
+model PaymentLink {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Link details
+  title       String
+  description String?
+  amount      Int      // Amount in cents (e.g. 1000 = $10.00)
+  currency    String   @default("usd")
+  
+  // URL and QR
+  slug        String   @unique // Short slug: pay.example.com/{slug}
+  qrCodeUrl   String?  // S3 or data URI
+  
+  // Status
+  active      Boolean  @default(true)
+  maxUses     Int?     // null = unlimited
+  usesCount   Int      @default(0)
+  expiresAt   DateTime?
+  
+  // Metadata
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  transactions Transaction[]
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Transactions (Payment Events)
+// ──────────────────────────────────────────────────────────────────────────────
+
+model Transaction {
+  id              String   @id @default(uuid())
+  paymentLinkId   String
+  paymentLink     PaymentLink @relation(fields: [paymentLinkId], references: [id], onDelete: Cascade)
+  
+  userId          String?
+  user            User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  
+  // Stripe details
+  stripePaymentId String   @unique
+  stripeCustomer  String?
+  
+  // Transaction data
+  amount          Int      // Amount in cents
+  currency        String   @default("usd")
+  status          String   // pending, succeeded, failed, refunded
+  
+  // Payer info
+  payerEmail      String?
+  payerName       String?
+  
+  // Metadata
+  metadata        String?  // JSON string for extra data
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// API Keys (for programmatic access)
+// ──────────────────────────────────────────────────────────────────────────────
+
+model ApiKey {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  name        String   // Friendly name: "Production", "Dev", etc.
+  keyHash     String   @unique // bcrypt hash of the key
+  lastUsed    DateTime?
+  
+  // Scopes
+  scopes      String   // Comma-separated: "read:links,write:links"
+  
+  // Status
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  expiresAt   DateTime?
+}

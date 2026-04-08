@@ -2,102 +2,364 @@
 
 <img src="docs/assets/nexus-logo.svg" width="80" height="80" alt="Nexus logo" />
 
-# Nexus
+# Nexus.js
 
-**Full-stack framework** — islands-first HTML, **Svelte 5** runes on the client, **server actions**, file-based routes, and streaming SSR.
+**Full-stack framework** — islands-first HTML, **Svelte 5** runes, **server actions**, file-based routes, streaming SSR, and **production-ready deployment**.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-7c3aed.svg)](https://opensource.org/licenses/MIT)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.4-3178c6.svg)](https://www.typescriptlang.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.7-3178c6.svg)](https://www.typescriptlang.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-9-f69220.svg)](https://pnpm.io/)
 [![Node](https://img.shields.io/badge/Node-≥22-5fa04e.svg)](https://nodejs.org/)
-[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-FFDD00?logo=buymeacoffee&logoColor=000)](https://buymeacoffee.com/bierfor084)
+[![npm version](https://img.shields.io/npm/v/@nexus_js/cli?label=latest)](https://www.npmjs.com/package/@nexus_js/cli)
 
-[Website — nexusjs.dev](https://nexusjs.dev) · [Docs in this repo](./docs/README.md) · [Contributing](./CONTRIBUTING.md) · [Changelog](./CHANGELOG.md)
+[Website — nexusjs.dev](https://nexusjs.dev) · [Documentation](https://nexusjs.dev/docs) · [Examples](#examples) · [Changelog](./CHANGELOG.md)
 
 </div>
 
 ---
 
-## Overview
+## 🚀 What is Nexus?
 
-Nexus targets **minimal JavaScript by default**: most of the page is static HTML from the server; only subtrees marked with **`client:*`** hydrate in the browser. Interactive regions use **Svelte 5 runes** (`$state`, `$derived`, `$effect`, …). Server-side logic uses a **`---`** frontmatter block in `.nx` files, plus typed **server actions** and optional **pretext** loaders for route data.
+Nexus is a **security-first, production-ready** web framework that combines:
 
-End-user documentation and tutorials live on **[nexusjs.dev](https://nexusjs.dev)**. This repository holds the **implementation** (`packages/`), **examples**, and **contributor docs** under [`docs/`](./docs/README.md).
+- **🏝️ Islands Architecture** — Ship minimal JavaScript; only hydrate interactive components
+- **⚡ Svelte 5 Runes** — `$state`, `$derived`, `$effect` for reactive UI
+- **🔒 Built-in Security** — CSRF protection, CSP headers, rate limiting, Shield-lite, Vault
+- **📡 Server Actions** — Type-safe RPC without API routes
+- **🗂️ File-based Routing** — `+page.nx`, `+layout.nx`, `[params]`
+- **🌊 Streaming SSR** — First byte in <50ms with suspense boundaries
+- **📦 GraphQL Integration** — Shield-protected API with complexity analysis
+- **🔄 Legacy Bridge** — Migrate Express/Node apps gradually with zero downtime
+
+### Why Nexus?
+
+Most frameworks force you to choose between simplicity and production-readiness. Nexus gives you both:
+
+- **Start simple** — Create a page in 10 lines, no boilerplate
+- **Scale securely** — Built-in CSRF, XSS prevention, secret management
+- **Migrate safely** — Wrap existing Express apps, proxy legacy backends
+- **Deploy anywhere** — Docker, VPS, serverless (edge runtime coming soon)
 
 ---
 
-## Quick start
+## Quick Start
 
-**Requirements:** Node.js **≥ 22**, **pnpm ≥ 9** (use **`.nvmrc`** with `nvm use` / `fnm use`; this monorepo uses `workspace:` links — run **`pnpm install`** at the root).
-
-**New application** (published CLI):
+### Create a new app
 
 ```bash
-npm exec --package=@nexus_js/cli@latest -- create-nexus my-app
+npm create @nexus_js/nexus my-app
 cd my-app
 npm install
 npm run dev
 ```
 
-Other entrypoints (e.g. `pnpm create @nexus_js/nexus`, global installs) are described in [`packages/create-nexus/README.md`](./packages/create-nexus/README.md).
+Visit `http://localhost:3000` and start building!
 
-**Clone this repo** (framework development):
+### Your first page
 
-```bash
-git clone https://github.com/bierfor/nexus.git
-cd nexus
-nvm use   # Node 22 — see .nvmrc (or fnm use / mise use)
-pnpm install
-pnpm build
-pnpm test
+Create `src/routes/+page.nx`:
+
+```svelte
+---
+// Server-only code (runs once per request)
+const greeting = "Hello, Nexus!";
+
+export async function load(ctx) {
+  return { user: { name: "Developer" } };
+}
+---
+
+<h1>{greeting}</h1>
+<p>Welcome, {pretext.user.name}</p>
+
+<!-- Interactive island -->
+<div client:load>
+  <script>
+    let count = $state(0);
+  </script>
+  <button onclick={() => count++}>
+    Clicked {count} times
+  </button>
+</div>
+
+<style>
+  h1 { color: #5b21b6; }
+  button {
+    padding: 0.5rem 1rem;
+    background: #5b21b6;
+    color: white;
+    border: none;
+    border-radius: 0.375rem;
+    cursor: pointer;
+  }
+</style>
 ```
-
-Run the minimal example: `pnpm example` (starts the `basic` example). Other examples: `pnpm dev:pokedex`, `pnpm dev:nexusflow`, etc.
 
 ---
 
-## Monorepo layout
+## Core Features
 
-Published npm packages live under **`packages/`**. **`examples/`** are sample apps included in the workspace; they are not published as framework packages.
+### 🏝️ Islands Architecture
+
+Ship only the JavaScript you need. Static HTML by default, JavaScript where needed:
+
+```svelte
+<!-- Static -->
+<h1>Fast, SEO-friendly content</h1>
+
+<!-- Interactive island (hydrates in browser) -->
+<div client:load>
+  <script>
+    let open = $state(false);
+  </script>
+  <button onclick={() => open = !open}>Toggle</button>
+  {#if open}<p>Dynamic content</p>{/if}
+</div>
+```
+
+**Hydration strategies:** `client:load`, `client:idle`, `client:visible`, `client:media="(min-width: 768px)"`
+
+### 🔒 Security by Default
+
+No configuration needed — security is built-in:
+
+- ✅ **CSRF Protection** — Automatic token validation
+- ✅ **Content Security Policy** — XSS prevention out of the box
+- ✅ **Rate Limiting** — Per-action throttling
+- ✅ **Secret Management** — Vault with hot-reload rotation
+- ✅ **Input Validation** — Zod integration for type-safe forms
+- ✅ **Signed Actions** — Prevent action replay attacks
+
+### 📡 Server Actions
+
+Type-safe backend calls without writing API routes:
+
+```svelte
+---
+import { z } from 'zod';
+
+export async function createPost(formData, ctx) {
+  // Rate limiting built-in
+  if (!ctx.rateLimit('createPost', { max: 10, window: 60_000 })) {
+    return { error: 'Too many requests', status: 429 };
+  }
+
+  // Validation with Zod
+  const result = z.object({
+    title: z.string().min(3),
+    content: z.string().min(10),
+  }).safeParse({
+    title: formData.get('title'),
+    content: formData.get('content'),
+  });
+
+  if (!result.success) return { error: 'Invalid input' };
+
+  await db.posts.create(result.data);
+  return { redirect: '/posts' };
+}
+---
+
+<form method="post" action="/_nexus/action/createPost">
+  <input name="title" required />
+  <textarea name="content" required></textarea>
+  <button type="submit">Create Post</button>
+</form>
+```
+
+### 📦 GraphQL with Shield
+
+Production-ready GraphQL with built-in security:
+
+```typescript
+import { createGraphQLHandler } from '@nexus_js/graphql';
+import { nexusVault } from '@nexus_js/security';
+
+const handler = createGraphQLHandler({
+  schema,
+  shield: {
+    maxCost: 500,        // Prevent expensive queries
+    maxDepth: 8,         // Limit nesting
+    allowIntrospection: false,
+  },
+  mask: {
+    'User.passwordHash': null,      // Redact sensitive fields
+    'User.apiKey': (val, ctx) => 
+      ctx.user?.role === 'admin' ? val : null,
+  },
+  rateLimit: { max: 60, windowMs: 60_000 },
+});
+
+// Mount at /graphql
+export default {
+  server: {
+    mounts: [{ path: '/graphql', handler }],
+  },
+};
+```
+
+### 🔄 Legacy Bridge
+
+Migrate existing backends without downtime:
+
+```typescript
+import { createRemoteExecutor, wrapExpressMiddleware } from '@nexus_js/graphql';
+
+// Proxy to old GraphQL API
+const legacyApi = createRemoteExecutor({
+  url: 'https://old-api.company.com/graphql',
+  headers: { 'x-api-key': vault.get('LEGACY_KEY') },
+});
+
+// Wrap Express middleware as Nexus action
+export const legacyPayment = wrapExpressMiddleware(oldExpressHandler);
+
+// HTTP fallback proxy
+export default {
+  server: {
+    fallbackProxy: 'http://localhost:8080', // Old backend
+  },
+};
+```
+
+---
+
+## Examples
+
+This repository includes production-ready examples:
+
+- **[paylinks-saas](./examples/paylinks-saas)** — Payment link generator with Stripe, QR codes, and Vault UI
+- **[basic](./examples/basic)** — Minimal starter
+- **[pokedex](./examples/pokedex)** — Islands, forms, API integration
+- **[nexusflow](./examples/nexusflow)** — Advanced routing patterns
+
+Run any example:
+
+```bash
+cd examples/paylinks-saas
+pnpm install
+pnpm dev
+```
+
+---
+
+## Deployment
+
+### Docker (Recommended)
+
+```bash
+# Build image
+docker build -t my-nexus-app .
+
+# Run with docker-compose
+docker-compose up -d
+```
+
+### Manual Deployment
+
+```bash
+# Build for production
+npm run build
+
+# Start server
+NODE_ENV=production npm start
+```
+
+### Environment Variables
+
+```bash
+# Required
+NEXUS_SECRET="your-32-character-secret"
+DATABASE_URL="postgresql://..."
+
+# Optional
+NEXUS_PORT=3000
+STRIPE_SECRET_KEY="sk_live_..."
+```
+
+See [Deployment Guide](https://nexusjs.dev/docs#deploy) for VPS, Docker, and CI/CD setup.
+
+---
+
+## Monorepo Structure
 
 ```
 nexus/
 ├── packages/
-│   ├── compiler/          # .nx → JS (parser, codegen, islands, CSS scoping)
-│   ├── runtime/           # Client: runes, islands, navigation, cache, store
-│   ├── server/            # HTTP server, SSR, streaming, actions
-│   ├── router/            # File-based route manifest
-│   ├── cli/               # `nexus` CLI and Nexus Studio
-│   ├── create-nexus/      # `npm create @nexus_js/nexus` scaffold
-│   ├── head/              # Metadata (defineHead / useHead)
-│   ├── serialize/         # Types across server ↔ client boundaries
-│   ├── vite-plugin-nexus/ # Vite integration
-│   ├── assets/            # Image / font pipeline
-│   ├── db/                # Optional DB helper (BYO client)
-│   ├── middleware/, connect/, security/, sync/, audit/
-│   ├── types/, testing/, ui/
-│   └── nexus_js / nexus-js   # Meta-packages re-exporting the stack
-├── examples/              # Demos: basic, pokedex, nexusflow, …
-├── docs/                  # Contributor docs + [REPOSITORY.md](./docs/REPOSITORY.md) (clean GitHub publish)
-└── .github/workflows/     # CI
+│   ├── cli/               # nexus dev, build, studio
+│   ├── server/            # HTTP server, SSR, actions
+│   ├── compiler/          # .nx parser & codegen
+│   ├── runtime/           # Client-side (islands, navigation)
+│   ├── graphql/           # GraphQL integration (NEW in 0.9.3)
+│   ├── security/          # Vault, Shield, CSRF
+│   ├── router/            # File-based routing
+│   └── ...                # 20+ packages total
+├── examples/
+│   ├── paylinks-saas/     # Full SaaS example
+│   ├── basic/
+│   └── pokedex/
+└── docs/                  # Contributor guides
 ```
 
-Maintainers: release process is documented in [`docs/PUBLISHING.md`](./docs/PUBLISHING.md).
+---
+
+## Development
+
+**Requirements:** Node.js ≥22, pnpm ≥9
+
+```bash
+# Clone repo
+git clone https://github.com/bierfor/nexus.git
+cd nexus
+
+# Install dependencies
+pnpm install
+
+# Build all packages
+pnpm build
+
+# Run tests
+pnpm test
+
+# Start example
+pnpm example
+```
+
+See [CONTRIBUTING.md](./CONTRIBUTING.md) for detailed development guide.
 
 ---
 
-## The `.nx` format (short)
+## Documentation
 
-Each file can include:
-
-1. **`---` frontmatter** — server-only: imports, data loading, `// nexus:pretext`, actions.
-2. **`<script>`** — Svelte 5 runes for island code.
-3. **`<template>`** — HTML with `{expressions}` and `{#if}` / `{#each}`.
-4. **`<style>`** — scoped CSS.
-
-Hydration examples: `client:load`, `client:idle`, `client:visible`, `client:media="…"`, `server:only`. Details: [`docs/ISLANDS.md`](./docs/ISLANDS.md), [`docs/PRETEXT.md`](./docs/PRETEXT.md).
+- **[Official Docs](https://nexusjs.dev/docs)** — Complete framework guide
+- **[Learn](https://nexusjs.dev/learn)** — Interactive tutorials
+- **[API Reference](./docs/README.md)** — Package documentation
+- **[Changelog](./CHANGELOG.md)** — Release notes
 
 ---
+
+## Community & Support
+
+- **[GitHub Issues](https://github.com/bierfor/nexus/issues)** — Bug reports & feature requests
+- **[Buy Me a Coffee](https://buymeacoffee.com/bierfor084)** — Support development
+
+---
+
+## License
+
+MIT © 2024-2026 Nexus.js Contributors
+
+See [LICENSE](./LICENSE) for details.
+
+---
+
+<div align="center">
+
+**Built with ❤️ by [bierfor](https://github.com/bierfor)**
+
+[⭐ Star on GitHub](https://github.com/bierfor/nexus) · [📖 Read the Docs](https://nexusjs.dev) · [🚀 Get Started](https://nexusjs.dev/docs#install)
+
+</div>
 
 ## Feature snapshot
 

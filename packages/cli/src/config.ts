@@ -24,6 +24,18 @@ export interface NexusSecurityConfig {
    * `nexus build` writes `.nexus/output/shield-manifest.json`.
    */
   shieldLite?: boolean;
+  /**
+   * Extend hardened-mode Content-Security-Policy (fonts, CDNs, analytics, etc.).
+   * Passed through to `@nexus_js/server` when `hardened: true`.
+   */
+  csp?: {
+    additionalStyleSrc?: string[];
+    additionalFontSrc?: string[];
+    additionalScriptSrc?: string[];
+    additionalConnectSrc?: string[];
+    additionalImgSrc?: string[];
+    additionalFrameSrc?: string[];
+  };
 }
 
 /** DevRadar / Studio telemetry (see `packages/server/src/devradar.ts`). */

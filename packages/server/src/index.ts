@@ -65,6 +65,8 @@ export type {
   SecurityReportCheck,
   RuneTelemetryPayload,
 } from './devradar.js';
+export { wrapExpressMiddleware, wrapExpressHandler } from './legacy-wrapper.js';
+export type { ExpressMiddleware } from './legacy-wrapper.js';
 
 /**
  * Returns true when an Origin header value is a loopback address (localhost,
@@ -120,6 +122,33 @@ export interface RequestLogInfo {
   isAction?: boolean;
 }
 
+/**
+ * Custom route mount — handler is called before static files and SSR.
+ * Compatible with `@nexus_js/graphql` createGraphQLHandler() and any other
+ * Web-standard (Request → Response) handler.
+ *
+ * @example
+ *   import { createGraphQLHandler } from '@nexus_js/graphql';
+ *   mounts: [{ path: '/graphql', handler: createGraphQLHandler({ schema }) }]
+ */
+export interface NexusMountDef {
+  /**
+   * URL path prefix to match. The handler is invoked when
+   * `request.url.pathname === path` or starts with `path + '/'`.
+   */
+  path: string;
+  /**
+   * HTTP methods to handle. Default: all methods including OPTIONS
+   * (needed for GraphQL CORS preflight).
+   */
+  methods?: string[];
+  /**
+   * Web-standard handler.
+   * `nexusCtx` gives access to `secrets`, `locals`, `getCookie`, etc.
+   */
+  handler: (request: Request, nexusCtx: import('./context.js').NexusContext) => Promise<Response>;
+}
+
 export interface NexusServerOptions {
   /** Root directory of the Nexus app */
   root: string;
@@ -135,6 +164,23 @@ export interface NexusServerOptions {
    * The server itself does NOT print request logs — the host controls formatting.
    */
   onRequest?: (info: RequestLogInfo) => void;
+  /**
+   * Custom route handlers mounted before static files and SSR.
+   * Evaluated in order; the first matching mount wins.
+   * Use for GraphQL endpoints, webhooks, or any non-Nexus HTTP handler.
+   */
+  mounts?: NexusMountDef[];
+  /**
+   * HTTP proxy fallback for legacy backend integration.
+   * If a request doesn't match any Nexus route, mount, or static file,
+   * forward it to this URL instead of returning 404.
+   * 
+   * Use this for gradual migration: Nexus sits in front of your old backend,
+   * handling new routes while forwarding unknown paths to the legacy system.
+   * 
+   * @example { fallbackProxy: 'http://localhost:8080' }
+   */
+  fallbackProxy?: string;
   /**
    * From `nexus.config.ts` `security` — when `hardened: true`, HTML and API responses get baseline security headers.
    * `shieldLite`: unknown server action names return 403 (manifest + registry allowlist) instead of 404.
@@ -168,6 +214,11 @@ export interface NexusServerOptions {
        * Nexus always includes `'self' data: blob:`; these are appended after.
        */
       additionalImgSrc?: string[];
+      /**
+       * Extra sources for `frame-src` (after baseline `'self' blob:`).
+       * Use for embeds, e.g. `['https://www.youtube-nocookie.com']`.
+       */
+      additionalFrameSrc?: string[];
     };
   };
   /**
@@ -216,6 +267,7 @@ function mergeHardenedHeaders(
     const extraScript = cspOptions?.additionalScriptSrc?.join(' ') ?? '';
     const extraConnect = cspOptions?.additionalConnectSrc?.join(' ') ?? '';
     const extraImg = cspOptions?.additionalImgSrc?.join(' ') ?? '';
+    const extraFrame = cspOptions?.additionalFrameSrc?.join(' ') ?? '';
 
     const scriptSrc = dev
       ? `'self' 'nonce-${cspNonce}' 'unsafe-eval'${extraScript ? ` ${extraScript}` : ''}`
@@ -223,6 +275,8 @@ function mergeHardenedHeaders(
 
     h['content-security-policy'] =
       `default-src 'self'; ` +
+      // default-src does not allow blob: for iframes; leave worker-src unset so it falls back to script-src (CDN workers).
+      `frame-src 'self' blob:${extraFrame ? ` ${extraFrame}` : ''}; ` +
       `script-src ${scriptSrc}; ` +
       `style-src 'self' 'unsafe-inline'${extraStyle ? ` ${extraStyle}` : ''}; ` +
       `img-src 'self' data: blob:${extraImg ? ` ${extraImg}` : ''}; ` +
@@ -441,6 +495,31 @@ export async function createNexusServer(opts: NexusServerOptions) {
       return;
     }
 
+    // ── Custom mounts (GraphQL, webhooks, etc.) ──────────────────────────────
+    // Evaluated before static files so handlers can shadow public/ assets.
+    for (const mount of opts.mounts ?? []) {
+      const allowedMethods = mount.methods
+        ? mount.methods.map(m => m.toUpperCase())
+        : null; // null = allow all
+      if (allowedMethods && !allowedMethods.includes(method)) continue;
+
+      const pathname = url.pathname;
+      const matches  = pathname === mount.path || pathname.startsWith(mount.path + '/');
+      if (!matches) continue;
+
+      const request = await incomingMessageToWebRequest(req);
+      const ctx     = createContext(request, {}, cspNonce ?? '');
+      try {
+        const response = await mount.handler(request, ctx);
+        await webToNodeResponse(response, res, sec);
+      } catch (err) {
+        if (dev) console.error(`[Nexus] Mount handler error (${mount.path}):`, err);
+        res.writeHead(500, sec({ 'content-type': 'application/json' }) as Record<string, string | number>);
+        res.end(JSON.stringify({ error: 'Internal Server Error', status: 500 }));
+      }
+      return;
+    }
+
     // ── Static files ────────────────────────────────────────────────────────
     // Browsers still request /favicon.ico and /apple-touch-icon.png even when the
     // app only ships favicon.svg — avoid noisy 404s by falling back to SVG.
@@ -475,6 +554,55 @@ export async function createNexusServer(opts: NexusServerOptions) {
     // ── SSR routing ─────────────────────────────────────────────────────────
     const matched = matchRoute(url.pathname, manifest);
     if (!matched) {
+      // ── Fallback proxy to legacy backend ──────────────────────────────────
+      if (opts.fallbackProxy) {
+        try {
+          const targetUrl = new URL(url.pathname + url.search, opts.fallbackProxy);
+          
+          let body: Uint8Array | null = null;
+          if (method !== 'GET' && method !== 'HEAD') {
+            const chunks: Buffer[] = [];
+            await new Promise<void>((resolve, reject) => {
+              req.on('data', (chunk) => chunks.push(chunk));
+              req.on('end', () => resolve());
+              req.on('error', reject);
+            });
+            body = chunks.length > 0 ? new Uint8Array(Buffer.concat(chunks)) : null;
+          }
+
+          const proxyReq = await fetch(targetUrl.toString(), {
+            method,
+            headers: Object.fromEntries(
+              Object.entries(req.headers)
+                .filter(([k]) => k !== 'host') // Don't forward original Host
+                .map(([k, v]) => [k, Array.isArray(v) ? v.join(', ') : String(v ?? '')])
+            ),
+            body: body as BodyInit | null,
+          });
+
+          const proxyHeaders: Record<string, string | string[]> = {};
+          proxyReq.headers.forEach((value, key) => {
+            if (key.toLowerCase() === 'set-cookie') {
+              const existing = proxyHeaders[key];
+              if (Array.isArray(existing)) existing.push(value);
+              else if (existing) proxyHeaders[key] = [existing, value];
+              else proxyHeaders[key] = value;
+            } else {
+              proxyHeaders[key] = value;
+            }
+          });
+
+          res.writeHead(proxyReq.status, proxyHeaders);
+          res.end(Buffer.from(await proxyReq.arrayBuffer()));
+          return;
+        } catch (err) {
+          if (dev) console.error('[Nexus] Fallback proxy error:', err);
+          res.writeHead(502, sec({ 'content-type': 'text/html' }));
+          res.end('<h1>502 Bad Gateway</h1><p>Legacy backend unavailable</p>');
+          return;
+        }
+      }
+
       res.writeHead(404, sec({ 'content-type': 'text/html' }));
       res.end(notFoundPage(url.pathname, dev));
       return;

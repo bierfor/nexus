@@ -1,10 +1,39 @@
-# Optional Docker builds from repo root
-.git
-.github
-**/node_modules
-**/.nexus
-**/dist
-mongo
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build outputs
+dist/
+.nexus/
+*.tsbuildinfo
+
+# Development
+.git/
+.vscode/
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Tests
+coverage/
+*.test.ts
+*.spec.ts
+__tests__/
+
+# Documentation
+docs/
+*.md
+!README.md
+
+# Environment files (secrets should be passed at runtime)
 .env
 .env.*
 !.env.example
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# CI/CD
+.github/
+.gitlab-ci.yml

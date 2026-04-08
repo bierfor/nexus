@@ -1,0 +1,294 @@
+---
+// PayLinks - Create New Payment Link
+import { z } from 'zod';
+import QRCode from 'qrcode';
+
+export async function createLinkAction(formData, ctx) {
+  // Rate limit: 10 links per minute
+  if (!ctx.rateLimit('createLink', { max: 10, window: 60_000 })) {
+    return { error: 'Too many requests', status: 429 };
+  }
+
+  const result = z.object({
+    title: z.string().min(3).max(100),
+    description: z.string().max(500).optional(),
+    amount: z.string().refine((v) => !isNaN(parseFloat(v)) && parseFloat(v) > 0),
+    currency: z.enum(['usd', 'eur', 'gbp']),
+    slug: z.string().min(3).max(50).regex(/^[a-z0-9-]+$/),
+    maxUses: z.string().optional(),
+  }).safeParse({
+    title: formData.get('title'),
+    description: formData.get('description') || undefined,
+    amount: formData.get('amount'),
+    currency: formData.get('currency'),
+    slug: formData.get('slug'),
+    maxUses: formData.get('maxUses') || undefined,
+  });
+
+  if (!result.success) {
+    return { 
+      error: 'Validation failed', 
+      fieldErrors: result.error.flatten().fieldErrors 
+    };
+  }
+
+  const amountCents = Math.round(parseFloat(result.data.amount) * 100);
+  const maxUsesNum = result.data.maxUses ? parseInt(result.data.maxUses) : null;
+
+  // TODO: Save to DB with Prisma
+  // const link = await prisma.paymentLink.create({ data: { ... } });
+
+  // Generate QR code (data URL for demo)
+  const paymentUrl = `https://pay.example.com/${result.data.slug}`;
+  const qrDataUrl = await QRCode.toDataURL(paymentUrl, {
+    errorCorrectionLevel: 'M',
+    type: 'image/png',
+    width: 256,
+  });
+
+  // For demo, just redirect
+  return { 
+    success: true,
+    message: `Payment link "${result.data.title}" created!`,
+    redirect: '/links'
+  };
+}
+---
+
+<div class="container">
+  <div class="page-header">
+    <h1 class="page-title">Create Payment Link</h1>
+  </div>
+
+  <div class="form-container">
+    <form method="post" action="/_nexus/action/createLinkAction" class="payment-form">
+      
+      <div class="form-section">
+        <h2 class="form-section__title">Link Details</h2>
+        
+        <div class="form-group">
+          <label for="title" class="form-label">Title *</label>
+          <input 
+            type="text" 
+            id="title" 
+            name="title" 
+            class="form-input" 
+            placeholder="e.g. Premium Membership"
+            required
+            maxlength="100"
+          />
+          <p class="form-help">A descriptive name for this payment link</p>
+        </div>
+
+        <div class="form-group">
+          <label for="description" class="form-label">Description</label>
+          <textarea 
+            id="description" 
+            name="description" 
+            class="form-textarea" 
+            placeholder="Optional description for your customers"
+            maxlength="500"
+          ></textarea>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <h2 class="form-section__title">Pricing</h2>
+        
+        <div class="form-row">
+          <div class="form-group">
+            <label for="amount" class="form-label">Amount *</label>
+            <input 
+              type="number" 
+              id="amount" 
+              name="amount" 
+              class="form-input" 
+              placeholder="0.00"
+              step="0.01"
+              min="0.50"
+              required
+            />
+            <p class="form-help">Minimum $0.50</p>
+          </div>
+
+          <div class="form-group">
+            <label for="currency" class="form-label">Currency</label>
+            <select id="currency" name="currency" class="form-select">
+              <option value="usd" selected>USD ($)</option>
+              <option value="eur">EUR (€)</option>
+              <option value="gbp">GBP (£)</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <h2 class="form-section__title">Link Configuration</h2>
+        
+        <div class="form-group">
+          <label for="slug" class="form-label">URL Slug *</label>
+          <div class="form-input-group">
+            <span class="form-input-prefix">pay.example.com/</span>
+            <input 
+              type="text" 
+              id="slug" 
+              name="slug" 
+              class="form-input" 
+              placeholder="my-unique-link"
+              required
+              pattern="[a-z0-9-]+"
+              maxlength="50"
+            />
+          </div>
+          <p class="form-help">Lowercase letters, numbers, and hyphens only</p>
+        </div>
+
+        <div class="form-group">
+          <label for="maxUses" class="form-label">Max Uses</label>
+          <input 
+            type="number" 
+            id="maxUses" 
+            name="maxUses" 
+            class="form-input" 
+            placeholder="Unlimited"
+            min="1"
+          />
+          <p class="form-help">Leave empty for unlimited uses</p>
+        </div>
+      </div>
+
+      <div class="form-actions">
+        <button type="submit" class="btn btn--primary">Create Payment Link</button>
+        <a href="/links" class="btn btn--ghost">Cancel</a>
+      </div>
+    </form>
+
+    <div class="preview-card">
+      <h3 class="preview-title">QR Code Preview</h3>
+      <div class="preview-qr" id="qr-preview">
+        <p class="preview-placeholder">QR code will appear here after creation</p>
+      </div>
+      <p class="preview-help">Your customers can scan this QR code to pay instantly</p>
+    </div>
+  </div>
+</div>
+
+<style>
+  .form-container {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 2rem;
+    align-items: start;
+  }
+
+  .payment-form {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 2rem;
+  }
+
+  .form-section {
+    margin-bottom: 2rem;
+    padding-bottom: 2rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .form-section:last-of-type {
+    border-bottom: none;
+  }
+
+  .form-section__title {
+    font-size: 1.125rem;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 1.25rem;
+  }
+
+  .form-row {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 1rem;
+  }
+
+  .form-input-group {
+    display: flex;
+    align-items: center;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+
+  .form-input-prefix {
+    padding: 0.625rem 0.875rem;
+    background: var(--bg3);
+    color: var(--text2);
+    font-size: 0.9375rem;
+    border-right: 1px solid var(--border);
+  }
+
+  .form-input-group .form-input {
+    border: none;
+    flex: 1;
+  }
+
+  .form-input-group .form-input:focus {
+    box-shadow: none;
+  }
+
+  .form-actions {
+    display: flex;
+    gap: 1rem;
+    padding-top: 1rem;
+  }
+
+  .preview-card {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 1.5rem;
+    position: sticky;
+    top: 2rem;
+  }
+
+  .preview-title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 1rem;
+  }
+
+  .preview-qr {
+    background: var(--bg-elevated);
+    border: 2px dashed var(--border);
+    border-radius: var(--radius);
+    padding: 2rem;
+    text-align: center;
+    margin-bottom: 1rem;
+  }
+
+  .preview-placeholder {
+    color: var(--text3);
+    font-size: 0.875rem;
+  }
+
+  .preview-help {
+    font-size: 0.8125rem;
+    color: var(--text2);
+    text-align: center;
+  }
+
+  @media (max-width: 900px) {
+    .form-container {
+      grid-template-columns: 1fr;
+    }
+
+    .form-row {
+      grid-template-columns: 1fr;
+    }
+
+    .preview-card {
+      position: static;
+    }
+  }
+</style>

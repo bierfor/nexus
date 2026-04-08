@@ -12,3 +12,8 @@ export {
   extractActionNamesFromActionsSource,
   collectActionNamesFromOutputDir,
 } from './shield.js';
+export {
+  importToVault,
+  autoImportEnv,
+  type VaultImportOptions,
+} from './vault-import.js';

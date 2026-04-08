@@ -1,0 +1,14 @@
+---
+// PayLinks - Homepage (redirect to dashboard or login)
+export async function load(ctx) {
+  const sessionCookie = ctx.getCookie('pl_session');
+  
+  if (sessionCookie) {
+    return ctx.redirect('/dashboard');
+  }
+  
+  return ctx.redirect('/login');
+}
+---
+
+<p>Redirecting...</p>

@@ -1,12 +1,8 @@
 {
-  "name": "@nexus_js/cli",
+  "name": "@nexus_js/graphql",
   "version": "0.9.3",
-  "description": "Nexus CLI — create, develop and build Nexus applications",
+  "description": "Nexus GraphQL adapter — complexity Shield, field masking, Vault-backed JWT rotation, DataLoader, CORS-safe handler",
   "type": "module",
-  "bin": {
-    "nexus": "./dist/bin.js",
-    "create-nexus": "./dist/create.js"
-  },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
@@ -22,15 +18,14 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@nexus_js/audit": "workspace:*",
-    "@nexus_js/compiler": "workspace:*",
-    "@nexus_js/router": "workspace:*",
-    "@nexus_js/security": "workspace:*",
-    "@nexus_js/server": "workspace:*",
-    "jiti": "^2.6.1"
+    "@nexus_js/security": "workspace:*"
+  },
+  "peerDependencies": {
+    "graphql": ">=16.0.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
+    "graphql": "^16.13.2",
     "typescript": "^5.5.0",
     "vitest": "^2.0.0"
   },
@@ -39,7 +34,7 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/bierfor/nexus.git",
-    "directory": "packages/cli"
+    "directory": "packages/graphql"
   },
   "bugs": {
     "url": "https://github.com/bierfor/nexus/issues"
@@ -50,13 +45,13 @@
   },
   "keywords": [
     "nexus",
-    "framework",
-    "full-stack",
-    "svelte",
-    "islands",
-    "ssr",
-    "vite",
-    "server-actions"
+    "graphql",
+    "security",
+    "shield",
+    "complexity",
+    "jwt",
+    "vault",
+    "dataloader"
   ],
   "files": [
     "dist",

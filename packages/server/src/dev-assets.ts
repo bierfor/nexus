@@ -4,8 +4,11 @@
 
 import { compile } from '@nexus_js/compiler';
 import { existsSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { readdir, readFile, stat } from 'node:fs/promises';
-import { join, relative, resolve, normalize, sep } from 'node:path';
+import { dirname, join, relative, resolve, normalize, sep } from 'node:path';
+
+const require = createRequire(import.meta.url);
 
 const RT_PREFIX = '/_nexus/rt/';
 const LAYER_DECL = '@layer nexus.scoped, nexus.global;\n';
@@ -40,6 +43,13 @@ export function resolveRuntimeDistDir(appRoot: string): string | null {
  * Locate `@nexus_js/serialize/dist` — served to the browser at `/_nexus/rt/serialize.js`.
  */
 export function resolveSerializeDistFile(appRoot: string): string | null {
+  try {
+    const pkgJson = require.resolve('@nexus_js/serialize/package.json');
+    const fromRequire = join(dirname(pkgJson), 'dist', 'index.js');
+    if (existsSync(fromRequire)) return fromRequire;
+  } catch {
+    /* not resolvable from server package graph */
+  }
   const candidates = [
     join(appRoot, 'node_modules', '@nexus_js', 'serialize', 'dist', 'index.js'),
     join(appRoot, '..', 'node_modules', '@nexus_js', 'serialize', 'dist', 'index.js'),
