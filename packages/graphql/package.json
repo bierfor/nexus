@@ -27,7 +27,7 @@
     "@types/node": "^22.0.0",
     "graphql": "^16.13.2",
     "typescript": "^5.5.0",
-    "vitest": "^2.0.0"
+    "vitest": "^4.0.0"
   },
   "license": "MIT",
   "homepage": "https://nexusjs.dev",

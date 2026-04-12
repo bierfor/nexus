@@ -17,6 +17,12 @@ import { broker, type ConnectMessage } from './broker.js';
 const HEARTBEAT_MS  = 15_000;
 export const CONNECT_PATH = '/_nexus/connect/';
 
+export interface ConnectSseOptions {
+  cors?: {
+    allowOrigin?: string;
+  };
+}
+
 /** Extract the topic name from a /_nexus/connect/:topic URL. */
 export function topicFromUrl(url: URL): string {
   return decodeURIComponent(url.pathname.slice(CONNECT_PATH.length));
@@ -31,7 +37,7 @@ export function isConnectRequest(url: URL): boolean {
  * Creates a streaming SSE Response for the given topic.
  * The response stays open until the client disconnects (request.signal aborts).
  */
-export function handleSSERequest(request: Request, topic: string): Response {
+export function handleSSERequest(request: Request, topic: string, opts: ConnectSseOptions = {}): Response {
   const { readable, writable } = new TransformStream<Uint8Array>();
   const writer  = writable.getWriter();
   const encoder = new TextEncoder();
@@ -67,7 +73,7 @@ export function handleSSERequest(request: Request, topic: string): Response {
       'cache-control':             'no-cache, no-transform',
       'connection':                'keep-alive',
       'x-accel-buffering':         'no',
-      'access-control-allow-origin': '*',
+      'access-control-allow-origin': opts.cors?.allowOrigin ?? '*',
     },
   });
 }
@@ -80,13 +86,14 @@ export function handleSSERequestNode(
   req: { signal?: AbortSignal; on?: (event: string, fn: () => void) => void },
   res: { writeHead: (s: number, h: Record<string, string>) => void; write: (s: string) => boolean; end: () => void },
   topic: string,
+  opts: ConnectSseOptions = {},
 ): void {
   res.writeHead(200, {
     'content-type':              'text/event-stream; charset=utf-8',
     'cache-control':             'no-cache',
     'connection':                'keep-alive',
     'x-accel-buffering':         'no',
-    'access-control-allow-origin': '*',
+    'access-control-allow-origin': opts.cors?.allowOrigin ?? '*',
   });
 
   res.write(`event: connected\ndata: ${JSON.stringify({ topic, ts: Date.now() })}\n\n`);

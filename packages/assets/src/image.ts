@@ -17,6 +17,8 @@
  */
 
 import { readFile } from 'node:fs/promises';
+import { lookup } from 'node:dns/promises';
+import { isIP } from 'node:net';
 import { join, resolve, sep } from 'node:path';
 import sharp from 'sharp';
 
@@ -194,6 +196,7 @@ export function imageUrl(
 }
 
 const REMOTE_MAX_BYTES = 12 * 1024 * 1024;
+const REMOTE_MAX_REDIRECTS = 5;
 
 /** HTTP handler for the /_nexus/image endpoint */
 export async function handleImageRequest(
@@ -225,12 +228,22 @@ export async function handleImageRequest(
       if (!remoteUrl.startsWith('https://') && !remoteUrl.startsWith('http://')) {
         return new Response('Invalid URL', { status: 400 });
       }
-      const fetched = await fetchRemoteImage(remoteUrl);
+      let parsed: URL;
+      try {
+        parsed = new URL(remoteUrl);
+      } catch {
+        return new Response('Invalid URL', { status: 400 });
+      }
+      const safe = await isSafeRemoteUrl(parsed);
+      if (!safe) {
+        return new Response('URL blocked', { status: 400 });
+      }
+      const fetched = await fetchRemoteImage(parsed);
       if (!fetched) {
         return new Response('Failed to fetch image', { status: 502 });
       }
       input = fetched;
-      sourceLabel = remoteUrl;
+      sourceLabel = parsed.toString();
     } else if (src) {
       if (!options.publicDir) {
         return new Response('Local src requires publicDir (set in Nexus server / Vite plugin)', { status: 400 });
@@ -290,26 +303,112 @@ function safeResolvePublicPath(publicDir: string, src: string): string | null {
   return full;
 }
 
-async function fetchRemoteImage(remoteUrl: string): Promise<Buffer | null> {
+async function fetchRemoteImage(remoteUrl: string): Promise<Buffer | null>;
+async function fetchRemoteImage(remoteUrl: URL): Promise<Buffer | null>;
+async function fetchRemoteImage(remoteUrl: string | URL): Promise<Buffer | null> {
   const ac = new AbortController();
   const t = setTimeout(() => ac.abort(), 15_000);
   try {
-    const res = await fetch(remoteUrl, {
-      signal: ac.signal,
-      headers: { 'user-agent': 'NexusImage/1.0' },
-      redirect: 'follow',
-    });
-    if (!res.ok) return null;
-    const len = res.headers.get('content-length');
-    if (len && Number(len) > REMOTE_MAX_BYTES) return null;
-    const buf = Buffer.from(await res.arrayBuffer());
-    if (buf.length > REMOTE_MAX_BYTES) return null;
-    return buf;
+    let current = typeof remoteUrl === 'string' ? new URL(remoteUrl) : remoteUrl;
+    for (let i = 0; i <= REMOTE_MAX_REDIRECTS; i++) {
+      const res = await fetch(current.toString(), {
+        signal: ac.signal,
+        headers: {
+          'user-agent': 'NexusImage/1.0',
+          'accept': 'image/avif,image/webp,image/*,*/*;q=0.8',
+        },
+        redirect: 'manual',
+      });
+
+      if (res.status >= 300 && res.status < 400) {
+        const loc = res.headers.get('location');
+        if (!loc) return null;
+        let next: URL;
+        try {
+          next = new URL(loc, current);
+        } catch {
+          return null;
+        }
+        const safe = await isSafeRemoteUrl(next);
+        if (!safe) return null;
+        current = next;
+        continue;
+      }
+
+      if (!res.ok) return null;
+
+      const ct = (res.headers.get('content-type') ?? '').toLowerCase();
+      if (ct && !ct.startsWith('image/')) return null;
+
+      const len = res.headers.get('content-length');
+      if (len && Number(len) > REMOTE_MAX_BYTES) return null;
+      const buf = Buffer.from(await res.arrayBuffer());
+      if (buf.length > REMOTE_MAX_BYTES) return null;
+      return buf;
+    }
+    return null;
   } catch {
     return null;
   } finally {
     clearTimeout(t);
   }
+}
+
+async function isSafeRemoteUrl(u: URL): Promise<boolean> {
+  if (u.protocol !== 'http:' && u.protocol !== 'https:') return false;
+  if (u.username || u.password) return false;
+  const hostname = u.hostname;
+  if (!hostname) return false;
+
+  const lower = hostname.toLowerCase();
+  if (lower === 'localhost' || lower.endsWith('.localhost')) return false;
+
+  const ipType = isIP(hostname);
+  if (ipType) {
+    return !isPrivateIp(hostname);
+  }
+
+  try {
+    const addrs = await lookup(hostname, { all: true, verbatim: true });
+    if (!addrs.length) return false;
+    for (const a of addrs) {
+      if (isPrivateIp(a.address)) return false;
+    }
+  } catch {
+    return false;
+  }
+
+  return true;
+}
+
+function isPrivateIp(ip: string): boolean {
+  if (ip.includes(':')) {
+    const norm = ip.toLowerCase();
+    if (norm === '::' || norm === '::1') return true;
+    if (norm.startsWith('fe80:')) return true;
+    if (norm.startsWith('fc') || norm.startsWith('fd')) return true;
+    if (norm.startsWith('ff')) return true;
+    return false;
+  }
+
+  const parts = ip.split('.').map(p => Number(p));
+  if (parts.length !== 4 || parts.some(n => !Number.isInteger(n) || n < 0 || n > 255)) return true;
+
+  const a = parts[0];
+  const b = parts[1];
+  if (a === undefined) return true;
+  if (a === 0) return true;
+  if (a === 10) return true;
+  if (a === 127) return true;
+  if (a === 169 && b === 254) return true;
+  if (a === 172 && b !== undefined && b >= 16 && b <= 31) return true;
+  if (a === 172 && b !== undefined && b >= 16 && b <= 31) return true;
+  if (a === 192 && b === 168) return true;
+  if (a === 100 && b !== undefined && b >= 64 && b <= 127) return true;
+  if (a === 192 && b === 0) return true;
+  if (a === 198 && b !== undefined && (b === 18 || b === 19)) return true;
+  if (a >= 224) return true;
+  return false;
 }
 
 async function encodeWithSharp(

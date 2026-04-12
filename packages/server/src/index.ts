@@ -7,6 +7,7 @@ import { createServer, IncomingMessage, ServerResponse } from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
 import { join, extname, resolve, sep } from 'node:path';
 import { randomBytes } from 'node:crypto';
+import { Readable } from 'node:stream';
 import { buildRouteManifest, matchRoute } from '@nexus_js/router';
 import type { RouteManifest } from '@nexus_js/router';
 import { handleActionRequest } from './actions.js';
@@ -228,6 +229,12 @@ export interface NexusServerOptions {
   streamingPretext?: boolean;
   /** Merged into document import map for island `import()` resolution (from `nexus.config` `browser.importMap`). */
   browserImportMap?: Record<string, string>;
+
+  /** Nexus Connect (SSE) endpoint configuration. */
+  connect?: {
+    /** Which browser origins may subscribe to `/_nexus/connect/*`. Default: `'self'` in production, `'*'` in dev. */
+    corsOrigins?: 'self' | '*' | string[];
+  };
 }
 
 type CspOptions = NonNullable<NexusServerOptions['security']>['csp'];
@@ -344,6 +351,21 @@ export async function createNexusServer(opts: NexusServerOptions) {
     const url = new URL(req.url ?? '/', `http://${req.headers.host ?? 'localhost'}`);
     const method = req.method ?? 'GET';
 
+    if ((method === 'GET' || method === 'HEAD') && url.pathname === '/_nexus/health') {
+      const payload = {
+        ok: true,
+        ts: Date.now(),
+        buildId: nexusBuildId ?? null,
+      };
+      res.writeHead(200, sec({ 'content-type': 'application/json; charset=utf-8' }));
+      if (method === 'HEAD') {
+        res.end();
+      } else {
+        res.end(JSON.stringify(payload));
+      }
+      return;
+    }
+
     // Generate a per-request CSP nonce for HTML responses (hardened mode only).
     // Same nonce is injected into inline <script> tags and the CSP header.
     const cspNonce = hardened ? randomBytes(16).toString('base64url') : undefined;
@@ -431,6 +453,39 @@ export async function createNexusServer(opts: NexusServerOptions) {
 
     // ── Nexus Connect — SSE (/_nexus/connect/:topic) ────────────────────────
     if (method === 'GET' && isConnectRequest(url)) {
+      const origin = typeof req.headers['origin'] === 'string' ? req.headers['origin'] : undefined;
+      const host = typeof req.headers['host'] === 'string' ? req.headers['host'] : undefined;
+      const corsMode = opts.connect?.corsOrigins ?? (dev ? '*' : 'self');
+
+      let allowOrigin: string | undefined;
+
+      if (corsMode === '*') {
+        allowOrigin = '*';
+      } else if (corsMode === 'self') {
+        if (!origin) {
+          allowOrigin = '*';
+        } else {
+          try {
+            const o = new URL(origin);
+            if (host && o.host === host) {
+              allowOrigin = origin;
+            }
+          } catch {
+            allowOrigin = undefined;
+          }
+        }
+      } else if (Array.isArray(corsMode)) {
+        if (origin && corsMode.includes(origin)) {
+          allowOrigin = origin;
+        }
+      }
+
+      if (origin && !allowOrigin) {
+        res.writeHead(403, sec({ 'content-type': 'text/plain; charset=utf-8' }));
+        res.end('Forbidden');
+        return;
+      }
+
       handleSSERequestNode(req, res, topicFromUrl(url));
       return;
     }
@@ -574,7 +629,20 @@ export async function createNexusServer(opts: NexusServerOptions) {
             method,
             headers: Object.fromEntries(
               Object.entries(req.headers)
-                .filter(([k]) => k !== 'host') // Don't forward original Host
+                .filter(([k]) => {
+                  const key = k.toLowerCase();
+                  if (key === 'host') return false;
+                  if (key === 'connection') return false;
+                  if (key === 'keep-alive') return false;
+                  if (key === 'proxy-authenticate') return false;
+                  if (key === 'proxy-authorization') return false;
+                  if (key === 'te') return false;
+                  if (key === 'trailer') return false;
+                  if (key === 'transfer-encoding') return false;
+                  if (key === 'upgrade') return false;
+                  if (key === 'content-length') return false;
+                  return true;
+                })
                 .map(([k, v]) => [k, Array.isArray(v) ? v.join(', ') : String(v ?? '')])
             ),
             body: body as BodyInit | null,
@@ -593,7 +661,11 @@ export async function createNexusServer(opts: NexusServerOptions) {
           });
 
           res.writeHead(proxyReq.status, proxyHeaders);
-          res.end(Buffer.from(await proxyReq.arrayBuffer()));
+          if (proxyReq.body) {
+            Readable.fromWeb(proxyReq.body as any).pipe(res);
+          } else {
+            res.end();
+          }
           return;
         } catch (err) {
           if (dev) console.error('[Nexus] Fallback proxy error:', err);
