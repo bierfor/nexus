@@ -18,6 +18,7 @@ import { parse } from '@nexus_js/compiler';
 import { buildRouteManifest } from '@nexus_js/router';
 import type { RouteManifest } from '@nexus_js/router';
 import type { ServerAction } from '@nexus_js/compiler';
+export type { NexusContext, NexusLocals } from '@nexus_js/server';
 
 export interface GenerateTypesOptions {
   root: string;

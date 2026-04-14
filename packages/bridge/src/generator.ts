@@ -63,15 +63,16 @@ export interface GeneratedFile {
 
 export function generateAppFiles(model: CanonicalModel): GeneratedFile[] {
   const sdl = generateGraphqlSdl(model);
-  const tenantKey = model.tenancy.key?.type === 'field' ? model.tenancy.key.value : 'tenant_id';
-  const safeTenantKey = tenantKey === '__proto__' || tenantKey === 'prototype' || tenantKey === 'constructor' ? 'tenant_id' : tenantKey;
-  const secureQuery = `export const BRIDGE_TENANT_KEY = ${JSON.stringify(safeTenantKey)};\n\nexport function secureQuery<T extends { where?: Record<string, unknown> }>(ctx: { locals?: Record<string, unknown> }, query: T): T {\n  const tenantId = String((ctx.locals?.tenantId ?? (ctx.locals as any)?.tenant?.id) ?? '').trim();\n  if (!tenantId) return query;\n  const where = (query.where && typeof query.where === 'object') ? query.where : {};\n  return {\n    ...query,\n    where: {\n      ...where,\n      [BRIDGE_TENANT_KEY]: tenantId,\n    },\n  };\n}\n`;
+  const tenantKey = model.tenancy.key?.type === 'field' ? model.tenancy.key.value : 'account_id';
+  const safeTenantKey = tenantKey === '__proto__' || tenantKey === 'prototype' || tenantKey === 'constructor' ? 'account_id' : tenantKey;
+  const requireTenant = model.tenancy.mode !== 'single';
+  const helpers = `import type { NexusContext } from '@nexus_js/types';\n\nexport const TENANT_KEY = ${JSON.stringify(safeTenantKey)} as const;\n\nexport function withTenant<T extends object>(ctx: NexusContext, query: T = {} as T): T & { where: Record<typeof TENANT_KEY, string> } {\n  const tenantId = String((ctx.locals as any)?.tenantId ?? '').trim();\n  if (!tenantId) {\n    ${requireTenant ? "throw new Error('UNAUTHORIZED_ACCESS: No tenant context found in request.');" : "return query as any;"}\n  }\n  const q = query as any;\n  const where = q.where && typeof q.where === 'object' ? q.where : {};\n  return {\n    ...q,\n    where: {\n      ...where,\n      [TENANT_KEY]: tenantId,\n    },\n  } as any;\n}\n`;
   const mount = `import { createGraphQLHandler } from '@nexus_js/graphql';\nimport type { NexusContext } from '@nexus_js/server';\nimport { GraphQLSchema, GraphQLObjectType, GraphQLString, GraphQLNonNull } from 'graphql';\n\nfunction makeSchema(): GraphQLSchema {\n  return new GraphQLSchema({\n    query: new GraphQLObjectType({\n      name: 'Query',\n      fields: {\n        health: { type: new GraphQLNonNull(GraphQLString), resolve: () => 'ok' },\n      },\n    }),\n  });\n}\n\nexport function createBridgeGraphQLMount() {\n  const schema = makeSchema();\n  return createGraphQLHandler({\n    schema,\n    shield: {\n      allowIntrospection: false,\n      maxDepth: ${model.security.shieldDefaults.maxDepth},\n      maxComplexity: ${model.security.shieldDefaults.maxComplexity},\n    },\n    maxBodyBytes: ${model.security.shieldDefaults.maxBodyBytes},\n    rateLimit: { max: ${model.security.shieldDefaults.rateLimit.max}, windowMs: ${model.security.shieldDefaults.rateLimit.windowMs} },\n    context: async (_req, nexusCtx: NexusContext) => nexusCtx,\n  });\n}\n`;
   const readme = `Nexus Bridge\n\nGenerated files:\n- nexus/bridge/canonical-model.json\n- nexus/bridge/security-report.json\n- nexus/bridge/schema.graphql\n\nSecurity notes:\n- Secret fields are excluded from the generated SDL.\n- Keep Shield enabled and add masking rules for pii fields.\n`;
   return [
     { relativePath: 'nexus/bridge/schema.graphql', content: sdl },
     { relativePath: 'src/mounts/graphql.ts', content: mount },
-    { relativePath: 'src/bridge/secure-query.ts', content: secureQuery },
+    { relativePath: 'nexus/bridge/helpers.ts', content: helpers },
     { relativePath: 'nexus/bridge/README.md', content: readme },
   ];
 }

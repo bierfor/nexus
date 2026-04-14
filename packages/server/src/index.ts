@@ -51,7 +51,7 @@ export { loadAndCacheNexusBuildId, getExpectedNexusBuildId } from './build-id.js
 export { createContext } from './context.js';
 export { nexusVault } from '@nexus_js/security';
 export { resolveTenant } from './tenancy.js';
-export type { NexusContext, CookieOptions } from './context.js';
+export type { NexusContext, NexusLocals, CookieOptions } from './context.js';
 export type { TenancyConfig, TenantResolution } from './tenancy.js';
 export type { RenderResult, RenderOptions } from './renderer.js';
 export { mergeRoutePretext } from './renderer.js';

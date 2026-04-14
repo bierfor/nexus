@@ -1,6 +1,6 @@
 {
   "name": "@nexus_js/server",
-  "version": "0.9.6",
+  "version": "0.9.8",
   "description": "Nexus Node HTTP server — SSR, server actions, islands & assets (middleware lives in @nexus_js/middleware for edge runtimes)",
   "type": "module",
   "main": "./dist/index.js",

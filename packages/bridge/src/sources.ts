@@ -8,6 +8,8 @@ export interface BridgeSourceConfig {
   name: string;
   dsnEnv: string;
   schemas?: string[];
+  tenantKey?: string;
+  tenancyMode?: 'single' | 'subdomain' | 'custom-domain' | 'path' | 'header' | 'jwt';
 }
 
 export interface BridgeSourcesFile {

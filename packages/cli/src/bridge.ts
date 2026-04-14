@@ -45,6 +45,8 @@ export async function runBridge(opts: { root: string; argv: string[] }): Promise
     args: opts.argv,
     options: {
       'dsn-env': { type: 'string' },
+      'tenant-key': { type: 'string' },
+      'tenancy-mode': { type: 'string' },
       schema:    { type: 'string', multiple: true },
       port:      { type: 'string' },
     },
@@ -66,12 +68,14 @@ export async function runBridge(opts: { root: string; argv: string[] }): Promise
     }
 
     const dsnEnv = typeof values['dsn-env'] === 'string' ? values['dsn-env'] : 'BRIDGE_POSTGRES_URL';
+    const tenantKey = typeof values['tenant-key'] === 'string' ? values['tenant-key'] : undefined;
+    const tenancyMode = typeof values['tenancy-mode'] === 'string' ? values['tenancy-mode'] : undefined;
     const schemas = (values['schema'] as string[] | undefined) ?? ['public'];
     const existing = await readBridgeSources(sourcesPath);
     const next: BridgeSourcesFile = existing ?? { version: 1, sources: [] };
     const name = `postgres:${schemas.join(',')}`;
     next.sources = next.sources.filter((s: BridgeSourceConfig) => !(s.kind === 'postgres' && s.name === name));
-    next.sources.push({ kind: 'postgres', name, dsnEnv, schemas });
+    next.sources.push({ kind: 'postgres', name, dsnEnv, schemas, ...(tenantKey ? ({ tenantKey } as any) : {}), ...(tenancyMode ? ({ tenancyMode } as any) : {}) });
     await writeBridgeSources(sourcesPath, next);
     return;
   }
@@ -93,6 +97,29 @@ export async function runBridge(opts: { root: string; argv: string[] }): Promise
     }
 
     const model = await discoverPostgres(dsn, { schemas: pg.schemas ?? ['public'], name: pg.name });
+    const pgTenantKey = (pg as any).tenantKey as string | undefined;
+    const pgTenancyMode = (pg as any).tenancyMode as string | undefined;
+    if (pgTenantKey) {
+      model.tenancy = {
+        ...model.tenancy,
+        mode: model.tenancy.mode === 'single' ? ((pgTenancyMode as any) ?? 'subdomain') : ((pgTenancyMode as any) ?? model.tenancy.mode),
+        key: { type: 'field', value: pgTenantKey },
+      };
+      const found = model.entities.some(e => e.fields.some(f => f.name === pgTenantKey));
+      if (!found) {
+        model.security.findings.push({
+          code: 'TENANT_KEY_NOT_FOUND',
+          severity: 'block',
+          message: `Configured tenantKey "${pgTenantKey}" was not found in discovered schema.`,
+        });
+      } else {
+        for (const e of model.entities) {
+          for (const f of e.fields) {
+            if (f.name === pgTenantKey) f.tenantKey = true;
+          }
+        }
+      }
+    }
     await mkdir(bridgeDir(opts.root), { recursive: true });
     await writeJson(modelPath, model);
     await writeJson(reportPath, buildSecurityReport(model));

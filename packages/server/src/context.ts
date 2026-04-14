@@ -5,12 +5,18 @@
 
 import { getVaultSecretsMap } from '@nexus_js/security';
 
+export interface NexusLocals {
+  tenantId?: string;
+  tenant?: unknown;
+  [key: string]: unknown;
+}
+
 export interface NexusContext {
   request: Request;
   params: Record<string, string>;
   url: URL;
   headers: Headers;
-  locals: Record<string, unknown>;
+  locals: NexusLocals;
   /**
    * Vault-lite: merged `process.env` at boot plus hot patches (Studio / dev endpoint).
    * Use `ctx.secrets.get('STRIPE_KEY')` instead of `process.env` when you need live rotation.

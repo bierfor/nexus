@@ -1,6 +1,6 @@
 {
   "name": "@nexus_js/types",
-  "version": "0.9.6",
+  "version": "0.9.8",
   "description": "Nexus type generator — auto-generates nexus-types.d.ts for end-to-end type safety",
   "type": "module",
   "main": "./dist/index.js",
@@ -18,7 +18,8 @@
   },
   "dependencies": {
     "@nexus_js/compiler": "workspace:*",
-    "@nexus_js/router": "workspace:*"
+    "@nexus_js/router": "workspace:*",
+    "@nexus_js/server": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
