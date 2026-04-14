@@ -80,11 +80,48 @@ importers:
         specifier: ^5.5.0
         version: 5.9.3
 
+  packages/bridge:
+    devDependencies:
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.19.17
+      typescript:
+        specifier: ^5.5.0
+        version: 5.9.3
+      vitest:
+        specifier: ^4.0.0
+        version: 4.1.4(@types/node@22.19.17)(vite@6.4.2(@types/node@22.19.17)(jiti@2.6.1))
+
+  packages/bridge-postgres:
+    dependencies:
+      '@nexus_js/bridge':
+        specifier: workspace:*
+        version: link:../bridge
+      postgres:
+        specifier: ^3.4.5
+        version: 3.4.9
+    devDependencies:
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.19.17
+      typescript:
+        specifier: ^5.5.0
+        version: 5.9.3
+      vitest:
+        specifier: ^4.0.0
+        version: 4.1.4(@types/node@22.19.17)(vite@6.4.2(@types/node@22.19.17)(jiti@2.6.1))
+
   packages/cli:
     dependencies:
       '@nexus_js/audit':
         specifier: workspace:*
         version: link:../audit
+      '@nexus_js/bridge':
+        specifier: workspace:*
+        version: link:../bridge
+      '@nexus_js/bridge-postgres':
+        specifier: workspace:*
+        version: link:../bridge-postgres
       '@nexus_js/compiler':
         specifier: workspace:*
         version: link:../compiler
@@ -139,7 +176,7 @@ importers:
   packages/create-nexus:
     dependencies:
       '@nexus_js/cli':
-        specifier: ^0.9.2
+        specifier: ^0.9.5
         version: link:../cli
 
   packages/db:
@@ -199,13 +236,13 @@ importers:
   packages/nexus-js:
     dependencies:
       '@nexus_js/cli':
-        specifier: ^0.9.2
+        specifier: ^0.9.5
         version: link:../cli
 
   packages/nexus_js:
     dependencies:
       '@nexus_js/cli':
-        specifier: ^0.9.2
+        specifier: ^0.9.5
         version: link:../cli
 
   packages/router:
@@ -1050,6 +1087,10 @@ packages:
     resolution: {integrity: sha512-OW/rX8O/jXnm82Ey1k44pObPtdblfiuWnrd8X7GJ7emImCOstunGbXUpp7HdBrFQX6rJzn3sPT397Wp5aCwCHg==}
     engines: {node: ^10 || ^12 || >=14}
 
+  postgres@3.4.9:
+    resolution: {integrity: sha512-GD3qdB0x1z9xgFI6cdRD6xu2Sp2WCOEoe3mtnyB5Ee0XrrL5Pe+e4CCnJrRMnL1zYtRDZmQQVbvOttLnKDLnaw==}
+    engines: {node: '>=12'}
+
   prisma@5.22.0:
     resolution: {integrity: sha512-vtpjW3XuYCSnMsNVBjLMNkTj6OZbudcPPTPYHqX0CJfpcdWciI1dM8uHETwmDxxiqEwCIE6WvXucWUetJgfu/A==}
     engines: {node: '>=16.13'}
@@ -1781,6 +1822,8 @@ snapshots:
       nanoid: 3.3.11
       picocolors: 1.1.1
       source-map-js: 1.2.1
+
+  postgres@3.4.9: {}
 
   prisma@5.22.0:
     dependencies:

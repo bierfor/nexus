@@ -1,6 +1,6 @@
 {
   "name": "@nexus_js/connect",
-  "version": "0.9.4",
+  "version": "0.9.5",
   "description": "Nexus Connect — Edge-State Sync via SSE. $socket() rune for real-time state across all connected clients.",
   "type": "module",
   "main": "./dist/index.js",

@@ -1,6 +1,6 @@
 {
   "name": "@nexus_js/cli",
-  "version": "0.9.4",
+  "version": "0.9.5",
   "description": "Nexus CLI — create, develop and build Nexus applications",
   "type": "module",
   "bin": {
@@ -23,6 +23,8 @@
   },
   "dependencies": {
     "@nexus_js/audit": "workspace:*",
+    "@nexus_js/bridge": "workspace:*",
+    "@nexus_js/bridge-postgres": "workspace:*",
     "@nexus_js/compiler": "workspace:*",
     "@nexus_js/router": "workspace:*",
     "@nexus_js/security": "workspace:*",

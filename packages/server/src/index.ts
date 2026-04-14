@@ -10,6 +10,7 @@ import { randomBytes } from 'node:crypto';
 import { Readable } from 'node:stream';
 import { buildRouteManifest, matchRoute } from '@nexus_js/router';
 import type { RouteManifest } from '@nexus_js/router';
+import { extractTenant, type TenantConfig, type TenantInfo } from '@nexus_js/router';
 import { handleActionRequest } from './actions.js';
 import { handleSSERequestNode, isConnectRequest, topicFromUrl } from '@nexus_js/connect';
 import {
@@ -27,7 +28,7 @@ import { handleNavigationRequest } from './navigate.js';
 import { bumpDevReloadGeneration, preloadRegisteredServerActions } from './load-module.js';
 import { createContext, RedirectSignal, NotFoundSignal } from './context.js';
 import type { RenderOptions } from './renderer.js';
-import { nexusVault } from '@nexus_js/security';
+import { nexusVault, getTenantVaultSecretsMap } from '@nexus_js/security';
 import { handleDevVaultPost } from './dev-vault.js';
 import {
   refreshShieldAllowlist,
@@ -234,6 +235,13 @@ export interface NexusServerOptions {
   connect?: {
     /** Which browser origins may subscribe to `/_nexus/connect/*`. Default: `'self'` in production, `'*'` in dev. */
     corsOrigins?: 'self' | '*' | string[];
+  };
+
+  tenancy?: {
+    mode: 'disabled' | 'subdomain' | 'custom-domain' | 'path';
+    baseDomain?: string;
+    pathPrefix?: string;
+    vaultIsolation?: 'strict' | 'fallback';
   };
 }
 
@@ -681,7 +689,26 @@ export async function createNexusServer(opts: NexusServerOptions) {
     }
 
     const request = nodeToWebRequest(req);
+    let tenant: TenantInfo | null = null;
+    const tenancyCfg = opts.tenancy;
+    if (tenancyCfg && tenancyCfg.mode !== 'disabled') {
+      const cfg: TenantConfig = {
+        mode: tenancyCfg.mode,
+        ...(tenancyCfg.baseDomain ? { baseDomain: tenancyCfg.baseDomain } : {}),
+        ...(tenancyCfg.pathPrefix ? { pathPrefix: tenancyCfg.pathPrefix } : {}),
+      };
+      try {
+        tenant = await extractTenant(request, cfg);
+      } catch {
+        tenant = null;
+      }
+    }
     const ctx = createContext(request, matched.params, cspNonce ?? '');
+    if (tenant) {
+      ctx.locals['tenant'] = tenant;
+      ctx.locals['tenantId'] = tenant.id;
+      ctx.secrets = getTenantVaultSecretsMap(tenant.id, tenancyCfg?.vaultIsolation ?? 'strict');
+    }
 
     try {
       if (opts.streamingPretext === true && method === 'GET') {

@@ -32,6 +32,7 @@ function getTime(): string {
     check     Type-check and lint your Nexus app
     audit     Security audit (CVEs, supply chain, CSRF, XSS, secrets, headers)
     fix       Auto-update vulnerable dependencies to patched versions
+    bridge    Legacy discovery + canonical model + secure generators
     routes    Print the route manifest
 
   ${c.bold}Options:${c.reset}
@@ -119,6 +120,11 @@ async function main(): Promise<void> {
         port: typeof portVal === 'string' ? parseInt(portVal, 10) : STUDIO_DEFAULT_PORT,
       });
       break;
+    case 'bridge': {
+      const { runBridge } = await import('./bridge.js');
+      await runBridge({ root, argv: process.argv.slice(3) });
+      break;
+    }
     case 'routes':
       await printRoutes({ root });
       break;

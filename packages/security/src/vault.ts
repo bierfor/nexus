@@ -91,3 +91,24 @@ export const nexusVault = new NexusVault();
 export function getVaultSecretsMap(): ReadonlyMap<string, string> {
   return nexusVault.snapshot();
 }
+
+export function getTenantVaultSecretsMap(
+  tenantId: string,
+  mode: 'strict' | 'fallback' = 'strict',
+): ReadonlyMap<string, string> {
+  const snap = nexusVault.snapshot();
+  const prefix = `TENANT/${tenantId}/`;
+  const out = new Map<string, string>();
+  for (const [k, v] of snap) {
+    if (k.startsWith(prefix)) {
+      out.set(k.slice(prefix.length), v);
+    }
+  }
+  if (mode === 'fallback') {
+    for (const [k, v] of snap) {
+      if (k.startsWith('TENANT/')) continue;
+      if (!out.has(k)) out.set(k, v);
+    }
+  }
+  return out;
+}

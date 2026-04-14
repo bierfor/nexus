@@ -2,6 +2,7 @@ export {
   NexusVault,
   nexusVault,
   getVaultSecretsMap,
+  getTenantVaultSecretsMap,
   type VaultListener,
 } from './vault.js';
 export {
