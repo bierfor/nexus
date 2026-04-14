@@ -2,7 +2,9 @@ export {
   NexusVault,
   nexusVault,
   getVaultSecretsMap,
+  getGlobalVaultSecretsMap,
   getTenantVaultSecretsMap,
+  getEncryptedVaultSecretsMap,
   type VaultListener,
 } from './vault.js';
 export {

@@ -176,7 +176,7 @@ importers:
   packages/create-nexus:
     dependencies:
       '@nexus_js/cli':
-        specifier: ^0.9.5
+        specifier: ^0.9.6
         version: link:../cli
 
   packages/db:
@@ -236,13 +236,13 @@ importers:
   packages/nexus-js:
     dependencies:
       '@nexus_js/cli':
-        specifier: ^0.9.5
+        specifier: ^0.9.6
         version: link:../cli
 
   packages/nexus_js:
     dependencies:
       '@nexus_js/cli':
-        specifier: ^0.9.5
+        specifier: ^0.9.6
         version: link:../cli
 
   packages/router:

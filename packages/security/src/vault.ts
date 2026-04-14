@@ -89,7 +89,26 @@ export class NexusVault {
 export const nexusVault = new NexusVault();
 
 export function getVaultSecretsMap(): ReadonlyMap<string, string> {
-  return nexusVault.snapshot();
+  return getGlobalVaultSecretsMap('fallback');
+}
+
+export function getGlobalVaultSecretsMap(mode: 'strict' | 'fallback' = 'fallback'): ReadonlyMap<string, string> {
+  const snap = nexusVault.snapshot();
+  const out = new Map<string, string>();
+  for (const [k, v] of snap) {
+    if (k.startsWith('GLOBAL/')) {
+      out.set(k.slice('GLOBAL/'.length), v);
+    }
+  }
+  if (mode === 'fallback') {
+    for (const [k, v] of snap) {
+      if (k.startsWith('TENANT/')) continue;
+      if (k.startsWith('GLOBAL/')) continue;
+      if (k.startsWith('ENCRYPTED/')) continue;
+      if (!out.has(k)) out.set(k, v);
+    }
+  }
+  return out;
 }
 
 export function getTenantVaultSecretsMap(
@@ -105,9 +124,20 @@ export function getTenantVaultSecretsMap(
     }
   }
   if (mode === 'fallback') {
-    for (const [k, v] of snap) {
-      if (k.startsWith('TENANT/')) continue;
+    const global = getGlobalVaultSecretsMap('fallback');
+    for (const [k, v] of global) {
       if (!out.has(k)) out.set(k, v);
+    }
+  }
+  return out;
+}
+
+export function getEncryptedVaultSecretsMap(): ReadonlyMap<string, string> {
+  const snap = nexusVault.snapshot();
+  const out = new Map<string, string>();
+  for (const [k, v] of snap) {
+    if (k.startsWith('ENCRYPTED/')) {
+      out.set(k.slice('ENCRYPTED/'.length), v);
     }
   }
   return out;
