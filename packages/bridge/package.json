@@ -1,6 +1,6 @@
 {
   "name": "@nexus_js/bridge",
-  "version": "0.9.5",
+  "version": "0.9.6",
   "description": "Nexus Bridge — legacy discovery (DB/API), canonical model, secure generators (GraphQL + Shield)",
   "type": "module",
   "main": "./dist/index.js",

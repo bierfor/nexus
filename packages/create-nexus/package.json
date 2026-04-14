@@ -1,6 +1,6 @@
 {
   "name": "@nexus_js/create-nexus",
-  "version": "0.9.5",
+  "version": "0.9.6",
   "description": "Create a new Nexus app — npm create @nexus_js/nexus (scoped; avoids unscoped name conflicts on npm)",
   "type": "module",
   "bin": {
@@ -11,7 +11,7 @@
     "clean": "node -e \"process.exit(0)\""
   },
   "dependencies": {
-    "@nexus_js/cli": "^0.9.5"
+    "@nexus_js/cli": "^0.9.6"
   },
   "license": "MIT",
   "homepage": "https://nexusjs.dev",

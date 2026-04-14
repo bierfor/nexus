@@ -1,6 +1,6 @@
 {
   "name": "@nexus_js/audit",
-  "version": "0.9.5",
+  "version": "0.9.6",
   "description": "Nexus Dependency Auditor — OSV CVE scanning, offline cache, supply chain risk analysis, and build-time blocking",
   "type": "module",
   "main": "./dist/index.js",
