@@ -382,7 +382,7 @@ async function runBuild(opts: { root: string }): Promise<void> {
   const { loadAppConfig } = await import('./load-app-config.js');
   const cfg = loadAppConfig(opts.root);
 
-  const { compile, compileLib } = await import('@nexus_js/compiler');
+  const { compile, compileLib, bundleIslandLib, applyLibManifestToClientCode } = await import('@nexus_js/compiler');
   const { buildRouteManifest } = await import('@nexus_js/router');
   const { readFile, writeFile, mkdir } = await import('node:fs/promises');
   const { join } = await import('node:path');
@@ -425,6 +425,8 @@ async function runBuild(opts: { root: string }): Promise<void> {
   const islandSecurityFindings: { file: string; message: string }[] = [];
 
   let compiled = 0;
+  const islandClientFiles: { code: string; path: string }[] = [];
+
   for (const route of manifest.routes) {
     const source = await readFile(route.filepath, 'utf-8');
     const result = compile(source, route.filepath, {
@@ -454,7 +456,9 @@ async function runBuild(opts: { root: string }): Promise<void> {
     await writeFile(outPath, result.serverCode, 'utf-8');
 
     if (result.clientCode) {
-      await writeFile(outPath.replace('.js', '.client.js'), result.clientCode, 'utf-8');
+      const clientPath = outPath.replace('.js', '.client.js');
+      await writeFile(clientPath, result.clientCode, 'utf-8');
+      islandClientFiles.push({ code: result.clientCode, path: clientPath });
     }
 
     if (result.actionsModule) {
@@ -465,6 +469,20 @@ async function runBuild(opts: { root: string }): Promise<void> {
     }
 
     compiled++;
+  }
+
+  // Bundle $lib dependencies imported by island client scripts into .nexus/output/lib/.
+  const libBundle = await bundleIslandLib(opts.root, outDir, islandClientFiles.map(f => f.code));
+  if (libBundle.files > 0) {
+    console.log(`  ${c.green}✔${c.reset}  Bundled ${c.bold}${libBundle.files} lib file(s)${c.reset}  ${c.dim}→ .nexus/output/lib/${c.reset}`);
+
+    // Rewrite /_nexus/lib/*.js URLs in .client.js files to include content hashes.
+    if (libBundle.manifest.size > 0) {
+      await Promise.all(islandClientFiles.map(async ({ code, path }) => {
+        const rewritten = applyLibManifestToClientCode(code, libBundle.manifest);
+        if (rewritten !== code) await writeFile(path, rewritten, 'utf-8');
+      }));
+    }
   }
 
   if (failOnIslandSecurity && islandSecurityFindings.length > 0) {

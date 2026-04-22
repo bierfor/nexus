@@ -17,6 +17,7 @@ import {
   bustAggregatedStylesCache,
   compileIslandClientBundle,
   isIslandClientRequest,
+  tryServeLibAsset,
   tryServeRuntimeAsset,
 } from './dev-assets.js';
 import { devErrorHtmlPage } from './dev-error-html.js';
@@ -502,6 +503,22 @@ export async function createNexusServer(opts: NexusServerOptions) {
     if (rt) {
       res.writeHead(200, { 'content-type': rt.contentType });
       res.end(rt.body);
+      return;
+    }
+
+    // ── $lib assets (/_nexus/lib/…) — served from src/lib/ or .nexus/lib/ ──
+    if (url.pathname.startsWith('/_nexus/lib/') && method === 'GET') {
+      const lib = await tryServeLibAsset(url.pathname, opts.root);
+      if (lib) {
+        res.writeHead(200, {
+          'content-type': lib.contentType,
+          'cache-control': 'no-store',
+        });
+        res.end(lib.body);
+        return;
+      }
+      res.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' });
+      res.end(`[Nexus] lib asset not found: ${url.pathname}`);
       return;
     }
 

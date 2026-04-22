@@ -18,6 +18,7 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
+    "esbuild": "^0.25.0",
     "magic-string": "^0.30.0",
     "typescript": "^5.5.0"
   },
