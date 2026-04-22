@@ -104,6 +104,16 @@ interface LibUsage {
   hasNamespace: boolean;
 }
 
+/**
+ * `import` … `from '…$lib…'` in generated island code must be resolved **per
+ * import statement**. A single regex like
+ * `import([\\s\\S]*?)from '…lib…'` can span from the *first* `import` on the
+ * file to the *last* `from` before `/_nexus/lib/`, accidentally swallowing
+ * the island runtime import (`import { createIsland, … } from
+ * '/_nexus/rt/island.js'`) and attributing `createIsland` to `auth-client.js`.
+ * We anchor each $lib `from` to the nearest preceding statement and take only
+ * the binding that belongs to a real `import` (not `export … from`).
+ */
 function collectLibUsage(codes: string[], nexusLibDir: string): Map<string, LibUsage> {
   const result = new Map<string, LibUsage>();
 
@@ -116,27 +126,16 @@ function collectLibUsage(codes: string[], nexusLibDir: string): Map<string, LibU
     return u;
   }
 
-  for (const code of codes) {
-    const specRe = /\bimport\b([\s\S]*?)\bfrom\s*['"](\/_nexus\/lib\/[^'"]+)['"]/gu;
-    let m: RegExpExecArray | null;
-    while ((m = specRe.exec(code)) !== null) {
-      const clause = (m[1] ?? '').trim();
-      const spec = m[2];
-      if (!spec) continue;
-      if (/^type\s/.test(clause)) continue;
+  function addClauseToUsage(usage: LibUsage, clause: string): void {
+    if (clause.includes('*')) {
+      usage.hasNamespace = true;
+      return;
+    }
 
-      const rel      = spec.slice(LIB_URL_PREFIX.length);
-      const resolved = resolveInNexusLib(nexusLibDir, rel);
-      if (!resolved) continue;
-      const canon = canonicalRel(nexusLibDir, resolved);
-      const usage = getOrCreate(canon);
-
-      if (clause.includes('*')) { usage.hasNamespace = true; continue; }
-
-      const braceMatch = /\{([^}]*)\}/.exec(clause);
-      if (braceMatch) {
-        const body = braceMatch[1];
-        if (!body) continue;
+    const braceMatch = /\{([^}]*)\}/.exec(clause);
+    if (braceMatch) {
+      const body = braceMatch[1];
+      if (body) {
         for (const part of body.split(',')) {
           const trimmed = part.trim();
           if (!trimmed || trimmed.startsWith('type ')) continue;
@@ -145,9 +144,46 @@ function collectLibUsage(codes: string[], nexusLibDir: string): Map<string, LibU
           if (name && /^[a-zA-Z_$]/.test(name)) usage.named.add(name);
         }
       }
+    }
 
-      const beforeBrace = clause.replace(/\{[^}]*\}/u, '').trim();
-      if (beforeBrace && /^[a-zA-Z_$][\w$]*$/.test(beforeBrace)) usage.hasDefault = true;
+    const beforeBrace = clause.replace(/\{[^}]*\}/u, '').trim();
+    if (beforeBrace && /^[a-zA-Z_$][\w$]*$/.test(beforeBrace)) usage.hasDefault = true;
+  }
+
+  for (const code of codes) {
+    // Every `from` that loads `/_nexus/lib/…` (string may be in static import or
+    // re-export — we only keep real `import` statements for island client code).
+    const fromRe = /from\s*['"]\/_nexus\/lib\/[^'"]+['"]/g;
+    let m: RegExpExecArray | null;
+    while ((m = fromRe.exec(code)) !== null) {
+      const fromIdx = m.index;
+      const mUrl    = m[0].match(/['"](\/_nexus\/lib\/[^'"]+)['"]/u);
+      const spec    = mUrl?.[1];
+      if (!spec) continue;
+
+      const semi  = code.lastIndexOf(';', fromIdx);
+      const stmt0 = semi < 0 ? 0 : semi + 1;
+      const preFrom = code.slice(stmt0, fromIdx);
+      if (!/^\s*import\b/.test(preFrom)) continue;
+      if (/^\s*import\s+type\s+/.test(preFrom)) continue;
+
+      const im = /^\s*import\s+([\s\S]+?)\s*$/m.exec(preFrom);
+      if (!im) continue;
+      const clause = im[1] ?? '';
+      // Another `import` or ` from '` inside the binding = straddled a prior
+      // `import … from '…'`, e.g. island runtime + $lib in one bogus span.
+      if (/\bimport\s/.test(clause)) continue;
+      if (/\bfrom\s*['"]/.test(clause)) continue;
+      if (clause.includes(';')) continue;
+
+      if (/^type\s/.test(clause.trim())) continue;
+
+      const rel      = spec.slice(LIB_URL_PREFIX.length);
+      const resolved = resolveInNexusLib(nexusLibDir, rel);
+      if (!resolved) continue;
+      const canon = canonicalRel(nexusLibDir, resolved);
+      const usage = getOrCreate(canon);
+      addClauseToUsage(usage, clause);
     }
   }
 

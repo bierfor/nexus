@@ -67,4 +67,21 @@ describe('bundleIslandLib (integration)', () => {
     expect(text).toContain(`/_nexus/lib/${depHashed ?? ''}`);
     expect(text).not.toMatch(/['"]\/_nexus\/lib\/dep\.js['"]/);
   });
+
+  it('does not attribute /_nexus/rt/island.js bindings to a $lib file (0.9.11 collectLibUsage)', async () => {
+    const nexusLib = join(root, '.nexus', 'lib');
+    const outDir   = join(root, '.nexus', 'output');
+    await mkdir(nexusLib, { recursive: true });
+    await writeFile(
+      join(nexusLib, 'auth-client.js'),
+      'export const AUTH_KEY = 1; export const readStoredAuth = () => null; export const AUTH_CHANGED = "e";\n',
+      'utf-8',
+    );
+    const island = `import { createIsland, $state, $derived, $effect, $pretext } from '/_nexus/rt/island.js';
+import { readStoredAuth, AUTH_KEY } from '/_nexus/lib/auth-client.js';
+export function mount() { return 0; }
+`;
+    const { files } = await bundleIslandLib(root, outDir, [island]);
+    expect(files).toBe(1);
+  });
 });
