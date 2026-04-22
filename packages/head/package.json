@@ -1,6 +1,6 @@
 {
   "name": "@nexus_js/head",
-  "version": "0.9.10",
+  "version": "0.9.11",
   "description": "Nexus Head — reactive SEO metadata manager for Islands Architecture",
   "type": "module",
   "main": "./dist/index.js",

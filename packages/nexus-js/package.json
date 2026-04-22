@@ -1,6 +1,6 @@
 {
   "name": "nexus-js",
-  "version": "0.9.10",
+  "version": "0.9.11",
   "description": "Nexus framework — install once, get the nexus & create-nexus CLIs (wraps @nexus_js/cli). Same as nexus_js; use whichever name you prefer on npm.",
   "type": "module",
   "bin": {
@@ -12,7 +12,7 @@
     "clean": "node -e \"process.exit(0)\""
   },
   "dependencies": {
-    "@nexus_js/cli": "^0.9.10"
+    "@nexus_js/cli": "^0.9.11"
   },
   "license": "MIT",
   "homepage": "https://nexusjs.dev",

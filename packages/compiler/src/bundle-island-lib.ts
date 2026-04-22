@@ -12,8 +12,9 @@
  * ────────────────────────────
  * 1. compile() produces island codes with plain `/_nexus/lib/utils/date.js` URLs.
  * 2. bundleIslandLib() hashes every lib file → returns manifest.
- * 3. applyLibManifestToClientCode() rewrites the already-compiled island codes
- *    and overwrites the .client.js files on disk.
+ * 3. applyLibManifestToClientCode() rewrites `/_nexus/lib/…` specifiers in route
+ *    `.client.js` files and in the emitted `output/lib/*.js` bundles (cross-chunk
+ *    imports must use the same content-hashed filenames as the manifest).
  *
  * Tree-shaking strategy
  * ─────────────────────
@@ -24,8 +25,8 @@
 
 import { createHash } from 'node:crypto';
 import { statSync } from 'node:fs';
-import { mkdir, writeFile } from 'node:fs/promises';
-import { basename, dirname, join, normalize, relative } from 'node:path';
+import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
+import { basename, dirname, join, normalize, relative, resolve as pathResolve } from 'node:path';
 
 const LIB_URL_PREFIX = '/_nexus/lib/';
 
@@ -153,6 +154,108 @@ function collectLibUsage(codes: string[], nexusLibDir: string): Map<string, LibU
   return result;
 }
 
+/**
+ * BFS: island code only lists direct $lib imports; .nexus/lib files can import
+ * other lib modules ($lib/… or relative).  Those modules must be included in
+ * the esbuild list (and built with a permissive re-export) or chunk graphs break.
+ */
+/** `foo.abcd1234.js` -> `foo.js` (content-hashed nexus lib names). */
+function stripNexusLibContentHashInPath(rel: string): string {
+  return rel
+    .replace(/\.[a-f0-9]{8}\.js$/iu, '.js')
+    .replace(/\.(ts|tsx|mts)$/u, '.js');
+}
+
+function nexusUrlImportToRelative(spec: string): string | null {
+  if (spec.startsWith(LIB_URL_PREFIX)) {
+    return stripNexusLibContentHashInPath(spec.slice(LIB_URL_PREFIX.length));
+  }
+  return null;
+}
+
+function extractLocalLibSpecifiersFromSource(source: string): string[] {
+  const out: string[] = [];
+  const reFrom = /\bfrom\s*['"]((?:\$lib\/[^'"]+)|(?:\.\.?\/?[^'"]*))['"]/gu;
+  const reExp  = /export\s*(?:\*\s*|\{[^}]*\})\s*from\s*['"]((?:\$lib\/[^'"]+)|(?:\.\.?\/?[^'"]*))['"]/gu;
+  const reDyn  = /\bimport\s*\(\s*['"]((?:\$lib\/[^'"]+)|(?:\.\.?\/?[^'"]*))['"]\s*\)/gu;
+  const reNex  = /['"]((\/_nexus\/lib\/[^'"]+))['"]/gu; // from / import() / import "" / export … from
+  for (const re of [reFrom, reExp, reDyn, reNex]) {
+    re.lastIndex = 0;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(source)) !== null) {
+      const s = m[1];
+      if (s) {
+        if (s.startsWith(LIB_URL_PREFIX)) {
+          out.push(nexusUrlImportToRelative(s) ?? s);
+        } else {
+          out.push(s);
+        }
+      }
+    }
+  }
+  return [...new Set(out)];
+}
+
+function specToCanonicalKey(
+  nexusLibDir: string,
+  fromDir: string,
+  spec: string,
+): string | null {
+  if (spec.startsWith('$lib/')) {
+    const abs = resolveInNexusLib(nexusLibDir, spec.slice(5));
+    return abs ? canonicalRel(nexusLibDir, abs) : null;
+  }
+  if (spec.startsWith('.')) {
+    const abs = pathResolve(fromDir, spec);
+    const n   = relative(nexusLibDir, abs);
+    if (n.startsWith('..') || n === '') return null;
+    const nSlash   = n.replace(/\\/g, '/');
+    const absProbe = resolveInNexusLib(nexusLibDir, nSlash) ?? resolveInNexusLib(nexusLibDir, nSlash.replace(/\.(ts|tsx|mts|js|mjs)$/u, ''));
+    return absProbe ? canonicalRel(nexusLibDir, absProbe) : null;
+  }
+  if (spec.startsWith(LIB_URL_PREFIX)) {
+    const rel = nexusUrlImportToRelative(spec);
+    if (!rel) return null;
+    const abs = resolveInNexusLib(nexusLibDir, rel);
+    return abs ? canonicalRel(nexusLibDir, abs) : null;
+  }
+  // Strips from `from '/_nexus/lib/foo.js'`, e.g. `auth/client.js`
+  {
+    const abs = resolveInNexusLib(nexusLibDir, spec);
+    return abs ? canonicalRel(nexusLibDir, abs) : null;
+  }
+}
+
+async function expandLibUsageWithTransitiveDeps(
+  nexusLibDir: string,
+  initial: ReadonlyMap<string, LibUsage>,
+): Promise<Map<string, LibUsage>> {
+  const out   = new Map<string, LibUsage>(initial);
+  const queue = [...out.keys()];
+
+  while (queue.length > 0) {
+    const canon = queue.shift()!;
+    const abs   = resolveInNexusLib(nexusLibDir, canon);
+    if (!abs) continue;
+    let source: string;
+    try {
+      source = await readFile(abs, 'utf-8');
+    } catch {
+      continue;
+    }
+    const fromDir = dirname(abs);
+    for (const spec of extractLocalLibSpecifiersFromSource(source)) {
+      const key = specToCanonicalKey(nexusLibDir, fromDir, spec);
+      if (!key) continue;
+      if (out.has(key)) continue;
+      out.set(key, { named: new Set(), hasDefault: false, hasNamespace: true });
+      queue.push(key);
+    }
+  }
+
+  return out;
+}
+
 function buildSyntheticEntry(actualFile: string, usage: LibUsage): string | null {
   const path = JSON.stringify(actualFile);
   if (usage.hasNamespace) {
@@ -169,24 +272,78 @@ function buildSyntheticEntry(actualFile: string, usage: LibUsage): string | null
 // ─── Post-processing helper ───────────────────────────────────────────────────
 
 /**
- * Rewrite `/_nexus/lib/X.js` → `/_nexus/lib/X.<hash>.js` in already-compiled
- * island client code using the manifest returned by `bundleIslandLib`.
- *
- * Called in the build pipeline after `bundleIslandLib` completes, to update
- * the `.client.js` files that were written before the manifest was available.
+ * Rewrite `/_nexus/lib/X.js` → `/_nexus/lib/X.<hash>.js` using the manifest
+ * from `bundleIslandLib`.  Covers `from`, `import()`, and side-effect `import ""`.
+ * Used for route `.client.js` and for the emitted `output/lib/*.js` chunks so
+ * cross-chunk /_nexus/lib URLs match hashed filenames.
  */
 export function applyLibManifestToClientCode(
   code: string,
   manifest: ReadonlyMap<string, string>,
 ): string {
   if (manifest.size === 0) return code;
-  return code.replace(/from\s*['"](\/_nexus\/lib\/[^'"]+)['"]/gu, (full, spec: string) => {
+
+  const toHashed = (spec: string): string | null => {
+    if (!spec.startsWith(LIB_URL_PREFIX)) return null;
     const rel   = spec.slice(LIB_URL_PREFIX.length);
-    // Normalise: the specifier may carry .ts extension (from rewriteDollarLibImportsForClient).
     const jsRel = rel.replace(/\.(ts|tsx|mts)$/u, '.js');
     const hashed = manifest.get(jsRel) ?? manifest.get(`${rel}.js`) ?? manifest.get(rel);
-    return hashed ? `from ${JSON.stringify(`${LIB_URL_PREFIX}${hashed}`)}` : full;
-  });
+    return hashed ? `${LIB_URL_PREFIX}${hashed}` : null;
+  };
+
+  let out = code;
+  out = out.replace(
+    /from\s*['"](\/_nexus\/lib\/[^'"]+)['"]/gu,
+    (full, spec: string) => {
+      const h = toHashed(spec);
+      return h && h !== spec ? `from ${JSON.stringify(h)}` : full;
+    },
+  );
+  out = out.replace(
+    /import\s*\(\s*['"](\/_nexus\/lib\/[^'"]+)['"]\s*\)/gu,
+    (full, spec: string) => {
+      const h = toHashed(spec);
+      return h && h !== spec ? `import(${JSON.stringify(h)})` : full;
+    },
+  );
+  out = out.replace(
+    /import\s*['"](\/_nexus\/lib\/[^'"]+)['"]/gu,
+    (full, spec: string) => {
+      const h = toHashed(spec);
+      return h && h !== spec ? `import ${JSON.stringify(h)}` : full;
+    },
+  );
+  return out;
+}
+
+async function applyLibManifestToAllLibOutputFiles(
+  libOutDir: string,
+  manifest: ReadonlyMap<string, string>,
+): Promise<void> {
+  if (manifest.size === 0) return;
+
+  async function walk(dir: string): Promise<string[]> {
+    const out: string[] = [];
+    const es = await readdir(dir, { withFileTypes: true });
+    for (const e of es) {
+      const p = join(dir, e.name);
+      if (e.isDirectory()) {
+        out.push(...(await walk(p)));
+      } else if (e.isFile() && e.name.endsWith('.js') && !e.name.endsWith('.map')) {
+        out.push(p);
+      }
+    }
+    return out;
+  }
+
+  const files = await walk(libOutDir);
+  for (const f of files) {
+    const t   = await readFile(f, 'utf-8');
+    const nxt = applyLibManifestToClientCode(t, manifest);
+    if (nxt !== t) {
+      await writeFile(f, nxt, 'utf-8');
+    }
+  }
 }
 
 // ─── Main export ──────────────────────────────────────────────────────────────
@@ -216,8 +373,10 @@ export async function bundleIslandLib(
   const nexusLibDir = join(root, '.nexus', 'lib');
   const libOutDir   = join(outDir, 'lib');
 
-  const usageMap = collectLibUsage(clientCodes, nexusLibDir);
-  if (usageMap.size === 0) return { files: 0, manifest: new Map() };
+  const collected = collectLibUsage(clientCodes, nexusLibDir);
+  if (collected.size === 0) return { files: 0, manifest: new Map() };
+
+  const usageMap = await expandLibUsageWithTransitiveDeps(nexusLibDir, collected);
 
   let esbuildBuild: typeof import('esbuild').build | null = null;
   try {
@@ -316,6 +475,7 @@ export async function bundleIslandLib(
   });
 
   const results = await Promise.all(tasks);
+  await applyLibManifestToAllLibOutputFiles(libOutDir, manifest);
   return { files: results.filter(Boolean).length, manifest };
 }
 
@@ -367,5 +527,6 @@ async function bundleIslandLibFallback(
     written++;
   }
 
+  await applyLibManifestToAllLibOutputFiles(libOutDir, manifest);
   return { files: written, manifest };
 }
