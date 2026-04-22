@@ -77,6 +77,13 @@ export interface CompileOptions {
    * reloads when shared modules change without restarting the dev server.
    */
   libDepsMtime?: number;
+  /**
+   * Production only: content-hash manifest produced by `bundleIslandLib`.
+   * Maps canonical lib rel paths (`utils/date.js`) to hashed filenames
+   * (`utils/date.a1b2c3d4.js`). When present, `rewriteDollarLibImportsForClient`
+   * emits `/_nexus/lib/<hashed>` URLs directly.
+   */
+  libManifest?: ReadonlyMap<string, string>;
 }
 
 export interface CompileResult {

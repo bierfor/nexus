@@ -5,6 +5,7 @@ export { generate } from './codegen.js';
 export { extractServerActionsFromSource } from './server-actions-extract.js';
 export { splitPretext, transformPretextExport } from './pretext-extract.js';
 export { compileLib } from './compile-lib.js';
+export { bundleIslandLib, extractLibImports, applyLibManifestToClientCode } from './bundle-island-lib.js';
 export type {
   ParsedComponent,
   CompileOptions,

@@ -111,6 +111,29 @@ function resolveDollarLibFilePath(appRoot: string, rel: string, dev: boolean): s
   return abs + (dev ? '.ts' : '.js');
 }
 
+/**
+ * Resolve `$lib/…` in client island scripts to `/_nexus/lib/…` browser URLs.
+ *
+ * When `libManifest` is provided (production build with content-hashed bundles),
+ * the canonical rel is looked up in the manifest and the hashed filename is used
+ * directly — e.g. `$lib/utils/date.ts` → `/_nexus/lib/utils/date.a1b2c3d4.js`.
+ * Without a manifest the original specifier is preserved as-is.
+ */
+function rewriteDollarLibImportsForClient(
+  code: string,
+  libManifest?: ReadonlyMap<string, string>,
+): string {
+  return code.replace(/from\s*['"]\$lib\/([^'"]+)['"]/gu, (_, rel: string) => {
+    if (libManifest) {
+      // Normalise to the canonical .js key the manifest uses.
+      const jsRel = rel.replace(/\.(ts|tsx|mts)$/u, '.js');
+      const hashed = libManifest.get(jsRel) ?? libManifest.get(`${rel}.js`) ?? libManifest.get(rel);
+      if (hashed) return `from ${JSON.stringify(`/_nexus/lib/${hashed}`)}`;
+    }
+    return `from ${JSON.stringify(`/_nexus/lib/${rel}`)}`;
+  });
+}
+
 /** Resolve `$lib/…` in server frontmatter to absolute file URLs for Node ESM. */
 function rewriteDollarLibImports(code: string, opts: CompileOptions): string {
   const appRoot = opts.appRoot;
@@ -353,7 +376,7 @@ function generateClientIsland(parsed: ParsedComponent, _opts: CompileOptions, is
   // Script content — Nexus runes use .value; $derived needs () => fn
   if (parsed.script) {
     lines.push('// ── Reactive State (Runes) ──');
-    lines.push(transformRunesForClientRuntime(scriptSrc));
+    lines.push(rewriteDollarLibImportsForClient(transformRunesForClientRuntime(scriptSrc), _opts.libManifest));
     lines.push('');
   }
 
