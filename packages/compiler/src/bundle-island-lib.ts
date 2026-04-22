@@ -119,8 +119,9 @@ function collectLibUsage(codes: string[], nexusLibDir: string): Map<string, LibU
     const specRe = /\bimport\b([\s\S]*?)\bfrom\s*['"](\/_nexus\/lib\/[^'"]+)['"]/gu;
     let m: RegExpExecArray | null;
     while ((m = specRe.exec(code)) !== null) {
-      const clause = m[1].trim();
-      const spec   = m[2];
+      const clause = (m[1] ?? '').trim();
+      const spec = m[2];
+      if (!spec) continue;
       if (/^type\s/.test(clause)) continue;
 
       const rel      = spec.slice(LIB_URL_PREFIX.length);
@@ -133,10 +134,13 @@ function collectLibUsage(codes: string[], nexusLibDir: string): Map<string, LibU
 
       const braceMatch = /\{([^}]*)\}/.exec(clause);
       if (braceMatch) {
-        for (const part of braceMatch[1].split(',')) {
+        const body = braceMatch[1];
+        if (!body) continue;
+        for (const part of body.split(',')) {
           const trimmed = part.trim();
           if (!trimmed || trimmed.startsWith('type ')) continue;
-          const name = trimmed.split(/\s+as\s+/u)[0].trim();
+          const first = trimmed.split(/\s+as\s+/u)[0];
+          const name = first ? first.trim() : '';
           if (name && /^[a-zA-Z_$]/.test(name)) usage.named.add(name);
         }
       }

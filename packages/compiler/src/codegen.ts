@@ -119,19 +119,22 @@ function resolveDollarLibFilePath(appRoot: string, rel: string, dev: boolean): s
  * directly — e.g. `$lib/utils/date.ts` → `/_nexus/lib/utils/date.a1b2c3d4.js`.
  * Without a manifest the original specifier is preserved as-is.
  */
-function rewriteDollarLibImportsForClient(
-  code: string,
-  libManifest?: ReadonlyMap<string, string>,
-): string {
-  return code.replace(/from\s*['"]\$lib\/([^'"]+)['"]/gu, (_, rel: string) => {
+function rewriteDollarLibImportsForClient(code: string, libManifest?: ReadonlyMap<string, string>): string {
+  if (!code.includes('$lib/')) return code;
+  const toUrl = (rel: string): string => {
     if (libManifest) {
-      // Normalise to the canonical .js key the manifest uses.
       const jsRel = rel.replace(/\.(ts|tsx|mts)$/u, '.js');
       const hashed = libManifest.get(jsRel) ?? libManifest.get(`${rel}.js`) ?? libManifest.get(rel);
-      if (hashed) return `from ${JSON.stringify(`/_nexus/lib/${hashed}`)}`;
+      if (hashed) return `/_nexus/lib/${hashed}`;
     }
-    return `from ${JSON.stringify(`/_nexus/lib/${rel}`)}`;
-  });
+    return `/_nexus/lib/${rel}`;
+  };
+
+  let out = code;
+  out = out.replace(/\bfrom\s*(['"])\$lib\/([^'"\n]+)\1/gu, (_m, q: string, rel: string) => `from ${q}${toUrl(rel)}${q}`);
+  out = out.replace(/\bimport\s*(['"])\$lib\/([^'"\n]+)\1/gu, (_m, q: string, rel: string) => `import ${q}${toUrl(rel)}${q}`);
+  out = out.replace(/\bimport\s*\(\s*(['"])\$lib\/([^'"\n]+)\1\s*\)/gu, (_m, q: string, rel: string) => `import(${q}${toUrl(rel)}${q})`);
+  return out;
 }
 
 /** Resolve `$lib/…` in server frontmatter to absolute file URLs for Node ESM. */
@@ -151,15 +154,6 @@ function rewriteDollarLibImports(code: string, opts: CompileOptions): string {
     const href = pathToFileURL(abs).href + libBust;
     return `from ${JSON.stringify(href)}`;
   });
-}
-
-function rewriteDollarLibImportsForClient(code: string): string {
-  if (!code.includes('$lib/')) return code;
-  const target = '/_nexus/lib/';
-  let out = code;
-  out = out.replace(/(\bfrom\s*)(['"])\$lib\//g, `$1$2${target}`);
-  out = out.replace(/(\bimport\s*\(\s*)(['"])\$lib\//g, `$1$2${target}`);
-  return out;
 }
 
 /** Compiles a parsed .nx component into server + client output */
