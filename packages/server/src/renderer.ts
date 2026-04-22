@@ -557,12 +557,17 @@ function isFullHtmlDocument(content: string): boolean {
 }
 
 /** Default + app `imports` for dynamically imported island bundles (bare specifiers). */
-function buildImportMapScript(extra?: Record<string, string> | null, nonce?: string): string {
+function buildImportMapScript(extra: Record<string, string> | null | undefined, nonce: string | undefined, dev: boolean): string {
   const base: Record<string, string> = {
     '@nexus_js/runtime/island': '/_nexus/rt/island.js',
     '@nexus_js/runtime': '/_nexus/rt/index.js',
     '@nexus_js/serialize': '/_nexus/rt/serialize.js',
   };
+  if (dev) {
+    base['$lib/'] = '/_nexus/lib/';
+  } else {
+    base['$lib/'] = '/_nexus/lib/';
+  }
   const imports =
     extra && typeof extra === 'object' ? { ...base, ...extra } : base;
   const json = JSON.stringify({ imports }, null, 2);
@@ -610,7 +615,7 @@ nexus-island {
 
   // Import map — bare specifiers in island bundles (see `browser.importMap` in nexus.config.ts).
   // importmap scripts also require the nonce in strict CSP environments.
-  const importMap = buildImportMapScript(opts.browserImportMap ?? null, opts.cspNonce);
+  const importMap = buildImportMapScript(opts.browserImportMap ?? null, opts.cspNonce, opts.dev);
 
   // Dev: SSE to /_nexus/dev/hot — server pushes `reload` after file watcher runs server.reload().
   const hmrScript = opts.dev

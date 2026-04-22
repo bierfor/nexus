@@ -153,6 +153,15 @@ function rewriteDollarLibImports(code: string, opts: CompileOptions): string {
   });
 }
 
+function rewriteDollarLibImportsForClient(code: string): string {
+  if (!code.includes('$lib/')) return code;
+  const target = '/_nexus/lib/';
+  let out = code;
+  out = out.replace(/(\bfrom\s*)(['"])\$lib\//g, `$1$2${target}`);
+  out = out.replace(/(\bimport\s*\(\s*)(['"])\$lib\//g, `$1$2${target}`);
+  return out;
+}
+
 /** Compiles a parsed .nx component into server + client output */
 export function generate(
   parsed: ParsedComponent,
@@ -186,7 +195,8 @@ export function generate(
     islandWrap.didWrap ||
     parsed.islandDirectives.length > 0 ||
     (parsed.script?.content ?? '').includes('$state');
-  const clientCode = needsClientIsland ? generateClientIsland(parsed, opts, islandWrap) : null;
+  const clientCodeRaw = needsClientIsland ? generateClientIsland(parsed, opts, islandWrap) : null;
+  const clientCode = clientCodeRaw ? rewriteDollarLibImportsForClient(clientCodeRaw) : null;
 
   // ── Island manifest ────────────────────────────────────────────────────────
   const islandManifest: IslandManifest | null =
@@ -1027,4 +1037,3 @@ function transformDynamicAttributesForSSR(html: string, actionNames?: Set<string
   );
   return s;
 }
-

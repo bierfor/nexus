@@ -88,6 +88,29 @@ const x = 1;
     expect(c).toContain('void submitRegister()');
   });
 
+  it('rewrites $lib imports in client bundle to /_nexus/lib/', () => {
+    const src = `---
+---
+<script>
+  import { x } from '$lib/utils';
+  let count = $state(0);
+</script>
+<div client:load>{count}</div>
+`;
+    const r = compile(src, '/app/src/routes/p/+page.nx', {
+      mode: 'server',
+      dev: false,
+      ssr: true,
+      emitIslandManifest: false,
+      target: 'node',
+      appRoot: '/app',
+    });
+    expect(r.clientCode).toBeTruthy();
+    const c = r.clientCode!;
+    expect(c).not.toContain("'$lib/");
+    expect(c).toContain("'/_nexus/lib/");
+  });
+
   it('rewrites $state assignments in handlers to .value (const-safe)', () => {
     const src = `---
 ---

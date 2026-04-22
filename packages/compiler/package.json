@@ -1,6 +1,6 @@
 {
   "name": "@nexus_js/compiler",
-  "version": "0.9.8",
+  "version": "0.9.10",
   "description": "Nexus compiler — transforms .nx files into optimized server/client bundles",
   "type": "module",
   "main": "./dist/index.js",
@@ -18,7 +18,7 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "esbuild": "^0.25.0",
+    "esbuild": "^0.28.0",
     "magic-string": "^0.30.0",
     "typescript": "^5.5.0"
   },
