@@ -16,6 +16,7 @@ import {
   buildAggregatedNxStylesheet,
   bustAggregatedStylesCache,
   compileIslandClientBundle,
+  getAggregatedCssETag,
   isIslandClientRequest,
   tryServeRuntimeAsset,
 } from './dev-assets.js';
@@ -558,11 +559,34 @@ export async function createNexusServer(opts: NexusServerOptions) {
     // ── Aggregated scoped CSS from all .nx files under src/
     if (url.pathname === '/_nexus/styles.css' && method === 'GET') {
       try {
-        const css = await buildAggregatedNxStylesheet(opts.root);
-        res.writeHead(200, {
-          'content-type': 'text/css; charset=utf-8',
-          'cache-control': dev ? 'no-store' : 'public, max-age=300',
-        });
+        const css  = await buildAggregatedNxStylesheet(opts.root);
+        const etag = getAggregatedCssETag();
+
+        // Conditional GET (If-None-Match) — eliminates FOUC on hard refresh
+        // (Cmd+R / Ctrl+F5).  The browser caches the stylesheet and on each
+        // reload sends If-None-Match with the stored ETag.  When the CSS has
+        // not changed the server responds 304 instantly (no recompilation
+        // needed) and the browser reuses its cached copy, applying styles
+        // before the first paint rather than waiting for a full roundtrip.
+        //
+        // `cache-control: no-cache` (not `no-store`) lets the browser keep
+        // the response in its local cache but forces it to revalidate before
+        // use.  When a file changes, `bustAggregatedStylesCache()` resets the
+        // ETag, so the next request returns 200 with the updated CSS.
+        if (dev && etag && req.headers['if-none-match'] === etag) {
+          res.writeHead(304, { 'cache-control': 'no-cache', etag });
+          res.end();
+          return;
+        }
+
+        const cacheControl = dev ? 'no-cache' : 'public, max-age=300';
+        const headers: Record<string, string> = {
+          'content-type':  'text/css; charset=utf-8',
+          'cache-control': cacheControl,
+        };
+        if (etag) headers['etag'] = etag;
+
+        res.writeHead(200, headers);
         res.end(css);
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);

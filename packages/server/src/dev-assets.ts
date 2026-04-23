@@ -3,6 +3,7 @@
  */
 
 import { compile } from '@nexus_js/compiler';
+import { createHash } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { readdir, readFile, stat } from 'node:fs/promises';
@@ -14,6 +15,12 @@ const RT_PREFIX = '/_nexus/rt/';
 const LAYER_DECL = '@layer nexus.scoped, nexus.global;\n';
 
 let aggregatedCssCache: string | null = null;
+/**
+ * SHA-1 ETag for the current aggregated CSS.  Quoted per RFC 7232 so it can
+ * be used directly in `ETag` / `If-None-Match` headers without extra quoting.
+ * Reset to null whenever the cache is busted.
+ */
+let aggregatedCssETag: string | null = null;
 /**
  * In-flight deduplication: when multiple requests arrive simultaneously after
  * `bustAggregatedStylesCache()` clears the cache, they all await the same
@@ -30,8 +37,18 @@ let aggregatedCssBuildGeneration = 0;
 
 export function bustAggregatedStylesCache(): void {
   aggregatedCssCache         = null;
+  aggregatedCssETag          = null;
   aggregatedCssBuildInFlight = null;
   aggregatedCssBuildGeneration++;
+}
+
+/**
+ * Return the ETag for the most-recently compiled aggregated stylesheet, or
+ * null when no compiled result is available yet.  Called by the request
+ * handler to implement conditional-GET / 304 responses.
+ */
+export function getAggregatedCssETag(): string | null {
+  return aggregatedCssETag;
 }
 
 /**
@@ -146,6 +163,7 @@ export async function buildAggregatedNxStylesheet(appRoot: string): Promise<stri
     // triggers a fresh build against up-to-date sources.
     if (aggregatedCssBuildGeneration === myGeneration) {
       aggregatedCssCache         = css;
+      aggregatedCssETag          = `"${createHash('sha1').update(css).digest('hex').slice(0, 16)}"`;
       aggregatedCssBuildInFlight = null;
     }
     return css;
