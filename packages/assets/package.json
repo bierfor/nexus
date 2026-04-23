@@ -1,6 +1,6 @@
 {
   "name": "@nexus_js/assets",
-  "version": "0.9.16",
+  "version": "0.9.17",
   "description": "Nexus asset pipeline — image optimization (AVIF/WebP), font injection, lazy loading",
   "type": "module",
   "main": "./dist/index.js",
