@@ -1,6 +1,6 @@
 {
   "name": "@nexus_js/eslint-plugin-bridge",
-  "version": "0.9.12",
+  "version": "0.9.14",
   "description": "Nexus Bridge ESLint rules — enforce tenant isolation helpers (withTenant)",
   "type": "module",
   "main": "./dist/index.js",

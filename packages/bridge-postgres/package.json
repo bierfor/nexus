@@ -1,6 +1,6 @@
 {
   "name": "@nexus_js/bridge-postgres",
-  "version": "0.9.12",
+  "version": "0.9.14",
   "description": "Nexus Bridge Postgres connector — secure schema discovery via information_schema",
   "type": "module",
   "main": "./dist/index.js",
