@@ -655,7 +655,34 @@ export async function createNexusServer(opts: NexusServerOptions) {
 
     const staticResult = await serveStatic(url.pathname, publicDir);
     if (staticResult) {
-      res.writeHead(200, { 'content-type': staticResult.mime });
+      // Conditional GET — eliminates re-downloading large static assets
+      // (Tailwind output, sourcemaps, big SVGs) on every Cmd+R.  Without
+      // ETag/Last-Modified the browser cannot revalidate, must re-download
+      // the full body, and renders the page unstyled while it waits.
+      const ifNoneMatch     = req.headers['if-none-match'];
+      const ifModifiedSince = req.headers['if-modified-since'];
+      const notModified =
+        (typeof ifNoneMatch === 'string' && ifNoneMatch === staticResult.etag) ||
+        (typeof ifModifiedSince === 'string' && ifModifiedSince === staticResult.lastModified);
+
+      if (notModified) {
+        res.writeHead(304, {
+          etag:            staticResult.etag,
+          'last-modified': staticResult.lastModified,
+          'cache-control': dev ? 'no-cache' : 'public, max-age=0, must-revalidate',
+        });
+        res.end();
+        return;
+      }
+
+      res.writeHead(200, {
+        'content-type':  staticResult.mime,
+        etag:            staticResult.etag,
+        'last-modified': staticResult.lastModified,
+        // `no-cache` (not `no-store`) lets the browser keep a copy and
+        // revalidate via If-None-Match — most reloads return 304 instantly.
+        'cache-control': dev ? 'no-cache' : 'public, max-age=0, must-revalidate',
+      });
       res.end(staticResult.content);
       return;
     }
@@ -917,7 +944,7 @@ async function webToNodeResponse(
 async function serveStatic(
   pathname: string,
   publicDir: string,
-): Promise<{ content: Buffer; mime: string } | null> {
+): Promise<{ content: Buffer; mime: string; etag: string; lastModified: string } | null> {
   const root = resolve(publicDir);
   const safePath = resolve(join(root, pathname.replace(/^\/+/, '')));
   // Prevent path-traversal: resolved path must be inside publicDir
@@ -927,7 +954,12 @@ async function serveStatic(
     if (!info.isFile()) return null;
     const content = await readFile(safePath);
     const mime = MIME_TYPES[extname(safePath)] ?? 'application/octet-stream';
-    return { content, mime };
+    // ETag derived from size + mtime — fast (no content hash) and changes
+    // whenever the file is rewritten by an external watcher (e.g. Tailwind
+    // CLI, Vite's tw plugin, custom asset pipelines).  Quoted per RFC 7232.
+    const etag = `"${info.size.toString(16)}-${info.mtimeMs.toString(16)}"`;
+    const lastModified = info.mtime.toUTCString();
+    return { content, mime, etag, lastModified };
   } catch {
     return null;
   }

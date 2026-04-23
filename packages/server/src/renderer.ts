@@ -547,6 +547,39 @@ function escapeJsonForScriptPayload(json: string): string {
     .replace(/\u2029/g, '\\u2029');
 }
 
+/**
+ * Strip `?query` and `#hash` from a URL-like string and return the pathname.
+ * Used when comparing whether a stylesheet href in the user's `<head>` refers
+ * to the same physical resource as one Nexus is about to inject.
+ */
+function stripQueryAndHash(href: string): string {
+  const q = href.indexOf('?');
+  const h = href.indexOf('#');
+  const cuts = [q, h].filter((i) => i >= 0);
+  return cuts.length ? href.slice(0, Math.min(...cuts)) : href;
+}
+
+/**
+ * Scan the user's already-rendered HTML for `<link rel="stylesheet">` tags and
+ * return the set of declared pathnames (queries stripped).  Lets the renderer
+ * skip injecting framework stylesheets the user already declared in a custom
+ * layout, preventing duplicate network requests for the same CSS file.
+ */
+function collectDeclaredStylesheetPaths(content: string): Set<string> {
+  const out = new Set<string>();
+  // Match <link ... rel="stylesheet" ... href="..."> in either attribute order.
+  const linkTagRe = /<link\b[^>]*>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = linkTagRe.exec(content)) !== null) {
+    const tag = m[0];
+    if (!/\brel\s*=\s*["']?stylesheet["']?/i.test(tag)) continue;
+    const hrefMatch = /\bhref\s*=\s*("([^"]*)"|'([^']*)')/i.exec(tag);
+    const href = hrefMatch?.[2] ?? hrefMatch?.[3];
+    if (href) out.add(stripQueryAndHash(href));
+  }
+  return out;
+}
+
 function isFullHtmlDocument(content: string): boolean {
   const t = content.trimStart();
   if (/^<\s*html[\s>]/i.test(t)) return true;
@@ -594,7 +627,15 @@ function wrapWithDocument(
       ? `<script${n}>window.__NEXUS_BUILD_ID__=${escapeJsonForScriptPayload(JSON.stringify(opts.buildId))};</script>`
       : '';
 
+  // Skip injecting any framework stylesheet whose pathname (query stripped) is
+  // already declared by the user's layout `<head>`.  Without this guard the
+  // user ends up with two `<link>` elements pointing at the same CSS file via
+  // different URLs (e.g. `/_nexus/styles.css` from the framework and
+  // `/_nexus/styles.css?v=20260422` from a hand-written cache-busting tag),
+  // causing the browser to fetch the same stylesheet twice.
+  const userDeclaredStylePaths = collectDeclaredStylesheetPaths(content);
   const styleLinks = opts.assets.styles
+    .filter((href) => !userDeclaredStylePaths.has(stripQueryAndHash(href)))
     .map((href) => `<link rel="stylesheet" href="${href}">`)
     .join('\n    ');
 
