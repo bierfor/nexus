@@ -14,9 +14,24 @@ const RT_PREFIX = '/_nexus/rt/';
 const LAYER_DECL = '@layer nexus.scoped, nexus.global;\n';
 
 let aggregatedCssCache: string | null = null;
+/**
+ * In-flight deduplication: when multiple requests arrive simultaneously after
+ * `bustAggregatedStylesCache()` clears the cache, they all await the same
+ * promise instead of each launching a parallel compile sweep.
+ */
+let aggregatedCssBuildInFlight: Promise<string> | null = null;
+/**
+ * Generation counter — incremented by every `bustAggregatedStylesCache()` call.
+ * A build that completes after a bust compares its snapshot against the current
+ * generation and skips writing to the cache if they differ, preventing a stale
+ * build from overwriting a fresher one that started after the bust.
+ */
+let aggregatedCssBuildGeneration = 0;
 
 export function bustAggregatedStylesCache(): void {
-  aggregatedCssCache = null;
+  aggregatedCssCache         = null;
+  aggregatedCssBuildInFlight = null;
+  aggregatedCssBuildGeneration++;
 }
 
 /**
@@ -95,28 +110,49 @@ async function collectNxFiles(dir: string): Promise<string[]> {
 
 /**
  * Concatenate scoped CSS from every .nx under src/ (routes + components).
+ *
+ * Concurrent callers share a single in-flight build promise so a burst of
+ * requests after `bustAggregatedStylesCache()` does not launch N parallel
+ * compile sweeps.  A generation counter prevents a stale in-flight build from
+ * overwriting a cache that was reset while the build was running.
  */
 export async function buildAggregatedNxStylesheet(appRoot: string): Promise<string> {
-  if (aggregatedCssCache !== null) return aggregatedCssCache;
+  if (aggregatedCssCache         !== null) return aggregatedCssCache;
+  if (aggregatedCssBuildInFlight !== null) return aggregatedCssBuildInFlight;
 
-  const srcDir = join(appRoot, 'src');
-  const files = await collectNxFiles(srcDir);
-  const parts: string[] = [LAYER_DECL];
+  // Snapshot the generation at build-start so we can detect an intervening bust.
+  const myGeneration = aggregatedCssBuildGeneration;
 
-  for (const filepath of files) {
-    const source = await readFile(filepath, 'utf-8');
-    const result = compile(source, filepath, {
-      mode: 'server',
-      dev: true,
-      ssr: true,
-      emitIslandManifest: false,
-      target: 'node',
-    });
-    if (result.css) parts.push(`/* ${relative(appRoot, filepath)} */\n${result.css}`);
-  }
+  const promise = (async (): Promise<string> => {
+    const srcDir = join(appRoot, 'src');
+    const files = await collectNxFiles(srcDir);
+    const parts: string[] = [LAYER_DECL];
 
-  aggregatedCssCache = parts.join('\n');
-  return aggregatedCssCache;
+    for (const filepath of files) {
+      const source = await readFile(filepath, 'utf-8');
+      const result = compile(source, filepath, {
+        mode: 'server',
+        dev: true,
+        ssr: true,
+        emitIslandManifest: false,
+        target: 'node',
+      });
+      if (result.css) parts.push(`/* ${relative(appRoot, filepath)} */\n${result.css}`);
+    }
+
+    const css = parts.join('\n');
+    // Only populate the cache when no bust happened while we were building.
+    // If the generation advanced, leave the cache empty so the next request
+    // triggers a fresh build against up-to-date sources.
+    if (aggregatedCssBuildGeneration === myGeneration) {
+      aggregatedCssCache         = css;
+      aggregatedCssBuildInFlight = null;
+    }
+    return css;
+  })();
+
+  aggregatedCssBuildInFlight = promise;
+  return promise;
 }
 
 const ISLAND_CLIENT_PATH = '/_nexus/islands/client.mjs';
@@ -139,52 +175,81 @@ export async function compileIslandClientBundle(
     return true;
   }
 
+  // All error bodies in this function must be syntactically valid JavaScript.
+  // The response always carries content-type: application/javascript so the
+  // browser will attempt to parse it as a module.  Plain English strings like
+  // "Source not found" would parse as bare identifiers and produce confusing
+  // SyntaxErrors in the console.  `throw new Error(...)` is always valid.
+  function jsError(msg: string, status: number): { body: string; status: number } {
+    return { body: `throw new Error(${JSON.stringify(`[Nexus] ${msg}`)});`, status };
+  }
+
   let nxPath: string | null = null;
   if (pathParam) {
     if (pathParam.includes('..') || pathParam.startsWith('/')) {
-      return { body: 'Invalid path', status: 400 };
+      return jsError('Island request: invalid path', 400);
     }
     const joined = resolve(join(rootReal, normalize(pathParam)));
     if (!isUnderRoot(joined)) {
-      return { body: 'Path escapes app root', status: 400 };
+      return jsError('Island request: path escapes app root', 400);
     }
     nxPath = joined;
   } else if (absParam) {
     const decoded = decodeURIComponent(absParam);
     const abs = resolve(decoded);
     if (!isUnderRoot(abs)) {
-      return { body: 'Invalid abs path', status: 400 };
+      return jsError('Island request: invalid abs path', 400);
     }
     nxPath = abs;
   } else {
-    return { body: 'Missing path or abs query', status: 400 };
+    return jsError('Island request: missing path or abs query', 400);
   }
 
   if (!nxPath.endsWith('.nx')) {
-    return { body: 'Not an .nx source', status: 400 };
+    return jsError('Island request: not an .nx source', 400);
   }
 
   try {
     await stat(nxPath);
   } catch {
-    return { body: 'Source not found', status: 404 };
+    return jsError(`Island source not found: ${nxPath}`, 404);
   }
 
-  const source = await readFile(nxPath, 'utf-8');
-  const result = compile(source, nxPath, {
-    mode: 'server',
-    dev: true,
-    ssr: true,
-    emitIslandManifest: false,
-    target: 'node',
-    appRoot: rootReal,
-  });
-
-  if (!result.clientCode) {
-    return { body: 'No client island for this module', status: 404 };
+  // `readFile` and `compile` are both fallible — a file that is mid-write
+  // during hot-reload can produce a read error or a parse error in the
+  // compiler.  Without a try/catch the exception propagates to the generic
+  // request-handler catch block which sends `content-type: text/html`, causing
+  // the browser to see HTML at a URL it is trying to `import()` as a module,
+  // producing misleading `SyntaxError: Unexpected token '<'` (or similar).
+  let source: string;
+  try {
+    source = await readFile(nxPath, 'utf-8');
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return jsError(`Island source could not be read: ${msg}`, 500);
   }
 
-  return { body: result.clientCode, status: 200 };
+  let clientCode: string | null;
+  try {
+    const result = compile(source, nxPath, {
+      mode: 'server',
+      dev: true,
+      ssr: true,
+      emitIslandManifest: false,
+      target: 'node',
+      appRoot: rootReal,
+    });
+    clientCode = result.clientCode;
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return jsError(`Island compile error: ${msg}`, 500);
+  }
+
+  if (!clientCode) {
+    return jsError(`No client island in ${nxPath}`, 404);
+  }
+
+  return { body: clientCode, status: 200 };
 }
 
 export function isIslandClientRequest(pathname: string): boolean {
@@ -210,6 +275,8 @@ const LIB_EXTENSIONS = ['.js', '.mjs', '.ts', '.tsx', '.mts'];
 export async function tryServeLibAsset(
   pathname: string,
   appRoot: string,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _dev?: boolean,
 ): Promise<{ body: Buffer; contentType: string } | null> {
   if (!pathname.startsWith(LIB_PREFIX)) return null;
 

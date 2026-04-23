@@ -518,10 +518,22 @@ export async function createNexusServer(opts: NexusServerOptions) {
 
     // ── Client island ESM (dynamic import target for <nexus-island>) ───────
     if (isIslandClientRequest(url.pathname) && method === 'GET') {
-      const out = await compileIslandClientBundle(opts.root, url);
+      let out: { body: string; status: number };
+      try {
+        out = await compileIslandClientBundle(opts.root, url);
+      } catch (err) {
+        // Last-resort catch: compileIslandClientBundle should never throw (it
+        // wraps its internals), but if it does we must still respond with valid
+        // JavaScript so the browser gets a parseable error rather than HTML.
+        const msg = err instanceof Error ? err.message : String(err);
+        out = {
+          body: `throw new Error(${JSON.stringify(`[Nexus] Unexpected island error: ${msg}`)});`,
+          status: 500,
+        };
+      }
       res.writeHead(out.status, {
         'content-type': 'application/javascript; charset=utf-8',
-        'cache-control': dev ? 'no-store' : 'public, max-age=120',
+        'cache-control': 'no-store',
       });
       res.end(out.body);
       return;
