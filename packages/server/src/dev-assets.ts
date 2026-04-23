@@ -140,33 +140,52 @@ export async function buildAggregatedNxStylesheet(appRoot: string): Promise<stri
   // Snapshot the generation at build-start so we can detect an intervening bust.
   const myGeneration = aggregatedCssBuildGeneration;
 
-  const promise = (async (): Promise<string> => {
-    const srcDir = join(appRoot, 'src');
-    const files = await collectNxFiles(srcDir);
-    const parts: string[] = [LAYER_DECL];
+  let promise!: Promise<string>;
+  promise = (async (): Promise<string> => {
+    try {
+      const srcDir = join(appRoot, 'src');
+      const files = await collectNxFiles(srcDir);
+      const parts: string[] = [LAYER_DECL];
 
-    for (const filepath of files) {
-      const source = await readFile(filepath, 'utf-8');
-      const result = compile(source, filepath, {
-        mode: 'server',
-        dev: true,
-        ssr: true,
-        emitIslandManifest: false,
-        target: 'node',
-      });
-      if (result.css) parts.push(`/* ${relative(appRoot, filepath)} */\n${result.css}`);
-    }
+      for (const filepath of files) {
+        // Per-file isolation: a single .nx component with a temporary syntax
+        // error (e.g. editor mid-save) must not abort the entire CSS build.
+        // Skip the failing file with a console warning and keep going.
+        try {
+          const source = await readFile(filepath, 'utf-8');
+          const result = compile(source, filepath, {
+            mode: 'server',
+            dev: true,
+            ssr: true,
+            emitIslandManifest: false,
+            target: 'node',
+          });
+          if (result.css) parts.push(`/* ${relative(appRoot, filepath)} */\n${result.css}`);
+        } catch (fileErr) {
+          const msg = fileErr instanceof Error ? fileErr.message : String(fileErr);
+          process.stdout.write(
+            `\x1b[33m[Nexus] CSS: skipping ${relative(appRoot, filepath)}: ${msg}\x1b[0m\n`,
+          );
+        }
+      }
 
-    const css = parts.join('\n');
-    // Only populate the cache when no bust happened while we were building.
-    // If the generation advanced, leave the cache empty so the next request
-    // triggers a fresh build against up-to-date sources.
-    if (aggregatedCssBuildGeneration === myGeneration) {
-      aggregatedCssCache         = css;
-      aggregatedCssETag          = `"${createHash('sha1').update(css).digest('hex').slice(0, 16)}"`;
-      aggregatedCssBuildInFlight = null;
+      const css = parts.join('\n');
+      // Only populate the cache when no bust happened while we were building.
+      // If the generation advanced, leave the cache empty so the next request
+      // triggers a fresh build against up-to-date sources.
+      if (aggregatedCssBuildGeneration === myGeneration) {
+        aggregatedCssCache = css;
+        aggregatedCssETag  = `"${createHash('sha1').update(css).digest('hex').slice(0, 16)}"`;
+      }
+      return css;
+    } finally {
+      // Always clear the in-flight promise (success OR failure) when it still
+      // points to this exact build. Identity check avoids clobbering a newer
+      // in-flight build started after a cache bust.
+      if (aggregatedCssBuildInFlight === promise) {
+        aggregatedCssBuildInFlight = null;
+      }
     }
-    return css;
   })();
 
   aggregatedCssBuildInFlight = promise;
