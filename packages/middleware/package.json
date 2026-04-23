@@ -1,6 +1,6 @@
 {
   "name": "@nexus_js/middleware",
-  "version": "0.9.19",
+  "version": "0.9.20",
   "description": "Nexus middleware — edge-compatible request pipeline with Web Standard APIs",
   "type": "module",
   "main": "./dist/index.js",

@@ -1,6 +1,6 @@
 {
   "name": "@nexus_js/types",
-  "version": "0.9.19",
+  "version": "0.9.20",
   "description": "Nexus type generator — auto-generates nexus-types.d.ts for end-to-end type safety",
   "type": "module",
   "main": "./dist/index.js",
