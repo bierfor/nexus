@@ -561,15 +561,62 @@ function applyHeadUpdate(headHTML: string): void {
   // Remove previous navigation-injected metas (marked with data-nx-nav)
   document.querySelectorAll('[data-nx-nav]').forEach((el) => el.remove());
 
+  // Build a set of stylesheet pathnames already present in the live <head>.
+  // Used below to skip re-injecting layout-declared <link rel="stylesheet">
+  // elements that the server includes in every navigate-payload <head>.
+  //
+  // Without this guard, every SPA navigation re-appends every layout
+  // stylesheet — even though it is byte-identical to the one already in the
+  // CSSOM.  The browser fires a fresh GET for each one (returns 304 since
+  // the response is cached) and during the brief moment the new <link>
+  // element is "loading", the previous, still-attached sheet can be
+  // temporarily de-prioritized in the cascade — producing a flash of
+  // unstyled content (FOUC) on every internal link click.
+  const presentStylesheetPaths = new Set<string>();
+  document.querySelectorAll('link[rel="stylesheet"][href]').forEach((link) => {
+    const href = (link as HTMLLinkElement).getAttribute('href');
+    if (!href) return;
+    presentStylesheetPaths.add(stripQueryAndHashClient(href));
+  });
+
   // Inject new metas (pretext script is handled above — skip duplicate)
   const parser = new DOMParser();
   const doc = parser.parseFromString(`<head>${headHTML}</head>`, 'text/html');
   for (const el of doc.head.children) {
     if (el.tagName === 'TITLE') continue;
     if (el.tagName === 'SCRIPT' && el.id === '__NEXUS_PRETEXT__') continue;
+
+    // Stylesheet de-duplication: if a <link rel="stylesheet"> with the same
+    // pathname (query/hash stripped) is already in <head>, do not append it
+    // again.  Idempotent navigations (clicking a link to the current page)
+    // and layout-shared stylesheets are the common cases this protects.
+    if (
+      el.tagName === 'LINK' &&
+      el.getAttribute('rel') === 'stylesheet'
+    ) {
+      const newHref = el.getAttribute('href');
+      if (newHref && presentStylesheetPaths.has(stripQueryAndHashClient(newHref))) {
+        continue;
+      }
+    }
+
     el.setAttribute('data-nx-nav', '');
     document.head.appendChild(el.cloneNode(true));
   }
+}
+
+/**
+ * Strip `?query` and `#hash` from a URL string.  Used by `applyHeadUpdate` to
+ * compare stylesheet hrefs across navigations regardless of cache-busting
+ * query strings (`?v=20260422-1` etc.).
+ */
+function stripQueryAndHashClient(href: string): string {
+  const q = href.indexOf('?');
+  const h = href.indexOf('#');
+  const cuts: number[] = [];
+  if (q >= 0) cuts.push(q);
+  if (h >= 0) cuts.push(h);
+  return cuts.length > 0 ? href.slice(0, Math.min(...cuts)) : href;
 }
 
 // ── Event handlers ─────────────────────────────────────────────────────────────
