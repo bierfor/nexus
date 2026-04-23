@@ -815,6 +815,15 @@ export async function createNexusServer(opts: NexusServerOptions) {
           } catch (err) {
             console.error('[Nexus] Server action preload failed:', err);
           }
+          // Pre-warm the aggregated CSS cache in dev mode so that the very
+          // first page load (and Cmd+R with "Disable cache" in DevTools) does
+          // not stall waiting for CSS compilation.  The build runs in the
+          // background — listen() resolves immediately while the CSS compiles
+          // concurrently.  Any errors are swallowed; the first CSS request
+          // will fall back to a normal on-demand build.
+          if (dev) {
+            buildAggregatedNxStylesheet(opts.root).catch(() => { /* non-fatal */ });
+          }
           server.listen(port, () => resolve());
         })().catch(reject);
       });
@@ -828,6 +837,23 @@ export async function createNexusServer(opts: NexusServerOptions) {
       if (dev) {
         await preloadRegisteredServerActions(opts.root, true);
         refreshShieldAllowlist(opts.root, true);
+        // Pre-warm the aggregated CSS cache BEFORE telling the browser to reload.
+        // Without this, the sequence is:
+        //   1. bustAggregatedStylesCache() empties the cache
+        //   2. broadcastDevHotReload() triggers location.reload() in the browser
+        //   3. Browser fetches HTML (fast) then immediately requests /_nexus/styles.css
+        //   4. Cache is empty → server must recompile all .nx files (slow, 50-200ms)
+        //   5. HTML paints first → FOUC until CSS arrives
+        //
+        // By awaiting the CSS build here, the cache is warm before the browser
+        // reloads.  Step 4 becomes an instant cache-hit → styles apply before
+        // first paint, eliminating the flash of unstyled content.
+        try {
+          await buildAggregatedNxStylesheet(opts.root);
+        } catch {
+          // CSS build failures are non-fatal — the browser will just get
+          // whatever partial CSS the next request produces.
+        }
         broadcastDevHotReload();
       }
     },
