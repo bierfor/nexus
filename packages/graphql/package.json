@@ -1,6 +1,6 @@
 {
   "name": "@nexus_js/graphql",
-  "version": "0.9.14",
+  "version": "0.9.15",
   "description": "Nexus GraphQL adapter — complexity Shield, field masking, Vault-backed JWT rotation, DataLoader, CORS-safe handler",
   "type": "module",
   "main": "./dist/index.js",
