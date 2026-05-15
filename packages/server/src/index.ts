@@ -14,9 +14,12 @@ import { handleActionRequest } from './actions.js';
 import { handleSSERequestNode, isConnectRequest, topicFromUrl } from '@nexus_js/connect';
 import {
   buildAggregatedNxStylesheet,
+  buildGlobalStylesheet,
   bustAggregatedStylesCache,
+  bustGlobalStylesCache,
   compileIslandClientBundle,
   getAggregatedCssETag,
+  getGlobalCssETag,
   isIslandClientRequest,
   tryServeRuntimeAsset,
 } from './dev-assets.js';
@@ -164,6 +167,8 @@ export interface NexusServerOptions {
   dev?: boolean;
   /** Static assets directory */
   publicDir?: string;
+  /** Custom global CSS entry path relative to app root (overrides auto-discovery) */
+  cssEntry?: string;
   /**
    * Called after each HTTP request completes.
    * Use this to implement a custom request logger in the CLI or integrations.
@@ -557,6 +562,7 @@ export async function createNexusServer(opts: NexusServerOptions) {
     }
 
     // ── Aggregated scoped CSS from all .nx files under src/
+    // ── Aggregated scoped CSS from all .nx files under src/
     if (url.pathname === '/_nexus/styles.css' && method === 'GET') {
       try {
         const css  = await buildAggregatedNxStylesheet(opts.root);
@@ -592,6 +598,36 @@ export async function createNexusServer(opts: NexusServerOptions) {
         const msg = err instanceof Error ? err.message : String(err);
         res.writeHead(500, { 'content-type': 'text/plain; charset=utf-8' });
         res.end(`[Nexus] Failed to build styles: ${msg}`);
+      }
+      return;
+    }
+
+    // ── Global CSS (Tailwind / PostCSS / plain CSS) ──────────────────────────
+    if (url.pathname === '/_nexus/global.css' && method === 'GET') {
+      try {
+        const css = await buildGlobalStylesheet(opts.root, opts.cssEntry);
+        if (css === null) {
+          res.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' });
+          res.end('Not found');
+          return;
+        }
+        const etag = getGlobalCssETag();
+        if (dev && etag && req.headers['if-none-match'] === etag) {
+          res.writeHead(304, { 'cache-control': 'no-cache', etag });
+          res.end();
+          return;
+        }
+        const headers: Record<string, string> = {
+          'content-type': 'text/css; charset=utf-8',
+          'cache-control': dev ? 'no-cache' : 'public, max-age=300',
+        };
+        if (etag) headers['etag'] = etag;
+        res.writeHead(200, headers);
+        res.end(css);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        res.writeHead(500, { 'content-type': 'text/plain; charset=utf-8' });
+        res.end(`[Nexus] Failed to build global styles: ${msg}`);
       }
       return;
     }
@@ -850,6 +886,14 @@ export async function createNexusServer(opts: NexusServerOptions) {
           // will fall back to a normal on-demand build.
           if (dev) {
             buildAggregatedNxStylesheet(opts.root).catch(() => { /* non-fatal */ });
+            // Pre-warm global CSS and update renderOpts so SSR includes the link.
+            buildGlobalStylesheet(opts.root, opts.cssEntry)
+              .then((css) => {
+                if (css !== null) {
+                  renderOpts.assets.styles = ['/_nexus/global.css', '/_nexus/styles.css'];
+                }
+              })
+              .catch(() => { /* non-fatal */ });
           }
           server.listen(port, () => resolve());
         })().catch(reject);
@@ -860,10 +904,21 @@ export async function createNexusServer(opts: NexusServerOptions) {
     async reload(): Promise<void> {
       bumpDevReloadGeneration();
       bustAggregatedStylesCache();
+      bustGlobalStylesCache();
       manifest = await buildRouteManifest(routesDir);
       if (dev) {
         await preloadRegisteredServerActions(opts.root, true);
         refreshShieldAllowlist(opts.root, true);
+        // Re-evaluate whether a global CSS entry appeared/disappeared so SSR
+        // links stay in sync with the filesystem.
+        try {
+          const hasGlobal = (await buildGlobalStylesheet(opts.root, opts.cssEntry)) !== null;
+          renderOpts.assets.styles = hasGlobal
+            ? ['/_nexus/global.css', '/_nexus/styles.css']
+            : ['/_nexus/styles.css'];
+        } catch {
+          renderOpts.assets.styles = ['/_nexus/styles.css'];
+        }
         // Pre-warm the aggregated CSS cache BEFORE telling the browser to reload.
         // Without this, the sequence is:
         //   1. bustAggregatedStylesCache() empties the cache
@@ -880,6 +935,12 @@ export async function createNexusServer(opts: NexusServerOptions) {
         } catch {
           // CSS build failures are non-fatal — the browser will just get
           // whatever partial CSS the next request produces.
+        }
+        // Also pre-warm global CSS (Tailwind/PostCSS) so SSR includes it.
+        try {
+          await buildGlobalStylesheet(opts.root, opts.cssEntry);
+        } catch {
+          /* non-fatal */
         }
         broadcastDevHotReload();
       }

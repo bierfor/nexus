@@ -110,6 +110,12 @@ export interface NexusConfig {
      */
     importMap?: Record<string, string>;
   };
+
+  /** Global stylesheet processed in dev mode and injected into every SSR page. */
+  css?: {
+    /** Path relative to app root (e.g. `src/app.css` or `styles/main.css`). */
+    entry?: string;
+  };
 }
 
 export interface NexusPlugin {

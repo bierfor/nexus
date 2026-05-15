@@ -42,6 +42,133 @@ export function bustAggregatedStylesCache(): void {
   aggregatedCssBuildGeneration++;
 }
 
+// ── Global CSS (dev) ─────────────────────────────────────────────────────────
+// Processes src/app.css | src/global.css | src/index.css | src/styles.css
+// with optional PostCSS/Tailwind support so global stylesheets survive SSR.
+
+let globalCssCache: string | null = null;
+let globalCssETag: string | null = null;
+let globalCssBuildInFlight: Promise<string | null> | null = null;
+let globalCssBuildGeneration = 0;
+let globalCssEntryPath: string | null = null;
+
+export function bustGlobalStylesCache(): void {
+  globalCssCache = null;
+  globalCssETag = null;
+  globalCssBuildInFlight = null;
+  globalCssBuildGeneration++;
+  globalCssEntryPath = null;
+}
+
+export function getGlobalCssETag(): string | null {
+  return globalCssETag;
+}
+
+function isUnderAppRoot(appRoot: string, target: string): boolean {
+  const rel = relative(resolve(appRoot), resolve(target));
+  if (rel === '..') return false;
+  if (rel.startsWith(`..${sep}`)) return false;
+  return true;
+}
+
+function findGlobalCssEntry(appRoot: string, customEntry?: string): string | null {
+  if (customEntry) {
+    const p = join(appRoot, customEntry);
+    // Guard against path-traversal via malicious config (e.g. entry: '../../../etc/passwd')
+    if (!isUnderAppRoot(appRoot, p)) {
+      process.stdout.write(
+        `\x1b[33m[Nexus] CSS entry escapes app root and was ignored: ${customEntry}\x1b[0m\n`,
+      );
+      return null;
+    }
+    if (existsSync(p)) return p;
+    return null;
+  }
+  const candidates = [
+    join(appRoot, 'src', 'app.css'),
+    join(appRoot, 'src', 'global.css'),
+    join(appRoot, 'src', 'index.css'),
+    join(appRoot, 'src', 'styles.css'),
+  ];
+  for (const p of candidates) {
+    if (existsSync(p)) return p;
+  }
+  return null;
+}
+
+export async function buildGlobalStylesheet(
+  appRoot: string,
+  customEntry?: string,
+): Promise<string | null> {
+  const entry = findGlobalCssEntry(appRoot, customEntry);
+  if (!entry) return null;
+  if (globalCssCache !== null && globalCssEntryPath === entry) return globalCssCache;
+  if (globalCssBuildInFlight !== null) return globalCssBuildInFlight;
+
+  const myGeneration = globalCssBuildGeneration;
+  let promise!: Promise<string | null>;
+  promise = (async (): Promise<string | null> => {
+    try {
+      const raw = await readFile(entry, 'utf-8');
+      let css = raw;
+
+      // Optional PostCSS processing (Tailwind, Autoprefixer, etc.)
+      try {
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+        // @ts-ignore — postcss is an optional peer dependency
+        const postcssMod = await import('postcss');
+        const postcss = (postcssMod as any).default ?? postcssMod;
+        const plugins: unknown[] = [];
+
+        // Attempt to load postcss.config.{mjs,cjs,js}
+        try {
+          for (const cfgName of ['postcss.config.mjs', 'postcss.config.cjs', 'postcss.config.js']) {
+            const cfgPath = join(appRoot, cfgName);
+            if (existsSync(cfgPath)) {
+              const mod = await import(cfgPath);
+              const cfg = mod.default ?? mod;
+              if (Array.isArray(cfg.plugins)) {
+                for (const plug of cfg.plugins) plugins.push(plug);
+              } else if (cfg.plugins && typeof cfg.plugins === 'object') {
+                for (const plug of Object.values(cfg.plugins as Record<string, unknown>)) {
+                  plugins.push(plug);
+                }
+              }
+              break;
+            }
+          }
+        } catch {
+          /* no PostCSS config found */
+        }
+
+        const result = await postcss(plugins).process(css, { from: entry, to: entry });
+        css = result.css;
+      } catch {
+        // PostCSS not installed or failed — serve raw CSS so the user at least
+        // sees plain CSS classes even if @tailwind directives are unprocessed.
+      }
+
+      if (globalCssBuildGeneration === myGeneration) {
+        globalCssCache = css;
+        globalCssETag = `"${createHash('sha1').update(css).digest('hex').slice(0, 16)}"`;
+        globalCssEntryPath = entry;
+      }
+      return css;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      process.stdout.write(`\x1b[33m[Nexus] Global CSS build failed: ${msg}\x1b[0m\n`);
+      return null;
+    } finally {
+      if (globalCssBuildInFlight === promise) {
+        globalCssBuildInFlight = null;
+      }
+    }
+  })();
+
+  globalCssBuildInFlight = promise;
+  return promise;
+}
+
 /**
  * Return the ETag for the most-recently compiled aggregated stylesheet, or
  * null when no compiled result is available yet.  Called by the request

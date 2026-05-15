@@ -1,6 +1,6 @@
 {
   "name": "nexus-workspace",
-  "version": "0.9.12",
+  "version": "0.9.21",
   "private": true,
   "description": "Nexus — full-stack framework: islands-first SSR, Svelte 5 runes, server actions, file-based routes",
   "workspaces": [
@@ -25,6 +25,7 @@
     "release:safe": "pnpm build && pnpm test && pnpm publish -r --filter './packages/*' --filter '!nexus-js' --filter '!nexus_js' --access public --no-git-checks --report-summary",
     "publish:npm": "pnpm release",
     "publish:package": "bash scripts/publish-package.sh",
+    "release:package": "node scripts/release-package.mjs",
     "version:framework": "node scripts/bump-framework-version.mjs"
   },
   "devDependencies": {

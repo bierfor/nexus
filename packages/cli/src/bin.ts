@@ -178,6 +178,7 @@ async function runDev(opts: { root: string; port: number }): Promise<void> {
     root: opts.root,
     port: opts.port,
     dev: true,
+    ...(cfg.css?.entry ? { cssEntry: cfg.css.entry } : {}),
     ...(cfg.security !== undefined
       ? {
           security: {
@@ -328,7 +329,7 @@ async function runDev(opts: { root: string; port: number }): Promise<void> {
           `  ${c.dim}${event} — routes + cache${c.reset}`,
       );
       await server.reload();
-    }, 120);
+    }, 50);
   };
 
   watch(srcDir, { recursive: true }, (event, filename) => {

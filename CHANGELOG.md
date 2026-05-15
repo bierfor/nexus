@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.9.21] — 2026-05-15
+
+### Fixed — CSS / Tailwind Support in Dev Mode 🎨
+
+Nexus now correctly serves global stylesheets (including Tailwind / PostCSS) during server-side rendering in development, eliminating the "lost styles on refresh" bug.
+
+- **New dev endpoint `/_nexus/global.css`** (`packages/server`):
+  - Auto-discovers global CSS entries: `src/app.css`, `src/global.css`, `src/index.css`, `src/styles.css`
+  - Optional PostCSS processing when `postcss` is installed — loads `postcss.config.{mjs,cjs,js}` automatically
+  - Tailwind CSS, Autoprefixer, and any PostCSS plugin work out of the box
+  - ETag + `304 Not Modified` caching to avoid unnecessary rebuilds on hard refresh
+  - Cache is warmed before browser reload and busted on every file change
+
+- **SSR injection** (`packages/server`):
+  - In dev mode, the server-rendered HTML now includes `<link rel="stylesheet" href="/_nexus/global.css">` before the scoped `/_nexus/styles.css`
+  - Duplicate detection: if the user already declares the stylesheet in a layout, Nexus skips injecting it again
+  - `renderOpts.assets.styles` is re-evaluated on `server.reload()` so adding/removing a global CSS file does not require restarting `nexus dev`
+
+- **Config override** (`packages/cli`):
+  - New `nexus.config.ts` option: `css: { entry: 'src/my-styles.css' }`
+  - Overrides auto-discovery when the project uses a non-conventional filename or path
+
+- **Performance** (`packages/cli`):
+  - File-watcher debounce reduced from **120 ms → 50 ms** so CSS cache invalidation and rebuilds happen faster after saving
+
+### Security
+
+- **Path-traversal guard** on custom `css.entry`: if a config value escapes the app root (e.g. `../../../etc/passwd`), the entry is ignored with a warning
+
+---
+
 ## [0.9.3] — 2026-04-08
 
 ### Added — GraphQL Integration (`@nexus_js/graphql`) 🆕
