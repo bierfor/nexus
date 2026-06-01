@@ -1,6 +1,6 @@
 {
   "name": "@nexus_js/cli",
-  "version": "0.9.21",
+  "version": "0.9.22",
   "description": "Nexus CLI — create, develop and build Nexus applications",
   "type": "module",
   "bin": {
@@ -18,18 +18,31 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "dev": "tsc -p tsconfig.json --watch",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run --passWithNoTests",
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@nexus_js/audit": "workspace:*",
-    "@nexus_js/bridge": "workspace:*",
-    "@nexus_js/bridge-postgres": "workspace:*",
-    "@nexus_js/compiler": "workspace:*",
-    "@nexus_js/router": "workspace:*",
-    "@nexus_js/security": "workspace:*",
-    "@nexus_js/server": "workspace:*",
+    "@nexus_js/audit": "^0.9.21",
+    "@nexus_js/bridge": "^0.9.21",
+    "@nexus_js/bridge-postgres": "^0.9.21",
+    "@nexus_js/compiler": "^0.9.22",
+    "@nexus_js/router": "^0.9.21",
+    "@nexus_js/security": "^0.9.21",
+    "@nexus_js/server": "^0.9.22",
     "jiti": "^2.6.1"
+  },
+  "peerDependencies": {
+    "@nexus_js/runtime": "^0.9.21",
+    "@nexus_js/compiler": "^0.9.22"
+  },
+  "peerDependenciesMeta": {
+    "@nexus_js/runtime": {
+      "optional": true
+    },
+    "@nexus_js/compiler": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
