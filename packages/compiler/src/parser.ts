@@ -10,8 +10,8 @@ import { splitPretext } from './pretext-extract.js';
 
 /** Regex patterns for parsing .nx files */
 const FRONTMATTER_RE = /^---\n([\s\S]*?)\n---/;
-const SCRIPT_BLOCK_RE = /<script(?:\s[^>]*)?>(\n[\s\S]*?)<\/script>/;
-const STYLE_BLOCK_RE = /<style(?:\s[^>]*)?>(\n[\s\S]*?)<\/style>/;
+const SCRIPT_BLOCK_RE = /<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g;
+const STYLE_BLOCK_RE = /<style(?:\s[^>]*)?>([\s\S]*?)<\/style>/g;
 
 const ISLAND_DIRECTIVES: IslandHydration[] = [
   'client:load',
@@ -69,36 +69,54 @@ export function parse(source: string, filepath: string): ParsedComponent {
     remaining = source.slice(fmMatch[0].length);
   }
 
-  // --- Script block ---
-  const scriptMatch = SCRIPT_BLOCK_RE.exec(remaining);
-  let script: NexusBlock | null = null;
-  if (scriptMatch) {
-    const absStart = (frontmatter?.end ?? 0) + (scriptMatch.index ?? 0);
-    script = {
-      type: 'script',
-      content: scriptMatch[1] ?? '',
-      start: absStart,
-      end: absStart + scriptMatch[0].length,
-    };
+  // --- Script blocks (collect ALL) ---
+  const scriptMatches = Array.from(remaining.matchAll(SCRIPT_BLOCK_RE));
+  const scriptContents: string[] = [];
+  let scriptStart = -1;
+  let scriptEnd = -1;
+  for (const m of scriptMatches) {
+    scriptContents.push(m[1] ?? '');
+    const absStart = (frontmatter?.end ?? 0) + (m.index ?? 0);
+    const absEnd = absStart + m[0].length;
+    if (scriptStart === -1) scriptStart = absStart;
+    scriptEnd = Math.max(scriptEnd, absEnd);
   }
+  const script: NexusBlock | null =
+    scriptContents.length > 0
+      ? {
+          type: 'script',
+          content: scriptContents.join('\n\n'),
+          start: scriptStart,
+          end: scriptEnd,
+        }
+      : null;
 
-  // --- Style block ---
-  const styleMatch = STYLE_BLOCK_RE.exec(remaining);
-  let style: NexusBlock | null = null;
-  if (styleMatch) {
-    const absStart = (frontmatter?.end ?? 0) + (styleMatch.index ?? 0);
-    style = {
-      type: 'style',
-      content: styleMatch[1] ?? '',
-      start: absStart,
-      end: absStart + styleMatch[0].length,
-    };
+  // --- Style blocks (collect ALL) ---
+  const styleMatches = Array.from(remaining.matchAll(STYLE_BLOCK_RE));
+  const styleContents: string[] = [];
+  let styleStart = -1;
+  let styleEnd = -1;
+  for (const m of styleMatches) {
+    styleContents.push(m[1] ?? '');
+    const absStart = (frontmatter?.end ?? 0) + (m.index ?? 0);
+    const absEnd = absStart + m[0].length;
+    if (styleStart === -1) styleStart = absStart;
+    styleEnd = Math.max(styleEnd, absEnd);
   }
+  const style: NexusBlock | null =
+    styleContents.length > 0
+      ? {
+          type: 'style',
+          content: styleContents.join('\n\n'),
+          start: styleStart,
+          end: styleEnd,
+        }
+      : null;
 
   // --- Template: everything except frontmatter, script, style ---
   let templateContent = remaining;
-  if (scriptMatch) templateContent = templateContent.replace(scriptMatch[0], '');
-  if (styleMatch) templateContent = templateContent.replace(styleMatch[0], '');
+  for (const m of scriptMatches) templateContent = templateContent.replace(m[0], '');
+  for (const m of styleMatches) templateContent = templateContent.replace(m[0], '');
   templateContent = templateContent.trim();
 
   const template: NexusBlock = {

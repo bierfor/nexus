@@ -579,8 +579,8 @@ export async function createNexusServer(opts: NexusServerOptions) {
         // the response in its local cache but forces it to revalidate before
         // use.  When a file changes, `bustAggregatedStylesCache()` resets the
         // ETag, so the next request returns 200 with the updated CSS.
-        if (dev && etag && req.headers['if-none-match'] === etag) {
-          res.writeHead(304, { 'cache-control': 'no-cache', etag });
+        if (etag && req.headers['if-none-match'] === etag) {
+          res.writeHead(304, { 'cache-control': dev ? 'no-cache' : 'public, max-age=300', etag });
           res.end();
           return;
         }
@@ -612,8 +612,8 @@ export async function createNexusServer(opts: NexusServerOptions) {
           return;
         }
         const etag = getGlobalCssETag();
-        if (dev && etag && req.headers['if-none-match'] === etag) {
-          res.writeHead(304, { 'cache-control': 'no-cache', etag });
+        if (etag && req.headers['if-none-match'] === etag) {
+          res.writeHead(304, { 'cache-control': dev ? 'no-cache' : 'public, max-age=300', etag });
           res.end();
           return;
         }
@@ -779,6 +779,7 @@ export async function createNexusServer(opts: NexusServerOptions) {
 
           res.writeHead(proxyReq.status, proxyHeaders);
           if (proxyReq.body) {
+            // Safe cast: incoming proxy body from undici/fetch is compatible with Node Readable in this context
             Readable.fromWeb(proxyReq.body as any).pipe(res);
           } else {
             res.end();

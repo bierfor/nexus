@@ -1,25 +1,36 @@
 ---
 // PayLinks SaaS - Root Layout
-// Global navigation, auth check, and Vault injection
+// Global navigation, auth check, and i18n
 import { nexusVault } from '@nexus_js/security';
+import { resolveLocale, createT, langHref } from '$lib/i18n.ts';
 
 export async function load(ctx) {
-  // Check if user is authenticated
+  const locale = resolveLocale(ctx);
+
+  // Persist locale preference
+  ctx.setCookie('pl_lang', locale, {
+    httpOnly: false,
+    secure: true,
+    sameSite: 'lax',
+    maxAge: 60 * 60 * 24 * 365,
+    path: '/',
+  });
+
+  // Auth check
   const sessionCookie = ctx.getCookie('pl_session');
-  
-  if (!sessionCookie && !ctx.url.pathname.startsWith('/login') && !ctx.url.pathname.startsWith('/register')) {
+
+  if (!sessionCookie && !ctx.url.pathname.startsWith('/login') && !ctx.url.pathname.startsWith('/register') && ctx.url.pathname !== '/') {
     return ctx.redirect('/login');
   }
 
-  // Load user from session (simplified - real app would validate JWT)
   const user = sessionCookie ? { id: 'demo-user', email: 'demo@paylinks.io', name: 'Demo User' } : null;
-  
-  return { user };
+
+  return { user, locale };
 }
 ---
 
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{pretext.locale}">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -166,6 +177,10 @@ export async function load(ctx) {
     cursor: pointer;
     transition: all 0.15s;
     font-size: 0.875rem;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .btn--primary {

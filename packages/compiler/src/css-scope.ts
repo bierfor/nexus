@@ -258,6 +258,16 @@ function processBlock(block: string, attr: string): string {
     // @ rules
     if (block[i] === '@') {
       const atEnd = block.indexOf('{', i);
+      const semiEnd = block.indexOf(';', i);
+
+      // At-rules that end with ; and have no block: @import, @charset, @namespace
+      if (semiEnd !== -1 && (atEnd === -1 || semiEnd < atEnd)) {
+        const atRule = block.slice(i, semiEnd + 1).trim();
+        result.push(atRule);
+        i = semiEnd + 1;
+        continue;
+      }
+
       if (atEnd === -1) { i = len; continue; }
 
       const atRule = block.slice(i, atEnd).trim();
@@ -326,24 +336,37 @@ function scopeSelector(selector: string, attr: string): string {
 }
 
 function scopeSingleSelector(sel: string, attr: string): string {
-  // :global(...) escape hatch — strip :global() wrapper, don't scope
-  if (/^:global\(/.test(sel)) {
-    return sel.replace(/:global\(([^)]+)\)/g, '$1');
+  const trimmed = sel.trim();
+
+  // Global selectors that should never be scoped (:root targets <html> which
+  // never receives data-nx; html/body/* are global by nature).
+  if (/^:(root|host)$/.test(trimmed) || /^(html|body|\*)$/.test(trimmed)) {
+    return trimmed;
   }
 
-  // Handle :global inside a selector
-  if (sel.includes(':global(')) {
-    return sel.replace(/:global\(([^)]+)\)/g, '$1');
+  // :global(...) escape hatch — strip :global() wrapper, don't scope
+  if (/^:global\(/.test(trimmed)) {
+    return trimmed.replace(/:global\(([^)]+)\)/g, '$1');
+  }
+
+  // Partial :global(...) inside selector — unwrap only the :global(...) parts
+  // but keep the rest scoped.
+  if (trimmed.includes(':global(')) {
+    const unwrapped = trimmed.replace(/:global\(([^)]+)\)/g, '$1');
+    // After unwrapping, if it's now a purely global selector, return as-is
+    if (/^:(root|host)$/.test(unwrapped) || /^(html|body|\*)$/.test(unwrapped)) {
+      return unwrapped;
+    }
+    return `${attr} ${unwrapped}, ${attr}${unwrapped}`;
   }
 
   // Skip already-scoped or bare combinators
-  if (sel.startsWith(attr)) return sel;
+  if (trimmed.startsWith(attr)) return trimmed;
 
-  // For :root, :host — insert attr before
-  if (/^:(root|host)/.test(sel)) {
-    return `${attr}${sel}`;
-  }
-
-  // Default: prepend the scope attribute
-  return `${attr} ${sel}`;
+  // Default: prepend the scope attribute as ancestor, AND as attribute on
+  // the first compound selector.  scopeTemplate() injects data-nx directly
+  // onto every root element, so we need both forms:
+  //   [data-nx] .card   → matches when data-nx is on a parent
+  //   [data-nx].card    → matches when data-nx is on the element itself
+  return `${attr} ${trimmed}, ${attr}${trimmed}`;
 }

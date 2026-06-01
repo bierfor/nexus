@@ -1,0 +1,470 @@
+---
+import { resolveLocale, createT, langHref } from '$lib/i18n.ts';
+
+export async function load(ctx) {
+  const locale = resolveLocale(ctx);
+  const t = createT(locale);
+  const langLinks = {
+    en: langHref(ctx.url, 'en'),
+    es: langHref(ctx.url, 'es'),
+    pt: langHref(ctx.url, 'pt'),
+  };
+  return { locale, t, langLinks };
+}
+---
+
+<section class="hero">
+  <div class="hero-content">
+    <h1 class="hero-title">{pretext.t('hero.title')}</h1>
+    <p class="hero-subtitle">{pretext.t('hero.subtitle')}</p>
+    <div class="hero-actions">
+      <a href="/book" class="btn btn-primary">{pretext.t('hero.cta')}</a>
+      <a href="#services" class="btn btn-outline">{pretext.t('hero.cta2')}</a>
+    </div>
+  </div>
+  <div class="hero-visual">
+    <div class="hero-card">
+      <div class="hero-card-img">✂️</div>
+      <div class="hero-card-body">
+        <span class="hero-card-tag">Premium</span>
+        <h3>Classic Cut</h3>
+        <p>From $45</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="services" id="services">
+  <div class="section-header">
+    <h2 class="section-title">{pretext.t('services.title')}</h2>
+    <p class="section-subtitle">{pretext.t('services.subtitle')}</p>
+  </div>
+  <div class="services-grid">
+    <div class="service-card">
+      <div class="service-icon">✂️</div>
+      <h3>{pretext.t('services.cut.title')}</h3>
+      <p>{pretext.t('services.cut.desc')}</p>
+    </div>
+    <div class="service-card">
+      <div class="service-icon">🎨</div>
+      <h3>{pretext.t('services.color.title')}</h3>
+      <p>{pretext.t('services.color.desc')}</p>
+    </div>
+    <div class="service-card">
+      <div class="service-icon">🧔</div>
+      <h3>{pretext.t('services.beard.title')}</h3>
+      <p>{pretext.t('services.beard.desc')}</p>
+    </div>
+    <div class="service-card">
+      <div class="service-icon">💇</div>
+      <h3>{pretext.t('services.styling.title')}</h3>
+      <p>{pretext.t('services.styling.desc')}</p>
+    </div>
+  </div>
+</section>
+
+<section class="gallery" id="gallery">
+  <div class="section-header">
+    <h2 class="section-title">{pretext.t('gallery.title')}</h2>
+    <p class="section-subtitle">{pretext.t('gallery.subtitle')}</p>
+  </div>
+  <div class="gallery-grid">
+    <div class="gallery-item"><span>Style 1</span></div>
+    <div class="gallery-item"><span>Style 2</span></div>
+    <div class="gallery-item"><span>Style 3</span></div>
+    <div class="gallery-item"><span>Style 4</span></div>
+    <div class="gallery-item"><span>Style 5</span></div>
+    <div class="gallery-item"><span>Style 6</span></div>
+  </div>
+</section>
+
+<section class="info" id="contact">
+  <div class="info-grid">
+    <div class="info-card">
+      <h3>📍 {pretext.t('contact.address')}</h3>
+      <p>{pretext.t('contact.phone')}</p>
+    </div>
+    <div class="info-card">
+      <h3>🕐 {pretext.t('hours.title')}</h3>
+      <p>{pretext.t('hours.monfri')}: 9:00 - 20:00</p>
+      <p>{pretext.t('hours.sat')}: 10:00 - 18:00</p>
+      <p>{pretext.t('hours.sun')}: {pretext.t('hours.closed')}</p>
+    </div>
+  </div>
+</section>
+
+<section class="cta">
+  <div class="cta-content">
+    <h2>{pretext.t('cta.title')}</h2>
+    <p>{pretext.t('cta.subtitle')}</p>
+    <a href="/book" class="btn btn-primary btn-lg">{pretext.t('cta.button')}</a>
+  </div>
+</section>
+
+<footer class="site-footer">
+  <div class="footer-inner">
+    <div class="lang-switcher">
+      <a href="{pretext.langLinks.en}" class="{pretext.locale === 'en' ? 'active' : ''}">EN</a>
+      <a href="{pretext.langLinks.es}" class="{pretext.locale === 'es' ? 'active' : ''}">ES</a>
+      <a href="{pretext.langLinks.pt}" class="{pretext.locale === 'pt' ? 'active' : ''}">PT</a>
+    </div>
+    <p>© 2026 {pretext.t('footer.copy')}</p>
+  </div>
+</footer>
+
+<style>
+  .hero {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4rem;
+    align-items: center;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 8rem 1.5rem 4rem;
+    min-height: 100vh;
+  }
+
+  .hero-title {
+    font-size: 3.5rem;
+    font-weight: 800;
+    line-height: 1.1;
+    color: var(--primary);
+    margin-bottom: 1rem;
+    letter-spacing: -0.02em;
+  }
+
+  .hero-subtitle {
+    font-size: 1.125rem;
+    color: var(--text-light);
+    line-height: 1.7;
+    max-width: 480px;
+    margin-bottom: 2rem;
+  }
+
+  .hero-actions {
+    display: flex;
+    gap: 1rem;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.75rem 1.5rem;
+    border-radius: 0.5rem;
+    font-weight: 600;
+    font-size: 0.9375rem;
+    text-decoration: none;
+    transition: all 0.2s;
+    cursor: pointer;
+    border: none;
+  }
+
+  .btn-primary {
+    background: var(--primary);
+    color: var(--white);
+  }
+
+  .btn-primary:hover {
+    background: #333;
+    transform: translateY(-1px);
+  }
+
+  .btn-outline {
+    background: transparent;
+    color: var(--primary);
+    border: 2px solid var(--primary);
+  }
+
+  .btn-outline:hover {
+    background: var(--primary);
+    color: var(--white);
+  }
+
+  .btn-lg {
+    padding: 1rem 2rem;
+    font-size: 1rem;
+  }
+
+  .hero-visual {
+    display: flex;
+    justify-content: center;
+  }
+
+  .hero-card {
+    background: var(--white);
+    border-radius: 1rem;
+    box-shadow: 0 20px 40px -10px rgba(0,0,0,0.1);
+    border: 1px solid var(--border);
+    width: 280px;
+    overflow: hidden;
+  }
+
+  .hero-card-img {
+    height: 180px;
+    background: linear-gradient(135deg, #f5f5f5 0%, #e5e5e5 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 4rem;
+  }
+
+  .hero-card-body {
+    padding: 1.25rem;
+  }
+
+  .hero-card-tag {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    background: var(--accent);
+    color: var(--white);
+    font-size: 0.6875rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    border-radius: 999px;
+    margin-bottom: 0.5rem;
+  }
+
+  .hero-card-body h3 {
+    font-size: 1.125rem;
+    font-weight: 700;
+    margin-bottom: 0.25rem;
+  }
+
+  .hero-card-body p {
+    color: var(--text-light);
+    font-size: 0.875rem;
+  }
+
+  .section-header {
+    text-align: center;
+    margin-bottom: 3rem;
+  }
+
+  .section-title {
+    font-size: 2.25rem;
+    font-weight: 800;
+    color: var(--primary);
+    margin-bottom: 0.5rem;
+    letter-spacing: -0.02em;
+  }
+
+  .section-subtitle {
+    font-size: 1rem;
+    color: var(--text-light);
+  }
+
+  .services {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 4rem 1.5rem;
+  }
+
+  .services-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1.5rem;
+  }
+
+  .service-card {
+    padding: 2rem;
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 0.875rem;
+    text-align: center;
+    transition: box-shadow 0.2s, transform 0.2s;
+  }
+
+  .service-card:hover {
+    box-shadow: 0 10px 25px -5px rgba(0,0,0,0.08);
+    transform: translateY(-2px);
+  }
+
+  .service-icon {
+    font-size: 2.5rem;
+    margin-bottom: 1rem;
+  }
+
+  .service-card h3 {
+    font-size: 1.0625rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+  }
+
+  .service-card p {
+    font-size: 0.875rem;
+    color: var(--text-light);
+    line-height: 1.6;
+  }
+
+  .gallery {
+    background: var(--bg-dark);
+    padding: 4rem 1.5rem;
+  }
+
+  .gallery .section-title {
+    color: var(--white);
+  }
+
+  .gallery .section-subtitle {
+    color: rgba(255,255,255,0.6);
+  }
+
+  .gallery-grid {
+    max-width: 1200px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+  }
+
+  .gallery-item {
+    aspect-ratio: 1;
+    background: linear-gradient(135deg, #2a2a2a 0%, #333 100%);
+    border-radius: 0.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: rgba(255,255,255,0.3);
+    font-size: 0.875rem;
+    font-weight: 600;
+    transition: transform 0.2s;
+  }
+
+  .gallery-item:hover {
+    transform: scale(1.02);
+  }
+
+  .info {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 4rem 1.5rem;
+  }
+
+  .info-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+  }
+
+  .info-card {
+    padding: 2rem;
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 0.875rem;
+  }
+
+  .info-card h3 {
+    font-size: 1.0625rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    color: var(--primary);
+  }
+
+  .info-card p {
+    font-size: 0.9375rem;
+    color: var(--text-light);
+    margin-bottom: 0.25rem;
+  }
+
+  .cta {
+    background: var(--primary);
+    padding: 5rem 1.5rem;
+    text-align: center;
+  }
+
+  .cta-content {
+    max-width: 600px;
+    margin: 0 auto;
+  }
+
+  .cta-content h2 {
+    font-size: 2.25rem;
+    font-weight: 800;
+    color: var(--white);
+    margin-bottom: 0.75rem;
+  }
+
+  .cta-content p {
+    font-size: 1.0625rem;
+    color: rgba(255,255,255,0.8);
+    margin-bottom: 2rem;
+  }
+
+  .cta .btn-primary {
+    background: var(--accent);
+    color: var(--primary);
+  }
+
+  .cta .btn-primary:hover {
+    background: var(--accent-dark);
+  }
+
+  .site-footer {
+    background: var(--bg-dark);
+    padding: 2rem 1.5rem;
+    text-align: center;
+  }
+
+  .footer-inner {
+    max-width: 1200px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .site-footer .lang-switcher a {
+    color: rgba(255,255,255,0.5);
+  }
+
+  .site-footer .lang-switcher a.active {
+    background: var(--accent);
+    color: var(--primary);
+  }
+
+  .site-footer p {
+    color: rgba(255,255,255,0.4);
+    font-size: 0.875rem;
+  }
+
+  @media (max-width: 900px) {
+    .hero {
+      grid-template-columns: 1fr;
+      text-align: center;
+      padding-top: 6rem;
+      min-height: auto;
+    }
+
+    .hero-actions {
+      justify-content: center;
+    }
+
+    .hero-visual {
+      order: -1;
+    }
+
+    .services-grid {
+      grid-template-columns: 1fr 1fr;
+    }
+
+    .gallery-grid {
+      grid-template-columns: 1fr 1fr;
+    }
+
+    .info-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .services-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .hero-title {
+      font-size: 2.5rem;
+    }
+  }
+</style>

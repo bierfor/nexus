@@ -1,0 +1,15 @@
+{
+  "name": "hair-salon",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "nexus dev --port 3000",
+    "build": "nexus build",
+    "start": "node .nexus/output/server.js"
+  },
+  "dependencies": {
+    "@nexus_js/cli": "workspace:*",
+    "@nexus_js/server": "workspace:*"
+  }
+}

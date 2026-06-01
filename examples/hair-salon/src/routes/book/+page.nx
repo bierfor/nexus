@@ -1,0 +1,118 @@
+---
+import { resolveLocale, createT, langHref } from '$lib/i18n.ts';
+
+export async function load(ctx) {
+  const locale = resolveLocale(ctx);
+  const t = createT(locale);
+  const langLinks = {
+    en: langHref(ctx.url, 'en'),
+    es: langHref(ctx.url, 'es'),
+    pt: langHref(ctx.url, 'pt'),
+  };
+  return { locale, t, langLinks };
+}
+---
+
+<section class="book-page">
+  <div class="book-card">
+    <h1>Book Appointment</h1>
+    <p>Choose your service and preferred time.</p>
+    <form class="book-form">
+      <div class="form-group">
+        <label>Name</label>
+        <input type="text" class="form-input" placeholder="Your name" required />
+      </div>
+      <div class="form-group">
+        <label>Phone</label>
+        <input type="tel" class="form-input" placeholder="+1 555 000 0000" required />
+      </div>
+      <div class="form-group">
+        <label>Service</label>
+        <select class="form-input">
+          <option>Haircut - $45</option>
+          <option>Coloring - $85</option>
+          <option>Beard Trim - $25</option>
+          <option>Styling - $55</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Date</label>
+        <input type="date" class="form-input" required />
+      </div>
+      <button type="submit" class="btn btn-primary btn-full">Confirm Booking</button>
+    </form>
+    <a href="/" class="back-link">← Back to home</a>
+  </div>
+</section>
+
+<style>
+  .book-page {
+    max-width: 480px;
+    margin: 0 auto;
+    padding: 6rem 1rem 2rem;
+  }
+
+  .book-card {
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 1rem;
+    padding: 2rem;
+  }
+
+  .book-card h1 {
+    font-size: 1.5rem;
+    font-weight: 800;
+    margin-bottom: 0.5rem;
+    color: var(--primary);
+  }
+
+  .book-card p {
+    color: var(--text-light);
+    margin-bottom: 1.5rem;
+  }
+
+  .form-group {
+    margin-bottom: 1rem;
+  }
+
+  .form-group label {
+    display: block;
+    font-size: 0.875rem;
+    font-weight: 600;
+    margin-bottom: 0.375rem;
+    color: var(--primary);
+  }
+
+  .form-input {
+    width: 100%;
+    padding: 0.625rem 0.875rem;
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+    font-size: 0.9375rem;
+    font-family: inherit;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+
+  .form-input:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(201, 169, 110, 0.15);
+  }
+
+  .btn-full {
+    width: 100%;
+  }
+
+  .back-link {
+    display: block;
+    text-align: center;
+    margin-top: 1.5rem;
+    color: var(--text-light);
+    text-decoration: none;
+    font-size: 0.875rem;
+  }
+
+  .back-link:hover {
+    color: var(--primary);
+  }
+</style>

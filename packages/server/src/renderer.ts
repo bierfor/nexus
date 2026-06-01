@@ -183,8 +183,9 @@ const DOCTYPE = '<!DOCTYPE html>';
  * Wraps the page with its layout chain and injects island hydration scripts.
  */
 /**
- * Runs `nxPretext` from every layout (outer → inner) and the page in parallel,
- * then shallow-merges results onto `ctx.pretext` (page wins on key collisions).
+ * Runs the data loader (`load` / `nxPretext`) from every layout (outer → inner) and the page
+ * in parallel, then shallow-merges results onto `ctx.pretext` (child wins on key collisions).
+ * This powers both the `{pretext.xxx}` template usage and the client-side `$pretext()`.
  */
 export async function mergeRoutePretext(
   matched: MatchedRoute,
@@ -209,7 +210,10 @@ export async function mergeRoutePretext(
     );
     const results = await Promise.all(
       mods.map((mod) => {
-        const fn = (mod as Record<string, unknown>).nxPretext;
+        // Prefer the internal nxPretext (produced by compiler from `load` or explicit marker).
+        // Fall back to `load` for direct JS modules, bridge code, or old builds.
+        const fn = (mod as Record<string, unknown>).nxPretext
+          ?? (mod as Record<string, unknown>).load;
         return typeof fn === 'function' ? (fn as (c: NexusContext) => Promise<unknown>)(ctx) : Promise.resolve({});
       }),
     );

@@ -1,14 +1,480 @@
 ---
-// PayLinks - Homepage (redirect to dashboard or login)
+// PayLinks - Landing Page (i18n example)
+import { resolveLocale, createT, langHref } from '$lib/i18n.ts';
+
 export async function load(ctx) {
-  const sessionCookie = ctx.getCookie('pl_session');
-  
-  if (sessionCookie) {
-    return ctx.redirect('/dashboard');
-  }
-  
-  return ctx.redirect('/login');
+  const locale = resolveLocale(ctx);
+  const t = createT(locale);
+
+  const langLinks = {
+    en: langHref(ctx.url, 'en'),
+    es: langHref(ctx.url, 'es'),
+    pt: langHref(ctx.url, 'pt'),
+  };
+
+  const loginHref = `/login?lang=${locale}`;
+
+  return { locale, t, langLinks, loginHref };
 }
 ---
 
-<p>Redirecting...</p>
+<div class="landing-wrapper">
+<section class="hero">
+  <div class="hero-content">
+    <div class="hero-badge">🚀 {pretext.t('landing.badge')}</div>
+    <h1 class="hero-title">
+      {pretext.t('landing.title')}<br />
+      <span class="hero-title-accent">{pretext.t('landing.titleAccent')}</span>
+    </h1>
+    <p class="hero-subtitle">
+      {pretext.t('landing.subtitle')}
+    </p>
+    <div class="hero-actions">
+      <a href="{pretext.loginHref}" class="btn btn--primary btn--lg">{pretext.t('landing.ctaPrimary')}</a>
+      <a href="{pretext.loginHref}" class="btn btn--outline btn--lg">{pretext.t('landing.ctaSecondary')}</a>
+    </div>
+    <div class="hero-stats">
+      <div class="hero-stat">
+        <span class="hero-stat-value">$456K+</span>
+        <span class="hero-stat-label">{pretext.t('landing.stat.processed')}</span>
+      </div>
+      <div class="hero-stat">
+        <span class="hero-stat-value">1,200+</span>
+        <span class="hero-stat-label">{pretext.t('landing.stat.links')}</span>
+      </div>
+      <div class="hero-stat">
+        <span class="hero-stat-value">99.9%</span>
+        <span class="hero-stat-label">{pretext.t('landing.stat.uptime')}</span>
+      </div>
+    </div>
+  </div>
+  <div class="hero-visual">
+    <div class="card-preview">
+      <div class="card-preview-header">
+        <span class="card-preview-dot"></span>
+        <span class="card-preview-dot"></span>
+        <span class="card-preview-dot"></span>
+      </div>
+      <div class="card-preview-body">
+        <div class="card-preview-title">💳 Premium Membership</div>
+        <div class="card-preview-price">$99.00 <span>USD</span></div>
+        <div class="card-preview-meta">12 uses · Unlimited</div>
+        <div class="card-preview-bar"></div>
+        <div class="card-preview-bar card-preview-bar--short"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="features">
+  <div class="features-header">
+    <h2 class="features-title">{pretext.t('features.title')}</h2>
+    <p class="features-subtitle">{pretext.t('features.subtitle')}</p>
+  </div>
+  <div class="features-grid">
+    <div class="feature-card">
+      <div class="feature-icon">⚡</div>
+      <h3 class="feature-title">{pretext.t('features.speed.title')}</h3>
+      <p class="feature-desc">{pretext.t('features.speed.desc')}</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🔗</div>
+      <h3 class="feature-title">{pretext.t('features.share.title')}</h3>
+      <p class="feature-desc">{pretext.t('features.share.desc')}</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">📊</div>
+      <h3 class="feature-title">{pretext.t('features.dashboard.title')}</h3>
+      <p class="feature-desc">{pretext.t('features.dashboard.desc')}</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🔒</div>
+      <h3 class="feature-title">{pretext.t('features.security.title')}</h3>
+      <p class="feature-desc">{pretext.t('features.security.desc')}</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🌍</div>
+      <h3 class="feature-title">{pretext.t('features.currency.title')}</h3>
+      <p class="feature-desc">{pretext.t('features.currency.desc')}</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">📱</div>
+      <h3 class="feature-title">{pretext.t('features.responsive.title')}</h3>
+      <p class="feature-desc">{pretext.t('features.responsive.desc')}</p>
+    </div>
+  </div>
+</section>
+
+<section class="cta">
+  <div class="cta-content">
+    <h2 class="cta-title">{pretext.t('cta.title')}</h2>
+    <p class="cta-subtitle">{pretext.t('cta.subtitle')}</p>
+    <a href="{pretext.loginHref}" class="btn btn--primary btn--lg">{pretext.t('cta.button')}</a>
+  </div>
+</section>
+
+<footer class="landing-footer">
+  <div class="landing-footer-inner">
+    <div class="lang-switcher">
+      <a href="{pretext.langLinks.en}" class="lang-link {pretext.locale === 'en' ? 'lang-link--active' : ''}">EN</a>
+      <a href="{pretext.langLinks.es}" class="lang-link {pretext.locale === 'es' ? 'lang-link--active' : ''}">ES</a>
+      <a href="{pretext.langLinks.pt}" class="lang-link {pretext.locale === 'pt' ? 'lang-link--active' : ''}">PT</a>
+    </div>
+    <p class="landing-footer-copy">&copy; 2026 PayLinks. {pretext.t('footer.copy')}</p>
+  </div>
+</footer>
+</div>
+
+<style>
+  :global(.app-main) {
+    padding: 0 !important;
+    min-height: auto !important;
+  }
+
+  .landing-wrapper {
+    padding: 0;
+  }
+
+  .hero {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4rem;
+    align-items: center;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 5rem 1.5rem;
+    min-height: calc(100vh - 80px);
+  }
+
+  .hero-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.35rem 0.875rem;
+    background: rgba(91, 33, 182, 0.08);
+    color: var(--primary);
+    border-radius: 9999px;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    margin-bottom: 1.5rem;
+    width: fit-content;
+  }
+
+  .hero-title {
+    font-size: 3.25rem;
+    font-weight: 800;
+    line-height: 1.1;
+    color: var(--text);
+    margin-bottom: 1.25rem;
+    letter-spacing: -0.02em;
+  }
+
+  .hero-title-accent {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .hero-subtitle {
+    font-size: 1.125rem;
+    color: var(--text2);
+    line-height: 1.7;
+    max-width: 480px;
+    margin-bottom: 2rem;
+  }
+
+  .hero-actions {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 3rem;
+  }
+
+  .hero-stats {
+    display: flex;
+    gap: 2.5rem;
+  }
+
+  .hero-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .hero-stat-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text);
+  }
+
+  .hero-stat-label {
+    font-size: 0.8125rem;
+    color: var(--text3);
+  }
+
+  .hero-visual {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+
+  .card-preview {
+    width: 320px;
+    background: var(--bg);
+    border-radius: 1rem;
+    box-shadow: 0 25px 50px -12px rgba(91, 33, 182, 0.15);
+    border: 1px solid var(--border);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+  }
+
+  .card-preview:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 30px 60px -12px rgba(91, 33, 182, 0.2);
+  }
+
+  .card-preview-header {
+    display: flex;
+    gap: 0.375rem;
+    padding: 1rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .card-preview-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--border2);
+  }
+
+  .card-preview-body {
+    padding: 1.5rem;
+  }
+
+  .card-preview-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 0.75rem;
+  }
+
+  .card-preview-price {
+    font-size: 2rem;
+    font-weight: 800;
+    color: var(--text);
+    margin-bottom: 0.25rem;
+  }
+
+  .card-preview-price span {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--text3);
+  }
+
+  .card-preview-meta {
+    font-size: 0.8125rem;
+    color: var(--text3);
+    margin-bottom: 1.5rem;
+  }
+
+  .card-preview-bar {
+    height: 10px;
+    background: var(--bg3);
+    border-radius: 9999px;
+    margin-bottom: 0.5rem;
+  }
+
+  .card-preview-bar--short {
+    width: 60%;
+  }
+
+  .features {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 3rem 1.5rem;
+  }
+
+  .features-header {
+    text-align: center;
+    margin-bottom: 3.5rem;
+  }
+
+  .features-title {
+    font-size: 2.25rem;
+    font-weight: 800;
+    color: var(--text);
+    margin-bottom: 0.75rem;
+    letter-spacing: -0.02em;
+  }
+
+  .features-subtitle {
+    font-size: 1.0625rem;
+    color: var(--text2);
+    max-width: 520px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+
+  .features-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.5rem;
+  }
+
+  .feature-card {
+    padding: 1.75rem;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 0.875rem;
+    transition: box-shadow 0.2s ease, transform 0.2s ease;
+  }
+
+  .feature-card:hover {
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.06);
+    transform: translateY(-2px);
+  }
+
+  .feature-icon {
+    font-size: 1.75rem;
+    margin-bottom: 1rem;
+  }
+
+  .feature-title {
+    font-size: 1.0625rem;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 0.5rem;
+  }
+
+  .feature-desc {
+    font-size: 0.875rem;
+    color: var(--text2);
+    line-height: 1.6;
+  }
+
+  .cta {
+    background: linear-gradient(135deg, #5b21b6 0%, #4c1d95 100%);
+    margin: 0;
+  }
+
+  .cta-content {
+    max-width: 700px;
+    margin: 0 auto;
+    padding: 5rem 1.5rem;
+    text-align: center;
+    color: white;
+  }
+
+  .cta-title {
+    font-size: 2.25rem;
+    font-weight: 800;
+    margin-bottom: 1rem;
+    letter-spacing: -0.02em;
+  }
+
+  .cta-subtitle {
+    font-size: 1.0625rem;
+    opacity: 0.9;
+    line-height: 1.6;
+    margin-bottom: 2rem;
+  }
+
+  .btn--lg {
+    padding: 0.875rem 1.75rem;
+    font-size: 1rem;
+  }
+
+  .btn--outline {
+    background: transparent;
+    color: var(--text);
+    border: 1.5px solid var(--border2);
+  }
+
+  .btn--outline:hover {
+    background: var(--bg3);
+    border-color: var(--border);
+  }
+
+  .landing-footer {
+    background: var(--bg);
+    border-top: 1px solid var(--border);
+    padding: 2rem 1.5rem;
+    text-align: center;
+  }
+
+  .landing-footer-inner {
+    max-width: 1200px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .lang-switcher {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .lang-link {
+    padding: 0.35rem 0.75rem;
+    border-radius: 0.375rem;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--text2);
+    text-decoration: none;
+    border: 1px solid transparent;
+    transition: all 0.15s;
+  }
+
+  .lang-link:hover {
+    background: var(--bg3);
+    color: var(--text);
+  }
+
+  .lang-link--active {
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
+  }
+
+  .landing-footer-copy {
+    font-size: 0.875rem;
+    color: var(--text3);
+  }
+
+  @media (max-width: 900px) {
+    .hero {
+      grid-template-columns: 1fr;
+      gap: 3rem;
+      padding: 3rem 1rem;
+      text-align: center;
+    }
+
+    .hero-title {
+      font-size: 2.5rem;
+    }
+
+    .hero-subtitle {
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .hero-actions {
+      justify-content: center;
+    }
+
+    .hero-stats {
+      justify-content: center;
+    }
+
+    .features-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .card-preview {
+      transform: rotate(0deg);
+      width: 100%;
+      max-width: 320px;
+    }
+  }
+</style>
