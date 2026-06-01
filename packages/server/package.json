@@ -1,6 +1,6 @@
 {
   "name": "@nexus_js/server",
-  "version": "0.9.21",
+  "version": "0.9.22",
   "description": "Nexus Node HTTP server — SSR, server actions, islands & assets (middleware lives in @nexus_js/middleware for edge runtimes)",
   "type": "module",
   "main": "./dist/index.js",
@@ -42,6 +42,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "dev": "tsc -p tsconfig.json --watch",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run --passWithNoTests",
     "clean": "rm -rf dist"
   },
@@ -52,6 +53,18 @@
     "@nexus_js/router": "workspace:*",
     "@nexus_js/security": "workspace:*",
     "@nexus_js/serialize": "workspace:*"
+  },
+  "peerDependencies": {
+    "@nexus_js/runtime": "^0.9.21",
+    "@nexus_js/compiler": "^0.9.21"
+  },
+  "peerDependenciesMeta": {
+    "@nexus_js/runtime": {
+      "optional": true
+    },
+    "@nexus_js/compiler": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
