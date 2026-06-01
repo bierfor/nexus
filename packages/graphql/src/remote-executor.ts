@@ -5,7 +5,8 @@
  * Use this to migrate legacy backends gradually by fronting them with Nexus security.
  */
 
-import type { GraphQLSchema } from 'graphql';
+import type { GraphQLSchema, IntrospectionQuery } from 'graphql';
+import { buildClientSchema } from 'graphql/utilities';
 
 export interface RemoteExecutorOptions {
   /**
@@ -392,10 +393,14 @@ export async function createRemoteExecutorWithSchema(opts: RemoteExecutorOptions
       return { executor, schema: null };
     }
 
-    // Build schema from introspection result (requires graphql package)
-    // This is a placeholder — full implementation would use buildClientSchema
-    // from 'graphql/utilities' with result.data as IntrospectionQuery
-    return { executor, schema: null }; // TODO: implement buildClientSchema
+    // Build real executable client schema from introspection
+    try {
+      const schema = buildClientSchema(result.data as IntrospectionQuery);
+      return { executor, schema };
+    } catch (buildErr) {
+      console.warn('Failed to build client schema from introspection:', buildErr);
+      return { executor, schema: null };
+    }
   } catch (err) {
     console.warn('Failed to introspect remote schema:', err);
     return { executor, schema: null };

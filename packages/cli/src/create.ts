@@ -288,6 +288,7 @@ try {
         devDependencies: {
           '@nexus_js/cli': range,
           '@nexus_js/compiler': range,
+          '@nexus_js/server': range,   // needed for advanced server APIs and build output
           typescript: '^5.5.0',
         },
       },
@@ -597,6 +598,7 @@ try {
       devDependencies: {
         '@nexus_js/cli': range,
         '@nexus_js/compiler': range,
+        '@nexus_js/server': range,   // needed for advanced server APIs and build output
         typescript: '^5.5.0',
       },
     }, null, 2),
@@ -1154,11 +1156,11 @@ import { pageHomeCopy, pathWithLang } from '$lib/i18n';
 <section class="demo" aria-labelledby="demo-heading">
   <h2 id="demo-heading" class="section-title">{pageHomeCopy(ctx).demoTitle}</h2>
   <p class="demo-hint">{pageHomeCopy(ctx).demoHint}</p>
-  <div class="counter-wrap" client:visible>
+  <div class="counter-wrap">
     <div class="counter">
       <p class="counter-label">{pageHomeCopy(ctx).demoLabel}</p>
-      <div class="counter-row">
-        <button id="counter-btn" type="button" class="btn-counter" onclick={() => count++} aria-label="{pageHomeCopy(ctx).counterAria}">
+      <div class="counter-row" client:visible>
+        <button id="counter-btn" type="button" class="btn-counter" onclick={() => count++} aria-label="Increment counter">
           +1
         </button>
         <output class="counter-out" for="counter-btn">
@@ -1464,9 +1466,9 @@ import { pageIslandsCopy } from '$lib/i18n';
 <section class="pres-section" aria-labelledby="s5">
   <h2 id="s5" class="pres-h2">{pageIslandsCopy(ctx).s5h}</h2>
   <p class="pres-p">{pageIslandsCopy(ctx).s5p}</p>
-  <div class="pres-demo" client:visible>
-    <div class="pres-demo-inner">
-      <button type="button" class="pres-demo-btn" id="pres-demo-btn" onclick={() => demo++} aria-label="{pageIslandsCopy(ctx).demoBtnAria}">
+  <div class="pres-demo">
+    <div class="pres-demo-inner" client:visible>
+      <button type="button" class="pres-demo-btn" id="pres-demo-btn" onclick={() => demo++} aria-label="Increment demo counter">
         +1
       </button>
       <div class="pres-demo-out">

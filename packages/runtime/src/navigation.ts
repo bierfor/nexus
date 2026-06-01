@@ -586,6 +586,11 @@ function applyHeadUpdate(headHTML: string): void {
     if (el.tagName === 'TITLE') continue;
     if (el.tagName === 'SCRIPT' && el.id === '__NEXUS_PRETEXT__') continue;
 
+    // Avoid duplicate style tags by ID
+    if (el.tagName === 'STYLE' && el.id && document.getElementById(el.id)) {
+      continue;
+    }
+
     // Stylesheet de-duplication: if a <link rel="stylesheet"> with the same
     // pathname (query/hash stripped) is already in <head>, do not append it
     // again.  Idempotent navigations (clicking a link to the current page)

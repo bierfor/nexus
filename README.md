@@ -55,6 +55,8 @@ npm run dev
 
 Visit `http://localhost:3000` and start building!
 
+> **Peer dependencies note**: When installing framework packages manually (`@nexus_js/server`, `@nexus_js/cli`, etc.), you may need to also install `@nexus_js/runtime` (for islands) and `@nexus_js/compiler` (for dev/build). The official `npm create @nexus_js/nexus` scaffold handles this for you.
+
 ### Your first page
 
 Create `src/routes/+page.nx`:
@@ -203,7 +205,8 @@ export default {
 Migrate existing backends without downtime:
 
 ```typescript
-import { createRemoteExecutor, wrapExpressMiddleware } from '@nexus_js/graphql';
+import { createRemoteExecutor } from '@nexus_js/graphql';
+import { wrapExpressMiddleware } from '@nexus_js/server';
 
 // Proxy to old GraphQL API
 const legacyApi = createRemoteExecutor({
@@ -226,20 +229,19 @@ export default {
 
 ## Examples
 
-This repository includes production-ready examples:
+This repository includes one production-ready example:
 
-- **[paylinks-saas](./examples/paylinks-saas)** — Payment link generator with Stripe, QR codes, and Vault UI
-- **[basic](./examples/basic)** — Minimal starter
-- **[pokedex](./examples/pokedex)** — Islands, forms, API integration
-- **[nexusflow](./examples/nexusflow)** — Advanced routing patterns
+- **[paylinks-saas](./examples/paylinks-saas)** — Payment link generator with Stripe, QR codes, Vault UI, and Prisma (mock data in current version; see TODOs in source)
 
-Run any example:
+Run it:
 
 ```bash
 cd examples/paylinks-saas
 pnpm install
 pnpm dev
 ```
+
+Additional historical examples (pokedex, basic, nexusflow, anonymous-chat) exist in git history but are no longer maintained in-tree.
 
 ---
 
@@ -295,9 +297,7 @@ nexus/
 │   ├── router/            # File-based routing
 │   └── ...                # 20+ packages total
 ├── examples/
-│   ├── paylinks-saas/     # Full SaaS example
-│   ├── basic/
-│   └── pokedex/
+│   └── paylinks-saas/     # Full SaaS example (Stripe + Prisma + islands)
 └── docs/                  # Contributor guides
 ```
 
@@ -321,8 +321,10 @@ pnpm build
 # Run tests
 pnpm test
 
-# Start example
-pnpm example
+# Start the example
+pnpm dev:paylinks
+# or
+cd examples/paylinks-saas && pnpm dev
 ```
 
 See [CONTRIBUTING.md](./CONTRIBUTING.md) for detailed development guide.

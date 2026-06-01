@@ -1,6 +1,6 @@
 {
   "name": "@nexus_js/graphql",
-  "version": "0.9.21",
+  "version": "0.9.22",
   "description": "Nexus GraphQL adapter — complexity Shield, field masking, Vault-backed JWT rotation, DataLoader, CORS-safe handler",
   "type": "module",
   "main": "./dist/index.js",
@@ -14,11 +14,12 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "dev": "tsc -p tsconfig.json --watch",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run --passWithNoTests",
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@nexus_js/security": "workspace:*"
+    "@nexus_js/security": "^0.9.22"
   },
   "peerDependencies": {
     "graphql": ">=16.0.0"

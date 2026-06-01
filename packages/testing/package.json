@@ -1,6 +1,6 @@
 {
   "name": "@nexus_js/testing",
-  "version": "0.9.21",
+  "version": "0.9.22",
   "description": "Nexus testing utilities — render .nx components in SSR and client mode",
   "type": "module",
   "main": "./dist/index.js",
@@ -22,11 +22,12 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "dev": "tsc -p tsconfig.json --watch",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@nexus_js/compiler": "workspace:*",
-    "@nexus_js/runtime": "workspace:*"
+    "@nexus_js/compiler": "^0.9.22",
+    "@nexus_js/runtime": "^0.9.22"
   },
   "peerDependencies": {
     "vitest": ">=2.0.0"

@@ -1,6 +1,6 @@
 {
   "name": "@nexus_js/runtime",
-  "version": "0.9.21",
+  "version": "0.9.22",
   "description": "Nexus Islands runtime — selective hydration with fine-grained reactivity",
   "type": "module",
   "main": "./dist/index.js",
@@ -30,11 +30,12 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "dev": "tsc -p tsconfig.json --watch",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run --passWithNoTests",
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@nexus_js/serialize": "workspace:*"
+    "@nexus_js/serialize": "^0.9.22"
   },
   "devDependencies": {
     "typescript": "^5.5.0",

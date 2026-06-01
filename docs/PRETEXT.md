@@ -4,7 +4,24 @@ Pretext is server-only data that runs **before** layout and page `render()`, in 
 
 ## Authoring
 
-In a `.nx` file frontmatter, split **pretext** from normal server code with `// nexus:pretext`. Optional `// nexus:server` continues the server-only block after pretext.
+The simplest and recommended way (works out of the box and matches the quickstart examples):
+
+```text
+---
+import { db } from '$lib/db';
+
+export async function load(ctx) {
+  const flow = await db.flows.find(ctx.params.id);
+  return { flow };
+}
+---
+```
+
+The compiler automatically treats a top-level `load(ctx)` export in the frontmatter as the route's data loader (it is compiled to the internal `nxPretext` that the server and client use).
+
+### Advanced: separating data loading from other server code
+
+If you need to run some code at module top-level (side effects, `defineHead`, etc.) separately from the data loader, use the explicit markers:
 
 ```text
 ---
@@ -18,14 +35,15 @@ export async function load(ctx) {
 
 // nexus:server
 const extra = await somethingElse();
+defineHead({ title: '...' });
 ---
 ```
 
-Supported exports (compiled to `nxPretext`):
+Supported public exports for the loader (all compiled to the internal `nxPretext`):
 
 - `export async function load(ctx) { ... }`
 - `export const load = async (ctx) => { ... }`
-- `export default async function (ctx) { ... }`
+- `export default async function (ctx) { ... }` (rare)
 
 The function must return a **plain object** (non-objects are wrapped as `{ value: r }`). Later segments (child layouts, then page) **override keys** when merged.
 

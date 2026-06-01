@@ -23,8 +23,9 @@ export interface NexusContext {
    */
   secrets: ReadonlyMap<string, string>;
   /**
-   * Merged result of `nxPretext(ctx)` from each layout (outer→inner) and the page, in parallel.
-   * Later routes override keys. Serialized to `__NEXUS_PRETEXT__` for `$pretext()` on the client.
+   * Merged result of the route's `load(ctx)` (or explicit `nxPretext`) from each layout (outer→inner)
+   * and the page, run in parallel before render. Later segments override keys on collision.
+   * Serialized into the document for `$pretext()` on the client.
    */
   pretext?: Record<string, unknown>;
   /**

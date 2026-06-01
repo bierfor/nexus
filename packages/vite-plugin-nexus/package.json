@@ -1,6 +1,6 @@
 {
   "name": "@nexus_js/vite-plugin-nexus",
-  "version": "0.9.21",
+  "version": "0.9.22",
   "description": "Official Vite plugin for Nexus — transforms .nx files, HMR, island manifests, Server Actions",
   "type": "module",
   "main": "./dist/index.js",
@@ -14,13 +14,14 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "dev": "tsc -p tsconfig.json --watch",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@nexus_js/assets": "workspace:*",
-    "@nexus_js/audit": "workspace:*",
-    "@nexus_js/compiler": "workspace:*",
-    "@nexus_js/types": "workspace:*"
+    "@nexus_js/assets": "^0.9.22",
+    "@nexus_js/audit": "^0.9.22",
+    "@nexus_js/compiler": "^0.9.22",
+    "@nexus_js/types": "^0.9.22"
   },
   "peerDependencies": {
     "vite": ">=5.0.0"

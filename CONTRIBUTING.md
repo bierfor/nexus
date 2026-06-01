@@ -75,11 +75,11 @@ pnpm run build
 ### Run Examples
 
 ```bash
-# Run basic example
-pnpm example
+# Run the PayLinks SaaS demo (only maintained example in-tree)
+pnpm dev:paylinks
 
-# Or specific example
-cd examples/pokedex
+# Or directly
+cd examples/paylinks-saas
 pnpm dev
 ```
 
@@ -146,8 +146,8 @@ pnpm run typecheck
 # Build all packages
 pnpm build
 
-# Test with example app
-cd examples/basic
+# Test with the example app
+cd examples/paylinks-saas
 pnpm dev
 ```
 

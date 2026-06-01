@@ -328,7 +328,7 @@ See [npm 2FA guide](https://docs.npmjs.com/about-two-factor-authentication) and 
 
 The **Nexus `.nx`** language extension lives under [`extensions/nexus-vscode`](../extensions/nexus-vscode/). It is **not** published with `pnpm release`; ship it separately to the [Visual Studio Marketplace](https://marketplace.visualstudio.com/vscode) (and optionally [Open VSX](https://open-vsx.org/)).
 
-**Prerequisites:** npm dependencies in that folder (`npm install`), and a Marketplace publisher id matching `package.json` → **`publisher`** (currently **`bierhffor`**). For day-to-day packaging from any directory, install **`npm install -g @vscode/vsce`**; the extension still lists `@vscode/vsce` as a devDependency so `npm run package` works without the global CLI.
+**Prerequisites:** npm dependencies in that folder (`npm install`), and a Marketplace publisher id matching `package.json` → **`publisher`** (currently **`bierhffor`** — the Marketplace account; GitHub org is `bierfor`). For day-to-day packaging from any directory, install **`npm install -g @vscode/vsce`**; the extension still lists `@vscode/vsce` as a devDependency so `npm run package` works without the global CLI.
 
 **Package a `.vsix` (local or release artifact):**
 

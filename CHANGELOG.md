@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.9.22] — 2026-05 (unreleased)
+
+### Fixed — All Incongruencias (Documentation, Config, and Feature Drift) 🧹
+
+Comprehensive pass to eliminate mismatches between claims, code, scripts, Docker artifacts, and on-disk reality:
+
+- Removed all references to non-existent example apps (`basic`, `pokedex`, `nexusflow`, `anonymous-chat`). Only `paylinks-saas` remains and is now the canonical demo.
+- Corrected Legacy Bridge code example in root README (wrong package for `wrapExpressMiddleware`).
+- Fixed `Dockerfile` (removed `COPY` of non-existent `packages/cli/templates` that would have prevented image builds).
+- Cleaned `docker-compose.yml` (commented volumes for missing files + added usage guidance).
+- Created the long-missing `packages/graphql/README.md` (it was declared in `files[]` but absent).
+- Updated `package.json` scripts, `CONTRIBUTING.md`, PR template, and multiple docs files for consistency.
+- Made `paylinks-saas` README honest about its current mock-data + Prisma TODO state.
+
+### Added / Completed — GraphQL Legacy Bridge (pragmatic but working)
+
+- `createRemoteExecutorWithSchema` now returns a real executable `GraphQLSchema` (uses `buildClientSchema` from the `graphql` peer).
+- `stitchSchemas` replaced its placeholder with a functional implementation: local schema merging via `extendSchema` + basic remote field delegation for subschemas that provide an executor.
+- Added real vitest coverage (`stitching.test.ts`) — the package test script no longer just passes with no tests.
+- New package README clearly documents the pragmatic scope and when to reach for `@graphql-tools/stitch` on top of our executors.
+
+All changes are non-breaking for existing users while making the monorepo and its documentation self-consistent for the first time in the 0.9 series.
+
+---
+
 ## [0.9.21] — 2026-05-15
 
 ### Fixed — CSS / Tailwind Support in Dev Mode 🎨

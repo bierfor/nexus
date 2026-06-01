@@ -1,6 +1,6 @@
 {
   "name": "@nexus_js/router",
-  "version": "0.9.21",
+  "version": "0.9.22",
   "description": "Nexus file-based router with nested layouts and dynamic segments",
   "type": "module",
   "main": "./dist/index.js",
@@ -14,11 +14,12 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "dev": "tsc -p tsconfig.json --watch",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run --passWithNoTests",
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@nexus_js/compiler": "workspace:*"
+    "@nexus_js/compiler": "^0.9.22"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

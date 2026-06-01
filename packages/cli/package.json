@@ -23,17 +23,17 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@nexus_js/audit": "^0.9.21",
-    "@nexus_js/bridge": "^0.9.21",
-    "@nexus_js/bridge-postgres": "^0.9.21",
+    "@nexus_js/audit": "^0.9.22",
+    "@nexus_js/bridge": "^0.9.22",
+    "@nexus_js/bridge-postgres": "^0.9.22",
     "@nexus_js/compiler": "^0.9.22",
-    "@nexus_js/router": "^0.9.21",
-    "@nexus_js/security": "^0.9.21",
+    "@nexus_js/router": "^0.9.22",
+    "@nexus_js/security": "^0.9.22",
     "@nexus_js/server": "^0.9.22",
     "jiti": "^2.6.1"
   },
   "peerDependencies": {
-    "@nexus_js/runtime": "^0.9.21",
+    "@nexus_js/runtime": "^0.9.22",
     "@nexus_js/compiler": "^0.9.22"
   },
   "peerDependenciesMeta": {

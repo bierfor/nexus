@@ -47,16 +47,16 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@nexus_js/assets": "workspace:*",
-    "@nexus_js/compiler": "workspace:*",
-    "@nexus_js/connect": "workspace:*",
-    "@nexus_js/router": "workspace:*",
-    "@nexus_js/security": "workspace:*",
-    "@nexus_js/serialize": "workspace:*"
+    "@nexus_js/assets": "^0.9.22",
+    "@nexus_js/compiler": "^0.9.22",
+    "@nexus_js/connect": "^0.9.22",
+    "@nexus_js/router": "^0.9.22",
+    "@nexus_js/security": "^0.9.22",
+    "@nexus_js/serialize": "^0.9.22"
   },
   "peerDependencies": {
-    "@nexus_js/runtime": "^0.9.21",
-    "@nexus_js/compiler": "^0.9.21"
+    "@nexus_js/runtime": "^0.9.22",
+    "@nexus_js/compiler": "^0.9.22"
   },
   "peerDependenciesMeta": {
     "@nexus_js/runtime": {

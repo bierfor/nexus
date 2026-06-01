@@ -114,9 +114,11 @@ export async function buildGlobalStylesheet(
 
       // Optional PostCSS processing (Tailwind, Autoprefixer, etc.)
       try {
+        // postcss is an optional peer dependency (only loaded if the user has it installed).
         // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-        // @ts-ignore — postcss is an optional peer dependency
+        // @ts-ignore
         const postcssMod = await import('postcss');
+        // Safe: postcss can export as default (ESM) or as the module itself (CJS).
         const postcss = (postcssMod as any).default ?? postcssMod;
         const plugins: unknown[] = [];
 

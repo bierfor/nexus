@@ -93,7 +93,9 @@ export async function revalidate(tags: string[]): Promise<void> {
     }
     tagIndex.delete(tag);
   }
-  console.log(`[Nexus Cache] Invalidated tags: ${tags.join(', ')}`);
+  if (typeof process !== 'undefined' && process.env?.NODE_ENV !== 'production') {
+    console.log(`[Nexus Cache] Invalidated tags: ${tags.join(', ')}`);
+  }
 }
 
 /**

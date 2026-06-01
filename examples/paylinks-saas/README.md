@@ -80,23 +80,31 @@ paylinks-saas/
 
 ## ✨ Features
 
-### Implemented ✅
+### Current Status (as of 0.9.22)
 
-- **Authentication** - Session-based auth with cookies
-- **Dashboard** - Stats overview (total links, revenue, transactions)
-- **Payment Links** - Create and manage payment links
-- **QR Code Generation** - Automatic QR code creation for each link
-- **Form Validation** - Zod-powered validation
-- **Rate Limiting** - Built-in protection against abuse
-- **CSRF Protection** - Automatic via Nexus Server Actions
-- **Responsive Design** - Mobile-friendly UI
+**UI + Forms (mock data)** ✅
+- Full responsive UI for login, dashboard, links list, and creation form
+- Client-side validation + server action patterns
+- QR code generation (client-side via qrcode lib)
+- Session cookies and basic auth flows (mocked DB checks — see TODO comments in `src/routes/*/ +page.nx`)
 
-### Coming Soon 🚧
+**Database (Prisma schema present, not yet wired in pages)** 🚧
+- `prisma/schema.prisma` defines User, PaymentLink, Transaction, ApiKey
+- All `load()` functions and mutations currently return hardcoded data
+- See `// TODO: Load from Prisma` / `// TODO: Save to DB with Prisma` markers in the four route files
 
-- **Stripe Integration** - Real payment processing
-- **GraphQL API** - Shield-protected API with JWT auth
-- **Vault UI** - Manage secrets (JWT, Stripe keys) with hot-reload
-- **Email Notifications** - Payment confirmations
+**Production features provided by the Nexus framework (ready to use)**
+- Rate limiting, CSRF, CSP, Vault for secrets
+- Islands / Svelte 5 runes for any interactive bits you add
+- Streaming SSR
+
+### Next Steps to Make It Fully Real
+1. `pnpm db:push` (or migrate) after setting DATABASE_URL
+2. Replace the TODO blocks in `+page.nx` files with `@prisma/client` calls
+3. Wire Stripe + real checkout (the Stripe SDK is already a dependency)
+4. Add the GraphQL example under `/graphql` using `@nexus_js/graphql`
+
+This example is intentionally a **high-fidelity UI prototype** that demonstrates Nexus patterns. It is the only maintained demo in the monorepo.
 - **Real Database** - PostgreSQL for production
 
 ## 🔒 Security Features

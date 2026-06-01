@@ -77,7 +77,7 @@ npm run publish:marketplace
 
 Or set `VSCE_PAT` in the environment and run the same command in CI.
 
-**Mismatch error:** If you see *Publisher ID `bierfor` … should match … `bierhffor`* (or the reverse), the `publisher` field in **`package.json`** does not match the publisher you used in `vsce login …`. They must be identical. After fixing `package.json`, run **`npm run package`** again and publish the new `.vsix` (or run **`vsce publish`** from this folder so it repackages from the current manifest). Do not upload an old `.vsix` built before the change.
+**Note on publisher IDs:** The extension declares `"publisher": "bierhffor"` (the Visual Studio Marketplace account). The GitHub repository and all framework packages use the org `bierfor`. This split is intentional. When running `vsce login` or `vsce publish`, always use the Marketplace name `bierhffor`. The two names will never be the same string.
 
 ### Open VSX (optional)
 

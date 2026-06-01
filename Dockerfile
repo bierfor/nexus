@@ -49,7 +49,9 @@ RUN pnpm install --prod --frozen-lockfile
 
 # Copy built artifacts
 COPY --from=builder --chown=nexus:nexus /app/packages/*/dist ./packages/
-COPY --from=builder --chown=nexus:nexus /app/packages/cli/templates ./packages/cli/templates
+# Note: create-nexus apps do not include a Dockerfile by default. This root Dockerfile
+# is for monorepo smoke tests / contributor Docker workflows. End users should add
+# their own minimal Dockerfile when deploying a created app.
 
 # Switch to non-root user
 USER nexus

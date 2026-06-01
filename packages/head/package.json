@@ -1,6 +1,6 @@
 {
   "name": "@nexus_js/head",
-  "version": "0.9.21",
+  "version": "0.9.22",
   "description": "Nexus Head — reactive SEO metadata manager for Islands Architecture",
   "type": "module",
   "main": "./dist/index.js",
@@ -14,10 +14,11 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "dev": "tsc -p tsconfig.json --watch",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
     "clean": "rm -rf dist"
   },
-  "dependencies": {
-    "@nexus_js/runtime": "workspace:*"
+  "peerDependencies": {
+    "@nexus_js/runtime": "^0.9.22"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

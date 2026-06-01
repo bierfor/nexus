@@ -1,6 +1,6 @@
 {
   "name": "@nexus_js/sync",
-  "version": "0.9.21",
+  "version": "0.9.22",
   "description": "Nexus Local-First Sync — IndexedDB engine ($localSync) + Byte-Mirror prototype (SQLite WASM worker / OPFS)",
   "type": "module",
   "main": "./dist/index.js",
@@ -15,6 +15,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "dev": "tsc -p tsconfig.json --watch",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
     "clean": "rm -rf dist"
   },

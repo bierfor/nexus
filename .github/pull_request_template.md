@@ -38,7 +38,7 @@
 <!-- Describe how you tested this change -->
 
 - [ ] Added / updated unit tests
-- [ ] Manually tested in `examples/basic`
+- [ ] Manually tested in `examples/paylinks-saas` (or a create-nexus app)
 - [ ] TypeScript type-check passes (`pnpm typecheck`)
 
 ## Breaking Changes

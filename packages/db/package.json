@@ -1,6 +1,6 @@
 {
   "name": "@nexus_js/db",
-  "version": "0.9.21",
+  "version": "0.9.22",
   "description": "Nexus DB — BYOD thin provider adapter (Prisma, Drizzle, libSQL, Postgres.js)",
   "type": "module",
   "exports": {
@@ -25,11 +25,14 @@
   "types": "./dist/index.d.ts",
   "scripts": {
     "build": "tsc",
-    "dev": "tsc --watch"
+    "dev": "tsc --watch",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@nexus_js/runtime": "workspace:*",
-    "@nexus_js/serialize": "workspace:*"
+    "@nexus_js/serialize": "^0.9.22"
+  },
+  "peerDependencies": {
+    "@nexus_js/runtime": "^0.9.22"
   },
   "devDependencies": {
     "typescript": "^5.4.0"
