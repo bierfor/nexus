@@ -15,7 +15,7 @@ async function createWatcher(
   onEvent: (event: 'change' | 'rename', filename: string) => void
 ): Promise<WatcherHandle> {
   try {
-    // @ts-expect-error chokidar is an optional peer dependency
+    // @ts-ignore chokidar is optional (dynamic, for better watching if installed)
     const chokidar: any = await import('chokidar');
     const w = chokidar.watch(`${dir}/**/*.md`, { ignoreInitial: true });
     w.on('all', (event: string, path: string) => {
