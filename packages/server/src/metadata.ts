@@ -108,6 +108,10 @@ function twitterTag(name: string, content: string | undefined): string {
 /**
  * Builds XSS-safe `<head>` metadata from a typed descriptor.
  *
+ * @deprecated Use `defineHead()` from `@nexus_js/head` instead. It now auto-injects
+ * during SSR when used in `load()` or server blocks. This function is kept for
+ * backward compatibility but will be removed in a future major release.
+ *
  * @returns `MetadataResult` — inject `.html` into your layout's `<head>`.
  *
  * @example

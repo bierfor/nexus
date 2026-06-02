@@ -64,3 +64,4 @@ scripts/npm-release-local.sh
 /mongo/
 /news/
 /my-nexus-app/
+.hermes/

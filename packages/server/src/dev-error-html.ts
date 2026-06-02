@@ -4,6 +4,11 @@
 
 const DOCTYPE = '<!DOCTYPE html>';
 
+/** Special rendering for CompileError from @nexus_js/compiler for excellent DX. */
+function isCompileError(e: unknown): e is { code: string; file: string; loc?: {line:number,column:number}; hint?:string; frame?:string; message: string } {
+  return !!e && typeof e === 'object' && 'name' in e && (e as any).name === 'CompileError' && 'code' in e;
+}
+
 function escapeHtml(s: string): string {
   return s
     .replace(/&/g, '&amp;')
@@ -76,6 +81,27 @@ export function devErrorHtmlPage(opts: { context: string; err: unknown; dev: boo
   }
 
   const d = collectErrorDetails(opts.err);
+
+  if (opts.dev && isCompileError(opts.err)) {
+    const ce = opts.err as any;
+    const locStr = ce.loc ? `${ce.file}:${ce.loc.line}:${ce.loc.column}` : ce.file;
+    const frameHtml = ce.frame
+      ? `<pre style="font-size:0.72rem;color:#94a3b8;overflow:auto;max-height:min(52vh,28rem);white-space:pre-wrap;line-height:1.4;margin:0.5rem 0 0;padding:0.75rem;background:#0d0d1a;border-radius:8px;border:1px solid #1e293b">${escapeHtml(ce.frame)}</pre>`
+      : '';
+    const hintBlock = ce.hint ? `<p style="color:#67e8f9;font-size:0.85rem;margin:0.5rem 0 0">Hint: ${escapeHtml(ce.hint)}</p>` : '';
+    return `${DOCTYPE}<html lang="en"><head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Nexus — ${escapeHtml(opts.context)}</title>
+</head><body style="font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,monospace;padding:1.25rem 1.5rem;max-width:56rem;margin:0 auto;background:#0a0a0f;color:#e8e8f0;line-height:1.45">
+  <h1 style="margin:0 0 0.5rem;font-size:1.05rem;font-weight:600;color:#f87171">◆ Nexus — ${escapeHtml(opts.context)}</h1>
+  <p style="color:#f87171;font-size:0.92rem;margin:0 0 0.5rem">${escapeHtml(ce.code)} ${escapeHtml(ce.message)}</p>
+  <p style="color:#64748b;font-size:0.8rem;margin:0 0 0.5rem">${escapeHtml(locStr)}</p>
+  ${frameHtml}
+  ${hintBlock}
+  <p style="margin-top:1rem;font-size:0.72rem;color:#475569">Development mode: .nx compile error. Fix the source and reload.</p>
+</body></html>`;
+  }
 
   const causeBlock =
     d.causes.length > 0

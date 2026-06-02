@@ -1,7 +1,7 @@
 {
-  "name": "@nexus_js/head",
+  "name": "@nexus_js/content",
   "version": "0.9.22",
-  "description": "Nexus Head — reactive SEO metadata manager for Islands Architecture",
+  "description": "Nexus Content — first-class Markdown and rich content collections for Nexus apps",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -18,8 +18,20 @@
     "test": "vitest run",
     "clean": "rm -rf dist"
   },
+  "dependencies": {
+    "marked": "^15.0.0"
+  },
   "peerDependencies": {
-    "@nexus_js/runtime": "^0.9.22"
+    "chokidar": "^4.0.0",
+    "shiki": "^1.0.0"
+  },
+  "peerDependenciesMeta": {
+    "chokidar": {
+      "optional": true
+    },
+    "shiki": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
@@ -31,7 +43,7 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/bierfor/nexus.git",
-    "directory": "packages/head"
+    "directory": "packages/content"
   },
   "bugs": {
     "url": "https://github.com/bierfor/nexus/issues"
@@ -43,12 +55,11 @@
   "keywords": [
     "nexus",
     "framework",
-    "full-stack",
-    "svelte",
-    "islands",
-    "ssr",
-    "vite",
-    "server-actions"
+    "content",
+    "markdown",
+    "collections",
+    "i18n",
+    "ssr"
   ],
   "files": [
     "dist",

@@ -58,6 +58,22 @@ export interface ImageProps {
   blurDataURL?: string;
   /** Fetch priority hint */
   fetchpriority?: 'high' | 'low' | 'auto';
+  /**
+   * Fill mode: the image stretches to fill its nearest positioned ancestor.
+   * Useful for hero sections, backgrounds, and responsive containers.
+   * When true, width/height are not rendered as attributes; use CSS on the parent.
+   */
+  fill?: boolean;
+  /** Object-fit value when fill mode is active (default: 'cover') */
+  objectFit?: 'cover' | 'contain' | 'fill' | 'none' | 'scale-down';
+  /** Object-position value when fill mode is active (default: 'center') */
+  objectPosition?: string;
+  /** Bypass optimization and serve the original image URL.
+   * Useful for SVGs, GIFs, or when you want the browser to handle the image natively.
+   */
+  unoptimized?: boolean;
+  /** Additional inline styles appended to the generated style attribute */
+  style?: string;
 }
 
 export type ImageFormat = 'avif' | 'webp' | 'png' | 'jpg' | 'original';
@@ -98,6 +114,11 @@ export function renderImage(props: ImageProps): string {
     placeholder = 'blur',
     blurDataURL,
     fetchpriority,
+    fill = false,
+    objectFit = 'cover',
+    objectPosition = 'center',
+    unoptimized = false,
+    style,
   } = props;
 
   const w = props.size ?? props.width;
@@ -107,12 +128,28 @@ export function renderImage(props: ImageProps): string {
   const decoding = priority ? 'sync' : 'async';
   const fp = fetchpriority ?? (priority ? 'high' : 'auto');
 
-  const widths = w ? getResponsiveWidths(w) : DEFAULT_WIDTHS;
+  const classAttr = props.class ? ` class="${props.class}"` : '';
+
+  // ── Unoptimized passthrough (SVGs, GIFs, or explicit opt-out) ─────────────
+  if (unoptimized) {
+    const dimAttrs = !fill && w && h ? `width="${w}" height="${h}"` : '';
+    const fillStyle = fill
+      ? `position:absolute;top:0;left:0;width:100%;height:100%;object-fit:${objectFit};object-position:${objectPosition};`
+      : '';
+    const roundStyle = round ? 'border-radius:50%;' : '';
+    const extraStyle = style ? (style.endsWith(';') ? style : style + ';') : '';
+    const styleAttr = fillStyle || roundStyle || extraStyle
+      ? ` style="${fillStyle}${roundStyle}${extraStyle}"`
+      : '';
+
+    return `<img${classAttr}${styleAttr} src="${escapeAttr(src)}" alt="${escapeAttr(alt)}" ${dimAttrs}loading="${loading}" decoding="${decoding}" fetchpriority="${fp}" data-nx-img>`;
+  }
+
+  const widths = w && !fill ? getResponsiveWidths(w) : DEFAULT_WIDTHS;
   const sizesAttr = props.sizes ?? defaultSizes(widths);
 
   const roundStyle = round ? 'border-radius:50%;' : '';
-  const aspectStyle = w && h ? `aspect-ratio:${w}/${h};` : '';
-  const classAttr = props.class ? ` class="${props.class}"` : '';
+  const aspectStyle = w && h && !fill ? `aspect-ratio:${w}/${h};` : '';
 
   // Build <source> elements for modern formats
   const sources = formats
@@ -130,31 +167,32 @@ export function renderImage(props: ImageProps): string {
     .map((width) => `${imageUrl(src, width, 'original', quality)} ${width}w`)
     .join(', ');
 
-  const dimensionAttrs = [
-    w ? `width="${w}"` : '',
-    h ? `height="${h}"` : '',
-  ].filter(Boolean).join(' ');
+  const dimensionAttrs = !fill && w && h
+    ? `width="${w}" height="${h}"`
+    : '';
 
   // ── Placeholder / blur strategy ──────────────────────────────────────────
-  // The blur background sits on the <picture> container. The <img> starts at
-  // opacity:0 so the LQIP shows through. When the real image fires `onload`
-  // the handler fades the img in and removes the data-nx-blur attribute so
-  // CSS can stop rendering the background (no extra repaints).
   let pictureExtraAttrs = '';
   let imgStyleAttr = '';
   let imgOnload = '';
+
+  const fillStyle = fill
+    ? `position:absolute;top:0;left:0;width:100%;height:100%;object-fit:${objectFit};object-position:${objectPosition};`
+    : '';
+  const extraStyle = style ? (style.endsWith(';') ? style : style + ';') : '';
 
   if (placeholder === 'blur') {
     const bgImage = blurDataURL
       ? `background-image:url("${blurDataURL}");background-size:cover;background-position:center;`
       : 'background:var(--nx-img-blur,#e8e8e8);';
     pictureExtraAttrs =
-      ` data-nx-blur style="${aspectStyle}${roundStyle}overflow:hidden;${bgImage}"`;
+      ` data-nx-blur style="${aspectStyle}${roundStyle}${fillStyle}overflow:hidden;${bgImage}${extraStyle}"`;
     imgStyleAttr = ` style="opacity:0;transition:opacity 0.4s ease;"`;
     imgOnload = ` onload="this.style.opacity='1';this.parentElement.removeAttribute('data-nx-blur')"`;
   } else {
-    pictureExtraAttrs = aspectStyle || roundStyle
-      ? ` style="${aspectStyle}${roundStyle}"`
+    const combined = `${aspectStyle}${roundStyle}${fillStyle}${extraStyle}`;
+    pictureExtraAttrs = combined
+      ? ` style="${combined}"`
       : '';
   }
 
@@ -172,6 +210,53 @@ export function renderImage(props: ImageProps): string {
       data-nx-img
     >
   </picture>`;
+}
+
+/** Alias corto de {@link renderImage} para uso en templates `.nx` */
+export const Image = renderImage;
+
+/**
+ * Reads intrinsic width and height from a local image file using sharp metadata.
+ * Useful when you don't know the dimensions ahead of time.
+ */
+export async function getImageDimensions(
+  src: string,
+  publicDir: string,
+): Promise<{ width: number; height: number }> {
+  const path = safeResolvePublicPath(publicDir, src);
+  if (!path) {
+    throw new Error(`Invalid image path: ${src}`);
+  }
+  const meta = await sharp(path).metadata();
+  if (!meta.width || !meta.height) {
+    throw new Error(`Could not read dimensions from: ${src}`);
+  }
+  return { width: meta.width, height: meta.height };
+}
+
+/**
+ * Generates a blur data URI from a local public-dir image path.
+ * Convenience wrapper around `generateBlurDataURL` + `safeResolvePublicPath`.
+ */
+export async function getBlurDataURL(src: string, publicDir: string): Promise<string> {
+  const path = safeResolvePublicPath(publicDir, src);
+  if (!path) {
+    throw new Error(`Invalid image path: ${src}`);
+  }
+  return blurFromFile(path);
+}
+
+/**
+ * Generates a `<link rel="preload" as="image">` tag for critical above-the-fold images.
+ * Inject this into `<head>` via `defineHead({ links: [...] })` or the `head` return from `load()`.
+ */
+export function renderImagePreloadLink(props: ImageProps): string {
+  const { src, unoptimized = false, quality = 80 } = props;
+  if (unoptimized) {
+    return `<link rel="preload" as="image" href="${escapeAttr(src)}">`;
+  }
+  const w = props.size ?? props.width ?? 800;
+  return `<link rel="preload" as="image" href="${imageUrl(src, w, 'original', quality)}" imagesrcset="${imageUrl(src, w, 'original', quality)}" imagesizes="${props.sizes ?? '100vw'}">`;
 }
 
 /**

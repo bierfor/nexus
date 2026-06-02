@@ -28,6 +28,24 @@ Comprehensive pass to eliminate mismatches between claims, code, scripts, Docker
 - Added real vitest coverage (`stitching.test.ts`) — the package test script no longer just passes with no tests.
 - New package README clearly documents the pragmatic scope and when to reach for `@graphql-tools/stitch` on top of our executors.
 
+### Added — @nexus_js/content (first-class Markdown + i18n for real sites)
+
+New dedicated package extracted from the patterns proven while building the official documentation site with Nexus itself (v1 iteration):
+
+**Core (first batch)**
+- `loadContent`, `renderMarkdown` + `sanitizeHTML`, `defineCollection` + `defineI18n`
+
+**Second iteration — production-ready content features**
+- `collection.list()` — auto-discovery via readdir, slug normalization, filter/sortBy/sortDesc
+- `renderMarkdownAsync` + optional Shiki syntax highlighting (peerDep, silent fallback)
+- ICU-style plurals via `interpolate()` integrated into `defineI18n` (robust brace-counting parser)
+- `watchContent()` + `stopAllWatchers()` — recursive .md-only hot reload with debounce
+- `formatDate()` + `formatRelative()` — localized (en/es/pt) long/short/iso/relative formatting
+
+55 vitest tests total. `nexusjs-site` fully dogfooded (now uses `listDocs()`, date formatters, etc.). Production build of the docs site: clean + fast.
+
+This package is the direct realization of one of the highest-priority improvement areas identified in the deep framework audit.
+
 All changes are non-breaking for existing users while making the monorepo and its documentation self-consistent for the first time in the 0.9 series.
 
 ---

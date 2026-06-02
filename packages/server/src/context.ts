@@ -4,6 +4,7 @@
  */
 
 import { getVaultSecretsMap } from '@nexus_js/security';
+import type { HeadMeta } from '@nexus_js/head';
 
 export interface NexusLocals {
   tenantId?: string;
@@ -28,6 +29,11 @@ export interface NexusContext {
    * Serialized into the document for `$pretext()` on the client.
    */
   pretext?: Record<string, unknown>;
+  /**
+   * Internal: per-request head-metadata stack for SSR auto-injection.
+   * Populated by `defineHead()` when a `ctx` is passed, flushed by the renderer.
+   */
+  __nexusHeadStack?: HeadMeta[];
   /**
    * Per-request Content-Security-Policy nonce.
    * When `security.hardened` is enabled, every HTML response gets a fresh random nonce.

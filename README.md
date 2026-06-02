@@ -27,6 +27,7 @@ Nexus is a **security-first, production-ready** web framework that combines:
 - **🔒 Built-in Security** — CSRF protection, CSP headers, rate limiting, Shield-lite, Vault
 - **📡 Server Actions** — Type-safe RPC without API routes
 - **🗂️ File-based Routing** — `+page.nx`, `+layout.nx`, `[params]`
+- **📝 Content & Markdown** — First-class `@nexus_js/content` for docs, blogs, i18n
 - **🌊 Streaming SSR** — First byte in <50ms with suspense boundaries
 - **📦 GraphQL Integration** — Shield-protected API with complexity analysis
 - **🔄 Legacy Bridge** — Migrate Express/Node apps gradually with zero downtime
@@ -377,6 +378,8 @@ See [LICENSE](./LICENSE) for details.
 ## Contributing
 
 Issues and pull requests are welcome. See [**CONTRIBUTING.md**](./CONTRIBUTING.md) (setup, structure, commits, tests). To **replace or recreate the GitHub remote** with a clean tree only, follow [**docs/REPOSITORY.md**](./docs/REPOSITORY.md).
+
+**Strategic focus** (how we plan to become like Next.js and clearly better): see [FOCUS_TO_BE_LIKE_NEXTJS_AND_BETTER.md](./FOCUS_TO_BE_LIKE_NEXTJS_AND_BETTER.md).
 
 ---
 

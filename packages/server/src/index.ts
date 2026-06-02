@@ -62,6 +62,8 @@ export type { RenderResult, RenderOptions } from './renderer.js';
 export { mergeRoutePretext } from './renderer.js';
 export { defineMetadata, escapeHtml } from './metadata.js';
 export type { MetadataInput, MetadataResult } from './metadata.js';
+export { defineHead, useHead, flushHead, renderHeadToString } from '@nexus_js/head';
+export type { HeadMeta, HeadContext } from '@nexus_js/head';
 export { registerDevRadarSink, emitDevRadar, sanitizeTelemetryValue, newTraceId } from './devradar.js';
 export type {
   DevRadarEvent,

@@ -2,7 +2,7 @@
  * Load route modules in dev (compile .nx → .mjs) and prod (pre-built .js under .nexus/output).
  */
 
-import { compile } from '@nexus_js/compiler';
+import { compile, formatCompileError, CompileError } from '@nexus_js/compiler';
 import { buildRouteManifest } from '@nexus_js/router';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { mkdir, readdir, readFile, stat, unlink, writeFile } from 'node:fs/promises';
@@ -311,16 +311,25 @@ export async function loadRouteModule(
 
   if (needsCompile) {
     const source = await readFile(filepath, 'utf-8');
-    const result = compile(source, filepath, {
-      mode: 'server',
-      dev: true,
-      ssr: true,
-      emitIslandManifest: true,
-      target: 'node',
-      appRoot,
-      libDepsMtime: libM,
-      routePattern: pattern,
-    });
+    let result;
+    try {
+      result = compile(source, filepath, {
+        mode: 'server',
+        dev: true,
+        ssr: true,
+        emitIslandManifest: true,
+        target: 'node',
+        appRoot,
+        libDepsMtime: libM,
+        routePattern: pattern,
+      });
+    } catch (err) {
+      if (err instanceof CompileError) {
+        console.error(`\n${formatCompileError(err, source)}\n`);
+        throw err; // let upper layers (renderer/handler) show the dev error page
+      }
+      throw err;
+    }
     await mkdir(dirname(outPath), { recursive: true });
     await writeFile(outPath, result.serverCode, 'utf-8');
     const ap = actionsSidecarPath(outPath);

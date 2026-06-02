@@ -598,6 +598,7 @@ try {
       devDependencies: {
         '@nexus_js/cli': range,
         '@nexus_js/compiler': range,
+        '@nexus_js/content': range,   // markdown collections, i18n helpers
         '@nexus_js/server': range,   // needed for advanced server APIs and build output
         typescript: '^5.5.0',
       },

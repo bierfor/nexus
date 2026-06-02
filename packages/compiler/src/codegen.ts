@@ -7,6 +7,8 @@ import type {
   IslandEntry,
   ServerAction,
 } from './types.js';
+import { CompileError } from './types.js';
+import { offsetToLineColumn } from './parser.js';
 import { existsSync } from 'node:fs';
 import { basename, join, normalize, relative } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -318,7 +320,7 @@ function generateServerModule(
   );
   // Concat — not nested template literal: SSR body can contain `` ` `` and `${` (nested if/each).
   const actionNamesForSsr = new Set(parsed.serverActions.map((a) => a.name));
-  lines.push('  return ' + '`' + templateToSSR(processedTemplate, actionNamesForSsr) + '`;');
+  lines.push('  return ' + '`' + templateToSSR(processedTemplate, parsed.filepath, actionNamesForSsr) + '`;');
   lines.push('}');
 
   return lines.join('\n');
@@ -349,7 +351,7 @@ function generateClientIsland(parsed: ParsedComponent, _opts: CompileOptions, is
   const processedFragments: string[] = [];
   const exprFnBlocks: string[][] = [];
   for (const frag of fragments) {
-    const { processed, exprLines } = processTemplateForClientIsland(frag, bindingNames, actionNamesForClient);
+    const { processed, exprLines } = processTemplateForClientIsland(frag, bindingNames, actionNamesForClient, parsed.filepath);
     processedFragments.push(processed);
     exprFnBlocks.push(exprLines);
   }
@@ -570,10 +572,11 @@ function processTemplateForClientIsland(
   html: string,
   bindingNames: Set<string>,
   actionNames?: Set<string>,
+  filepath?: string,
 ): { processed: string; exprLines: string[] } {
   const cleaned = html.replace(/\s+on[a-zA-Z][a-zA-Z0-9-]*\s*=\s*\{[^}]+\}/g, '');
   const withActions = rewriteServerActionHtmlActionAttr(cleaned, actionNames);
-  const controlFlowExpanded = expandEachBlocks(expandIfBlocks(withActions));
+  const controlFlowExpanded = expandEachBlocks(expandIfBlocks(withActions, filepath ?? ''), filepath ?? '');
   const exprLines: string[] = [];
   const processed = interpolateClientIslandPlaceholders(controlFlowExpanded, bindingNames, exprLines);
   return { processed, exprLines };
@@ -872,34 +875,61 @@ function buildIfTernary(branches: Array<{ cond: string | null; body: string }>):
  * Turns Svelte-style `{#if}` / `{:else if}` / `{:else}` into JS template ternary fragments.
  * Must run before `interpolateExpressionsForSSR` — otherwise `{#if x}` is mistaken for `{expr}` and emits `${#if` (invalid private field `#if`).
  */
-function expandIfBlocks(template: string): string {
+function expandIfBlocks(template: string, filepath: string): string {
   if (!template.includes(IF_OPEN)) return template;
   const open = template.indexOf(IF_OPEN);
   const parsed = parseTopLevelIfBlock(template, open);
-  if (!parsed) return template;
+  if (!parsed) {
+    const loc = offsetToLineColumn(template, open);
+    throw new CompileError({
+      code: 'NX-101',
+      message: `Unclosed or malformed {#if} block`,
+      file: filepath,
+      loc,
+      hint: `Ensure every {#if} has a matching {/if}. Check for nested blocks that aren't properly closed.`,
+    });
+  }
   const expandedBranches = parsed.branches.map(({ cond, body }) => ({
     cond,
-    body: expandIfBlocks(body.trim()),
+    body: expandIfBlocks(body.trim(), filepath),
   }));
   const piece = buildIfTernary(expandedBranches);
   const next = template.slice(0, open) + piece + template.slice(parsed.closeEnd);
-  return expandIfBlocks(next);
+  return expandIfBlocks(next, filepath);
 }
 
 /**
  * Expands `{#each list as item}...{/each}` into `${list.map((item) => `...`).join('')}`.
  * Inner blocks are expanded first so nesting works.
  */
-function expandEachBlocks(template: string): string {
+function expandEachBlocks(template: string, filepath: string): string {
   let t = template;
   while (t.includes(EACH_OPEN)) {
     const start = t.indexOf(EACH_OPEN);
     const closeHeader = findBlockTagExprEnd(t, start + EACH_OPEN.length);
-    if (closeHeader < 0) return t;
+    if (closeHeader < 0) {
+      const loc = offsetToLineColumn(t, start);
+      throw new CompileError({
+        code: 'NX-102',
+        message: `Malformed {#each} block — could not find the end of the header expression`,
+        file: filepath,
+        loc,
+        hint: `Syntax: {#each items as item}...{/each}. Make sure the expression is valid and braces are balanced.`,
+      });
+    }
 
     const header = t.slice(start + EACH_OPEN.length, closeHeader);
     const hm = /^(.+?)\s+as\s+(\w+)\s*$/.exec(header.trim());
-    if (!hm || !hm[1] || !hm[2]) return t;
+    if (!hm || !hm[1] || !hm[2]) {
+      const loc = offsetToLineColumn(t, start);
+      throw new CompileError({
+        code: 'NX-103',
+        message: `Invalid {#each} syntax: expected "{#each list as item}"`,
+        file: filepath,
+        loc,
+        hint: `Use the format {#each items as item}. The list expression and alias are required.`,
+      });
+    }
 
     const listExpr = hm[1].trim();
     const alias = hm[2];
@@ -910,11 +940,29 @@ function expandEachBlocks(template: string): string {
     while (pos < t.length && depth > 0) {
       const subEach = t.indexOf(EACH_OPEN, pos);
       const subEnd = t.indexOf('{/each}', pos);
-      if (subEnd === -1) return t;
+      if (subEnd === -1) {
+        const loc = offsetToLineColumn(t, start);
+        throw new CompileError({
+          code: 'NX-104',
+          message: `Unclosed {#each} block — missing {/each}`,
+          file: filepath,
+          loc,
+          hint: `Every {#each} must have a matching {/each}. Check for typos or missing closing tags.`,
+        });
+      }
       if (subEach !== -1 && subEach < subEnd) {
         depth++;
         const innerHdrEnd = findBlockTagExprEnd(t, subEach + EACH_OPEN.length);
-        if (innerHdrEnd < 0) return t;
+        if (innerHdrEnd < 0) {
+          const loc = offsetToLineColumn(t, subEach);
+          throw new CompileError({
+            code: 'NX-105',
+            message: `Malformed nested {#each} block`,
+            file: filepath,
+            loc,
+            hint: `Nested {#each} blocks must also have valid syntax: {#each list as item}...{/each}`,
+          });
+        }
         pos = innerHdrEnd + 1;
       } else {
         depth--;
@@ -922,10 +970,19 @@ function expandEachBlocks(template: string): string {
         else pos = subEnd + 7;
       }
     }
-    if (closeIdx === -1) return t;
+    if (closeIdx === -1) {
+      const loc = offsetToLineColumn(t, start);
+      throw new CompileError({
+        code: 'NX-104',
+        message: `Unclosed {#each} block — missing {/each}`,
+        file: filepath,
+        loc,
+        hint: `Every {#each} must have a matching {/each}. Check for typos or missing closing tags.`,
+      });
+    }
 
     const body = t.slice(closeHeader + 1, closeIdx).trim();
-    const bodyExpanded = expandEachBlocks(body);
+    const bodyExpanded = expandEachBlocks(body, filepath);
     const inner = interpolateExpressionsForSSR(bodyExpanded);
     const replacement = '${' + listExpr + '.map((' + alias + ') => `' + inner + '`).join(\'\')}';
     t = t.slice(0, start) + replacement + t.slice(closeIdx + 7);
@@ -985,10 +1042,10 @@ function interpolateExpressionsForSSR(s: string): string {
   return out;
 }
 
-function templateToSSR(template: string, actionNames?: Set<string>): string {
+function templateToSSR(template: string, filepath: string, actionNames?: Set<string>): string {
   const attrSafe = transformDynamicAttributesForSSR(template, actionNames);
-  const ifExpanded = expandIfBlocks(attrSafe);
-  const expanded = expandEachBlocks(ifExpanded);
+  const ifExpanded = expandIfBlocks(attrSafe, filepath);
+  const expanded = expandEachBlocks(ifExpanded, filepath);
   return interpolateExpressionsForSSR(expanded);
 }
 

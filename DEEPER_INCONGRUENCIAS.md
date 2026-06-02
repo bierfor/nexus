@@ -189,3 +189,108 @@ All four pending recommendations from the Contracts Audit have been implemented:
 
 All changes are documented in this file under "Contracts Audit - Findings & Fixes Applied".
 
+
+## New Package: @nexus_js/content (Markdown / Rich Content as First-Class Citizen)
+
+**Date**: 2026-06-02  
+**Status**: Implemented and dogfooded with nexusjs-site
+
+### Problem
+The Nexus docs site (nexusjs-site) was using a manual, ad-hoc pattern for Markdown content:
+- `readFileSync` + `marked.parse` + regex-based script stripping
+- No standard helper for render + sanitize + CSP-aware HTML
+- i18n was fully manual (giant flat objects, no extraction, no standard resolver)
+
+This pattern was fragile and likely to be copied by users building docs/blogs with Nexus.
+
+### Solution
+Created `@nexus_js/content` package in `packages/content/` with:
+
+1. **`loadContent(path, options)`** — loads `.md` files with i18n fallback (`slug.es.md` → `slug.md`)
+2. **`renderMarkdown(md, options)`** — marked-based render + configurable sanitize
+3. **`sanitizeHTML(html, options)`** — strips `<script>`, event handlers, `javascript:`/`data:` URLs, whitelists tags/attrs, injects CSP nonce
+4. **`defineCollection(options)`** — typed content collections (")
+5. **`defineI18n(options)`** — locale resolution (query → cookie → Accept-Language header → default) + typed `t()` function
+
+### API Usage in nexusjs-site
+
+```ts
+// Before (manual):
+import { marked } from 'marked';
+let renderedHTML = marked.parse(doc.body);
+renderedHTML = renderedHTML.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '');
+
+// After (@nexus_js/content):
+import { loadContent } from '@nexus_js/content';
+const page = loadContent(`docs/${slug}`, { locale, sanitize: 'strict' });
+return { renderedHTML: page.html };
+```
+
+### Migration of nexusjs-site
+- `src/lib/i18n.ts` → uses `defineI18n` from `@nexus_js/content` (same dictionaries, cleaner resolver)
+- `src/lib/docs.ts` → uses `defineCollection` + `loadContent` (replaces `readFileSync` + `marked` manual)
+- `src/routes/docs/[slug]/+page.nx` → no longer imports `marked`, no regex strip
+
+Build verified: `nexus build` passes cleanly.
+
+### Tests
+38 vitest tests covering render, sanitize, frontmatter, loadContent (with i18n fallback), and i18n resolution.
+
+### Files Added
+- `packages/content/package.json`
+- `packages/content/tsconfig.json`
+- `packages/content/vitest.config.ts`
+- `packages/content/README.md`
+- `packages/content/src/index.ts` (exports)
+- `packages/content/src/types.ts`
+- `packages/content/src/render.ts` (+ test)
+- `packages/content/src/sanitize.ts` (+ test)
+- `packages/content/src/frontmatter.ts` (+ test)
+- `packages/content/src/load-content.ts` (+ test)
+- `packages/content/src/collection.ts`
+- `packages/content/src/i18n.ts` (+ test)
+
+### Next Steps for Content/i18n — Status Update (Completed)
+- [x] Collection listing (`collection.list()` with auto-discovery via `readdir`) — Done + 6 tests
+- [x] Plural support (ICU-style `{count, plural, one {...} other {...}}`) — Done via `interpolate()`
+- [x] Syntax highlighting integration (shiki as optional peer) — Done (`renderMarkdownAsync`)
+- [x] Hot-reload of content in dev mode — Done (`watchContent`)
+- [ ] Message extraction from source code (keys → JSON files) — Still open (nice-to-have)
+
+**Current status**: 55/55 tests, full dogfooding in the official docs site, production build verified clean. The package now provides a complete, self-contained content + i18n story for real Nexus applications.
+
+## Compiler DX Improvements (Error Reporting & Warnings)
+
+**Date**: 2026-06
+
+Added comprehensive tests and structured error/warning formatting to make the `.nx` compiler feel first-class (comparable to modern frameworks like Next.js / SvelteKit in terms of helpful errors).
+
+### Changes
+- New `packages/compiler/src/index.test.ts` (13 tests covering integration):
+  - `compile()` properly integrates guard warnings (NX-GUARD-*) and parser warnings (with `loc: {line, column}`).
+  - Deduplication of overlapping warnings.
+  - Structured `CompileError` thrown for malformed control flow:
+    - Unclosed `{#if}` → NX-101 with `hint` about matching `{/if}` and `file` + `loc`.
+    - Unclosed `{#each}` → NX-104.
+    - Malformed `{#each items}` (no `as item`) → NX-103 with hint.
+  - `formatCompileError(err)` includes code, message, `file:line:col`, hint.
+  - `formatCompileWarning(warn, file, source)` includes source frame via `extractFrame`.
+  - Helpers: `offsetToLineColumn`, `extractFrame` (with caret and gutter).
+
+- `error-formatter.ts` provides ANSI-colored output (red for errors, yellow for warnings, cyan hints, gray locations, red carets).
+
+- `compile()` already merges parser + guard warnings cleanly (deduped).
+
+### Impact
+This directly improves the "Developer Experience" pillar in the "be like Next.js and better" strategy:
+- Better error messages with location + hints (reduces time to fix).
+- Warnings with precise loc (e.g. security guard on `process.env` in client script).
+- Source frames for quick diagnosis.
+
+All compiler tests now pass (87 total). The package test script was cleaned (`--passWithNoTests` removed).
+
+### Next
+- Consider surfacing these formatted errors in the dev server overlay / CLI for even better DX. ✅ Done: wrapped compile() in CLI build + load-module.ts (dev .nx) + island client bundles; enhanced devErrorHtmlPage with special CompileError rendering (code, frame, hint, loc); main CLI catch handles it; console gets ANSI colored formatted output with source frame on errors.
+- Expand parser errors for other common .nx gotchas (e.g. bad client: directives). (open)
+
+

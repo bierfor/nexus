@@ -2,7 +2,7 @@
  * Dev / Node server assets: /@nexus_js/runtime ESM mirror + aggregated scoped CSS from .nx files.
  */
 
-import { compile } from '@nexus_js/compiler';
+import { compile, formatCompileError, CompileError } from '@nexus_js/compiler';
 import { createHash } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { createRequire } from 'node:module';
@@ -407,6 +407,11 @@ export async function compileIslandClientBundle(
     });
     clientCode = result.clientCode;
   } catch (err) {
+    if (err instanceof CompileError) {
+      console.error(`\n${formatCompileError(err, source)}\n`);
+      const msg = formatCompileError(err, source).replace(/\x1b\[[0-9;]*m/g, ''); // strip ANSI for response
+      return jsError(`Island compile error:\n${msg}`, 500);
+    }
     const msg = err instanceof Error ? err.message : String(err);
     return jsError(`Island compile error: ${msg}`, 500);
   }

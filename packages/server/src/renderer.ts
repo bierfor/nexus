@@ -18,6 +18,8 @@
 import type { MatchedRoute } from '@nexus_js/router';
 import type { IslandManifest } from '@nexus_js/compiler';
 import { serialize } from '@nexus_js/serialize';
+import { defineHead, flushHead, renderHeadToString } from '@nexus_js/head';
+import type { HeadMeta } from '@nexus_js/head';
 import { NotFoundSignal, RedirectSignal, type NexusContext } from './context.js';
 import { SESSION_COOKIE_NAME } from './csrf.js';
 import { devErrorHtmlPage } from './dev-error-html.js';
@@ -220,6 +222,21 @@ export async function mergeRoutePretext(
     const objects = results.map((r) =>
       r && typeof r === 'object' && !Array.isArray(r) ? (r as Record<string, unknown>) : { value: r },
     );
+
+    // Collect head metadata from load() results for auto-injection into <head>.
+    // Remove 'head' from the pretext merge so it doesn't interfere with serialisation
+    // and doesn't override layout/page values during the shallow merge.
+    for (let i = 0; i < results.length; i++) {
+      const r = results[i];
+      if (r && typeof r === 'object' && !Array.isArray(r) && 'head' in r) {
+        const headMeta = (r as Record<string, unknown>).head;
+        if (headMeta && typeof headMeta === 'object') {
+          defineHead(headMeta as HeadMeta, ctx);
+        }
+        delete (r as Record<string, unknown>).head;
+      }
+    }
+
     return Object.assign({}, ...objects);
   } finally {
     emitDevRadar({
@@ -440,6 +457,10 @@ export async function renderRoute(
     };
   }
 
+  // Flush and render collected head metadata for SSR injection.
+  const headMetas = flushHead(ctx);
+  const headHtml = renderHeadToString(headMetas);
+
   const body = await runLayoutsAndPage(matched, ctx, opts);
   if (!body.ok) {
     return body.result;
@@ -470,7 +491,7 @@ export async function renderRoute(
 
   const pretextWire = ctx.pretext !== undefined ? serialize(ctx.pretext) : null;
 
-  let fullHtml = wrapWithDocument(content, opts, bridgeLogs, islandCount, pretextWire);
+  let fullHtml = wrapWithDocument(content, opts, bridgeLogs, islandCount, pretextWire, headHtml);
   if (!/^<!DOCTYPE/i.test(fullHtml.trimStart())) {
     fullHtml = DOCTYPE + '\n' + fullHtml;
   }
@@ -612,12 +633,13 @@ function buildImportMapScript(extra: Record<string, string> | null | undefined, 
   return `<script${nonceAttr} type="importmap">\n${json}\n</script>`;
 }
 
-function wrapWithDocument(
+export function wrapWithDocument(
   content: string,
   opts: RenderOptions,
   bridgeLogs: ServerBridgeLog[] = [],
   islandCount = 0,
   pretextWire: string | null = null,
+  headHtml: string = '',
 ): string {
   const n = opts.cspNonce ? ` nonce="${opts.cspNonce}"` : '';
 
@@ -681,6 +703,7 @@ window.__NEXUS_BUILD_INFO__ = {
 </script>${nexusClientDevScript(n)}` : '';
 
   const headInjection = `
+    ${headHtml}
     ${buildIdScript}
     ${pretextScript}
     ${nexusIslandHostCSS}
@@ -693,6 +716,10 @@ window.__NEXUS_BUILD_INFO__ = {
 
   if (isFullHtmlDocument(content)) {
     const doc = /^<!DOCTYPE/i.test(content.trimStart()) ? stripLeadingDoctype(content) : content;
+    // If the layout contains <!--nexus:head-->, replace it with the injection.
+    if (doc.includes('<!--nexus:head-->')) {
+      return doc.replace('<!--nexus:head-->', headInjection.trimStart());
+    }
     return injectBeforeClosingHead(doc, headInjection);
   }
 

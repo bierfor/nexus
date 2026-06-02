@@ -118,25 +118,45 @@ export type RobotsDirective = {
   nosnippet?: boolean;
 };
 
+/** Minimal context shape that can carry a per-request head stack. */
+export interface HeadContext {
+  __nexusHeadStack?: HeadMeta[];
+}
+
 // ── Server-side: collect metadata for SSR injection ───────────────────────────
 
 const _headStack: HeadMeta[] = [];
 
+function getStack(ctx?: HeadContext): HeadMeta[] {
+  if (ctx && Array.isArray(ctx.__nexusHeadStack)) {
+    return ctx.__nexusHeadStack;
+  }
+  return _headStack;
+}
+
 /**
  * Called in server blocks to define page metadata.
  * Collected during SSR and injected into <head>.
+ *
+ * When a `ctx` with `__nexusHeadStack` is provided, the meta is pushed to the
+ * request-scoped stack (safe for concurrent / streaming requests). Otherwise it
+ * falls back to a module-global stack for back-compat.
  */
-export function defineHead(meta: HeadMeta): void {
-  _headStack.push(meta);
+export function defineHead(meta: HeadMeta, ctx?: HeadContext): void {
+  const stack = getStack(ctx);
+  stack.push(meta);
 }
 
 /**
  * Collects and clears the head stack for the current request.
  * Called by the renderer to inject <head> content.
+ *
+ * Prefer passing `ctx` to avoid race conditions in concurrent environments.
  */
-export function flushHead(): HeadMeta[] {
-  const heads = [..._headStack];
-  _headStack.length = 0;
+export function flushHead(ctx?: HeadContext): HeadMeta[] {
+  const stack = getStack(ctx);
+  const heads = [...stack];
+  stack.length = 0;
   return heads;
 }
 

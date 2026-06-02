@@ -4,9 +4,26 @@ import type {
   IslandDirective,
   IslandHydration,
   ServerAction,
+  CompileWarning,
+  SourceLocation,
 } from './types.js';
 import { extractServerActionsFromSource } from './server-actions-extract.js';
 import { splitPretext } from './pretext-extract.js';
+
+/** Convert a character offset into 1-based line and 0-based column numbers. */
+export function offsetToLineColumn(source: string, offset: number): SourceLocation {
+  let line = 1;
+  let column = 0;
+  for (let i = 0; i < offset && i < source.length; i++) {
+    if (source[i] === '\n') {
+      line++;
+      column = 0;
+    } else {
+      column++;
+    }
+  }
+  return { line, column };
+}
 
 /** Regex patterns for parsing .nx files */
 const FRONTMATTER_RE = /^---\n([\s\S]*?)\n---/;
@@ -46,8 +63,12 @@ const ISLAND_DIRECTIVES: IslandHydration[] = [
  * </style>
  * ```
  */
-export function parse(source: string, filepath: string): ParsedComponent {
-  const warnings: string[] = [];
+export interface ParseResult extends ParsedComponent {
+  warnings: CompileWarning[];
+}
+
+export function parse(source: string, filepath: string): ParseResult {
+  const warnings: CompileWarning[] = [];
 
   // --- Frontmatter ---
   const fmMatch = FRONTMATTER_RE.exec(source);
@@ -139,9 +160,14 @@ export function parse(source: string, filepath: string): ParsedComponent {
   );
 
   if (serverActions.length > 0 && !source.includes('use server')) {
-    warnings.push(
-      `Found server action patterns without "use server" directive in ${filepath}`,
-    );
+    const loc = offsetToLineColumn(source, source.indexOf(serverActions[0]!.name) || 0);
+    warnings.push({
+      code: 'NX-001',
+      severity: 'warning',
+      message: `Found server action patterns without "use server" directive`,
+      hint: `Add "use server" at the top of your server action function, or use createAction() from @nexus_js/server.`,
+      loc,
+    });
   }
 
   return {
@@ -154,6 +180,7 @@ export function parse(source: string, filepath: string): ParsedComponent {
     style,
     islandDirectives,
     serverActions,
+    warnings,
   };
 }
 

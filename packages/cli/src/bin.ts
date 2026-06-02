@@ -383,7 +383,7 @@ async function runBuild(opts: { root: string }): Promise<void> {
   const { loadAppConfig } = await import('./load-app-config.js');
   const cfg = loadAppConfig(opts.root);
 
-  const { compile, compileLib, bundleIslandLib, applyLibManifestToClientCode } = await import('@nexus_js/compiler');
+  const { compile, compileLib, bundleIslandLib, applyLibManifestToClientCode, formatCompileError, CompileError } = await import('@nexus_js/compiler');
   const { buildRouteManifest } = await import('@nexus_js/router');
   const { readFile, writeFile, mkdir } = await import('node:fs/promises');
   const { join } = await import('node:path');
@@ -430,13 +430,24 @@ async function runBuild(opts: { root: string }): Promise<void> {
 
   for (const route of manifest.routes) {
     const source = await readFile(route.filepath, 'utf-8');
-    const result = compile(source, route.filepath, {
-      mode: 'server',
-      dev: false,
-      emitIslandManifest: true,
-      appRoot: opts.root,
-      routePattern: route.pattern,
-    });
+    let result;
+    try {
+      result = compile(source, route.filepath, {
+        mode: 'server',
+        dev: false,
+        emitIslandManifest: true,
+        appRoot: opts.root,
+        routePattern: route.pattern,
+      });
+    } catch (err) {
+      if (err instanceof CompileError) {
+        console.error(`\n  ${c.red}${c.bold}✖ Compile error${c.reset}\n`);
+        console.error(formatCompileError(err, source));
+        console.error('');
+        process.exit(1);
+      }
+      throw err;
+    }
 
     for (const w of result.warnings ?? []) {
       if (w.message.includes('[security]')) {
@@ -703,7 +714,19 @@ async function runCheck(opts: { root: string }): Promise<void> {
   }
 }
 
-main().catch((err) => {
+main().catch(async (err) => {
+  if (err && err.name === 'CompileError' && err.code) {
+    try {
+      const { formatCompileError } = await import('@nexus_js/compiler');
+      console.error(`\n  ${c.red}${c.bold}✖ Nexus CLI — Compile error${c.reset}\n`);
+      // source not available here, but frame may be on err
+      console.error(formatCompileError(err as any, undefined as any));
+      console.error('');
+    } catch {
+      console.error('\x1b[31m[Nexus CLI Error]\x1b[0m', err);
+    }
+    process.exit(1);
+  }
   console.error('\x1b[31m[Nexus CLI Error]\x1b[0m', err);
   process.exit(1);
 });

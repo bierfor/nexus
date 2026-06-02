@@ -114,10 +114,48 @@ export interface IslandEntry {
   mediaQuery?: string;
 }
 
+export interface SourceLocation {
+  /** 1-based line number */
+  line: number;
+  /** 0-based column number */
+  column: number;
+}
+
 export interface CompileWarning {
   message: string;
+  code?: string;
+  severity?: 'warning' | 'error';
+  /** Actionable fix suggestion */
+  hint?: string;
   start?: number;
   end?: number;
+  loc?: SourceLocation;
+}
+
+/** Structured compiler error thrown when a .nx file cannot be compiled. */
+export class CompileError extends Error {
+  readonly code: string;
+  readonly file: string;
+  readonly loc: SourceLocation | undefined;
+  readonly hint: string | undefined;
+  readonly frame: string | undefined;
+
+  constructor(opts: {
+    message: string;
+    code: string;
+    file: string;
+    loc?: SourceLocation | undefined;
+    hint?: string | undefined;
+    frame?: string | undefined;
+  }) {
+    super(opts.message);
+    this.name = 'CompileError';
+    this.code = opts.code;
+    this.file = opts.file;
+    this.loc = opts.loc;
+    this.hint = opts.hint;
+    this.frame = opts.frame;
+  }
 }
 
 export interface RouteManifest {
