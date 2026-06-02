@@ -1,6 +1,6 @@
 {
   "name": "@nexus_js/content",
-  "version": "0.9.22",
+  "version": "0.9.23",
   "description": "Nexus Content — first-class Markdown and rich content collections for Nexus apps",
   "type": "module",
   "main": "./dist/index.js",
