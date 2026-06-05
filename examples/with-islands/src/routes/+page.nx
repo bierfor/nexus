@@ -1,0 +1,31 @@
+---
+export const title = 'Nexus Islands Demo';
+---
+
+<script>
+  let count = $state(0);
+</script>
+
+<h1>{title}</h1>
+
+<section>
+  <h2>Inline Island (classic)</h2>
+  <div client:load>
+    <button onclick={() => count++}>
+      Count: {count}
+    </button>
+  </div>
+</section>
+
+<section>
+  <h2>External Island</h2>
+  <nexus-island client:load src="$lib/islands/hello.ts">
+    <p>Hello from server — this will be enhanced by JS.</p>
+  </nexus-island>
+</section>
+
+<style>
+  h1 { font-family: system-ui, sans-serif; }
+  section { margin: 2rem 0; }
+  button { padding: 0.5rem 1rem; font-size: 1rem; }
+</style>

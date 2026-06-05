@@ -4,24 +4,27 @@
 import type { HlOptions } from './types.js';
 import { escapeHtml, escapeAttr } from './utils.js';
 
-type ShikiHighlighter = {
-  codeToHtml: (code: string, opts: { lang: string; theme: string }) => Promise<string>;
+type ShikiModule = {
+  // Shiki v1+ top-level codeToHtml returns string directly (sync after internal load)
+  codeToHtml?: (code: string, opts: { lang: string; theme: string }) => string | Promise<string>;
+  // Legacy createHighlighter path returns Highlighter whose codeToHtml is async
+  createHighlighter?: (opts: { themes: string[]; langs: string[] }) => Promise<{
+    codeToHtml: (code: string, opts: { lang: string; theme: string }) => Promise<string>;
+  }>;
 };
 
-let shikiInstance: ShikiHighlighter | null = null;
-let shikiPromise: Promise<ShikiHighlighter | null> | null = null;
+let shikiMod: ShikiModule | null = null;
+let shikiPromise: Promise<ShikiModule | null> | null = null;
 
-async function getShiki(): Promise<typeof shikiInstance> {
-  if (shikiInstance) return shikiInstance;
+async function getShiki(): Promise<ShikiModule | null> {
+  if (shikiMod) return shikiMod;
   if (shikiPromise) return shikiPromise;
 
   shikiPromise = import('shiki')
-    .then(async (mod) => {
-      const shiki = typeof mod.createHighlighter === 'function'
-        ? await (mod.createHighlighter as any)({ themes: ['dark-plus', 'light-plus'], langs: [] })
-        : (mod as any);
-      shikiInstance = shiki;
-      return shikiInstance;
+    .then((mod) => {
+      // Cast via unknown to accommodate shiki's full module shape vs our narrow view
+      shikiMod = mod as unknown as ShikiModule;
+      return shikiMod;
     })
     .catch(() => {
       // shiki not installed or failed to load — graceful fallback
@@ -41,18 +44,37 @@ export async function highlightCode(
   lang: string,
   opts: HlOptions = {}
 ): Promise<string> {
-  const shiki = await getShiki();
-  if (!shiki) {
+  const mod = await getShiki();
+  if (!mod) {
     // Fallback: no syntax highlighting
     return `<pre><code class="language-${escapeAttr(lang)}">${escapeHtml(code)}</code></pre>`;
   }
 
   try {
-    const html = await shiki.codeToHtml(code, {
-      lang: lang || 'text',
-      theme: opts.theme || 'dark-plus',
-    });
-    return html;
+    // Shiki v1+: codeToHtml top-level loads languages lazily — preferred (returns string | Promise)
+    if (typeof mod.codeToHtml === 'function') {
+      const maybePromise = mod.codeToHtml(code, {
+        lang: lang || 'text',
+        theme: opts.theme || 'dark-plus',
+      });
+      const html = await Promise.resolve(maybePromise);
+      return html;
+    }
+
+    // Legacy: createHighlighter API (requires pre-loading langs)
+    if (typeof mod.createHighlighter === 'function') {
+      const highlighter = await mod.createHighlighter({
+        themes: [opts.theme || 'dark-plus'],
+        langs: [lang || 'text'],
+      });
+      const html = await highlighter.codeToHtml(code, {
+        lang: lang || 'text',
+        theme: opts.theme || 'dark-plus',
+      });
+      return html;
+    }
+
+    return `<pre><code class="language-${escapeAttr(lang)}">${escapeHtml(code)}</code></pre>`;
   } catch {
     // Language not supported or other shiki error
     return `<pre><code class="language-${escapeAttr(lang)}">${escapeHtml(code)}</code></pre>`;

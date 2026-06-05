@@ -18,8 +18,8 @@ const DEFAULT_ALLOWED_TAGS = new Set([
 const DEFAULT_ALLOWED_ATTRIBUTES: Record<string, Set<string>> = {
   a: new Set(['href', 'title', 'class']),
   img: new Set(['src', 'alt', 'title', 'class', 'loading', 'width', 'height']),
-  code: new Set(['class']),
-  pre: new Set(['class']),
+  code: new Set(['class', 'style']),
+  pre: new Set(['class', 'style', 'tabindex']),
   p: new Set(['class']),
   h1: new Set(['id', 'class']),
   h2: new Set(['id', 'class']),
@@ -34,7 +34,7 @@ const DEFAULT_ALLOWED_ATTRIBUTES: Record<string, Set<string>> = {
   td: new Set(['class', 'colspan', 'rowspan']),
   th: new Set(['class', 'colspan', 'rowspan']),
   div: new Set(['class']),
-  span: new Set(['class']),
+  span: new Set(['class', 'style']),
   blockquote: new Set(['class']),
 };
 

@@ -203,9 +203,12 @@ async function hydrateElement(el: Element): Promise<void> {
   try {
     // Dynamic import of the island's client bundle
     const mod = await import(/* @vite-ignore */ componentPath);
+    const props = getPropsFromElement(el);
     if (typeof mod.mount === 'function') {
-      const props = getPropsFromElement(el);
       mod.mount(el, props);
+    } else if (typeof mod.default === 'function') {
+      // External island: standalone .ts/.js files may export default instead of mount
+      mod.default(el, props);
     }
   } catch (err) {
     console.error(`[Nexus] Failed to hydrate island at ${componentPath}:`, err);

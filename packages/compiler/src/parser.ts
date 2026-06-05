@@ -187,18 +187,32 @@ export function parse(source: string, filepath: string): ParseResult {
 function extractIslandDirectives(template: string): IslandDirective[] {
   const directives: IslandDirective[] = [];
 
-  for (const directive of ISLAND_DIRECTIVES) {
-    const re = new RegExp(`<(\\w+)[^>]*\\s${directive}(?:=["']([^"']*)["'])?[^>]*>`, 'g');
-    let match: RegExpExecArray | null;
-    while ((match = re.exec(template)) !== null) {
-      const entry: IslandDirective = {
-        directive,
-        componentName: match[1] ?? 'Unknown',
-      };
-      if (directive === 'client:media' && match[2] !== undefined) {
-        entry.mediaQuery = match[2];
+  // Scan opening tags one-by-one, then parse individual attributes so we never
+  // match a directive that lives inside an attribute value
+  // (e.g. data-tip="use client:load for interactivity").
+  const tagRe = /<([a-zA-Z][\w-]*)([^>]*)>/g;
+  let m: RegExpExecArray | null;
+  while ((m = tagRe.exec(template)) !== null) {
+    const tagName = m[1]!;
+    const attrs = m[2]!;
+
+    // Extract attribute names and optional values one-by-one
+    const attrRe = /\s([a-zA-Z][\w:-]*)(?:="([^"]*)")?(?:='([^']*)')?/g;
+    let am: RegExpExecArray | null;
+    while ((am = attrRe.exec(attrs)) !== null) {
+      const attrName = am[1]!;
+      if (ISLAND_DIRECTIVES.includes(attrName as IslandHydration)) {
+        const entry: IslandDirective = {
+          directive: attrName as IslandHydration,
+          componentName: tagName,
+        };
+        if (entry.directive === 'client:media') {
+          const val = am[2] ?? am[3];
+          if (val !== undefined) entry.mediaQuery = val;
+        }
+        directives.push(entry);
+        break; // a tag can carry at most one island directive
       }
-      directives.push(entry);
     }
   }
 

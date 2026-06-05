@@ -4,7 +4,7 @@
  * Multiple islands per page share one client module; each wrapper gets data-nexus-island-index.
  */
 
-import { relative } from 'node:path';
+import { relative, resolve } from 'node:path';
 
 const CLIENT_DIR_RE = /\sclient:(load|idle|visible|media)(?:=["']([^"']*)["'])?/;
 
@@ -117,21 +117,67 @@ export function wrapSelfClientIslandMarkers(
     } else {
       const balanced = extractBalanced(t, openTagEnd, tag);
       if (!balanced) {
-        break;
+        const snippet = t.slice(openMatchStart, openMatchStart + 120).replace(/\n/g, ' ');
+        throw new Error(
+          `[Nexus Compiler] Unclosed island tag <${tag}> starting at:\n  ${snippet}${snippet.length >= 120 ? '…' : ''}\n` +
+          `Every client:* island must have a matching closing tag </${tag}>. Check for typos or self-closing tags without />`,
+        );
       }
       inner = balanced.inner;
       closeEnd = balanced.closeEnd;
     }
 
-    const clientTemplate = innerRootOpen + inner + innerRootClose;
-    fragments.push(clientTemplate);
-
-    const islandIdx = fragments.length - 1;
+    const islandIdx = fragments.length;
     const islandId = `island_${idBase}_${islandIdx}`.toLowerCase();
     const dataStrategy =
       strategy === 'media' && mediaQuery
         ? `data-nexus-strategy="client:media" data-nexus-media="${escapeAttr(mediaQuery)}"`
         : `data-nexus-strategy="client:${strategy}"`;
+
+    // ── Manual external island: <nexus-island client:load src="$lib/…"> ──
+    const srcMatch = /\bsrc\s*=\s*"([^"]+)"/.exec(fullAttrs);
+    if (tag === 'nexus-island' && srcMatch) {
+      const rawSrc = srcMatch[1]!;
+      let resolvedComponent: string;
+
+      if (rawSrc.startsWith('$lib/')) {
+        const relPath = rawSrc.replace('$lib/', 'src/lib/');
+        resolvedComponent = `/_nexus/external-island?path=${encodeURIComponent(relPath)}`;
+      } else if (rawSrc.startsWith('/')) {
+        // Absolute filesystem path — encode as abs param
+        resolvedComponent = `/_nexus/external-island?abs=${encodeURIComponent(rawSrc)}`;
+      } else if (rawSrc.startsWith('./') || rawSrc.startsWith('../')) {
+        // Relative to the current .nx file
+        const resolved = resolve(absFilePath, '..', rawSrc).replace(/\\/g, '/');
+        resolvedComponent = `/_nexus/external-island?abs=${encodeURIComponent(resolved)}`;
+      } else {
+        throw new Error(
+          `[Nexus Compiler] External island src must start with "$lib/", "/", "./", or "../". Got: "${rawSrc}"`,
+        );
+      }
+
+      const cleanAttrs = stripClientDirective(fullAttrs)
+        .replace(/\bsrc\s*=\s*"[^"]*"/, ' ')
+        .replace(/\s*\/\s*$/u, '')
+        .trim();
+
+      const replacement =
+        t.slice(0, openMatchStart) +
+        `<nexus-island
+    data-nexus-island="${islandId}"
+    data-nexus-island-index="${islandIdx}"
+    data-nexus-component="${resolvedComponent}"
+    ${dataStrategy}${cleanAttrs ? '\n    ' + cleanAttrs : ''}
+  >${inner}</nexus-island>` +
+        t.slice(closeEnd);
+
+      t = replacement;
+      fragments.push(''); // placeholder to keep inline island indices aligned
+      continue;
+    }
+
+    const clientTemplate = innerRootOpen + inner + innerRootClose;
+    fragments.push(clientTemplate);
 
     const wrapped =
       t.slice(0, openMatchStart) +

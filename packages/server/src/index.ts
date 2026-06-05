@@ -18,6 +18,7 @@ import {
   bustAggregatedStylesCache,
   bustGlobalStylesCache,
   compileIslandClientBundle,
+  compileExternalIslandBundle,
   getAggregatedCssETag,
   getGlobalCssETag,
   isIslandClientRequest,
@@ -528,10 +529,14 @@ export async function createNexusServer(opts: NexusServerOptions) {
     if (isIslandClientRequest(url.pathname) && method === 'GET') {
       let out: { body: string; status: number };
       try {
-        out = await compileIslandClientBundle(opts.root, url);
+        if (url.pathname === '/_nexus/external-island') {
+          out = await compileExternalIslandBundle(opts.root, url);
+        } else {
+          out = await compileIslandClientBundle(opts.root, url);
+        }
       } catch (err) {
-        // Last-resort catch: compileIslandClientBundle should never throw (it
-        // wraps its internals), but if it does we must still respond with valid
+        // Last-resort catch: bundle compilers should never throw (they
+        // wrap their internals), but if they do we must still respond with valid
         // JavaScript so the browser gets a parseable error rather than HTML.
         const msg = err instanceof Error ? err.message : String(err);
         out = {

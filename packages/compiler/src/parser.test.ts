@@ -88,4 +88,28 @@ let b = 2;
     expect(result.template!.content).not.toContain('<script>');
     expect(result.template!.content).not.toContain('<style>');
   });
+
+  it('detects island directives on real tags', () => {
+    const source = `<div client:load>hello</div>`;
+    const result = parse(source, '/src/test.nx');
+    expect(result.islandDirectives).toHaveLength(1);
+    expect(result.islandDirectives[0]).toMatchObject({ directive: 'client:load', componentName: 'div' });
+  });
+
+  it('ignores client: inside attribute values (false-positive guard)', () => {
+    const source = `<div data-tip="use client:load for interactivity">hello</div>`;
+    const result = parse(source, '/src/test.nx');
+    expect(result.islandDirectives).toHaveLength(0);
+  });
+
+  it('detects client:media with query', () => {
+    const source = `<div client:media="(max-width: 600px)">hello</div>`;
+    const result = parse(source, '/src/test.nx');
+    expect(result.islandDirectives).toHaveLength(1);
+    expect(result.islandDirectives[0]).toMatchObject({
+      directive: 'client:media',
+      componentName: 'div',
+      mediaQuery: '(max-width: 600px)',
+    });
+  });
 });

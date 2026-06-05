@@ -1,0 +1,19 @@
+{
+  "name": "with-islands",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "scripts": {
+    "dev": "nexus dev",
+    "build": "nexus build",
+    "check": "nexus check",
+    "preview": "nexus preview"
+  },
+  "dependencies": {
+    "@nexus_js/server": "workspace:^"
+  },
+  "devDependencies": {
+    "@nexus_js/cli": "workspace:^",
+    "typescript": "^5.5.0"
+  }
+}
