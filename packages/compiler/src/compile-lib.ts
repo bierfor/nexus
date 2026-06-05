@@ -67,10 +67,15 @@ export async function compileLib(appRoot: string): Promise<{ files: number }> {
   for (const tsFile of tsFiles) {
     const source = await readFile(tsFile, 'utf-8');
     const result = ts.transpileModule(source, { compilerOptions });
+    let js = result.outputText;
+    // transpileModule with Bundler resolution keeps .ts extensions in relative
+    // imports. Rewrite them to .js so browsers can resolve them at runtime.
+    js = js.replace(/from\s+(['"])\.([^'"]+)\.tsx?\1/g, 'from $1.$2.js$1');
+    js = js.replace(/import\s+(['"])\.([^'"]+)\.tsx?\1/g, 'import $1.$2.js$1');
     const relPath = relative(libDir, tsFile);
     const outPath = join(outDir, relPath.replace(TS_SOURCE_RE, '.js'));
     await mkdir(dirname(outPath), { recursive: true });
-    await writeFile(outPath, result.outputText, 'utf-8');
+    await writeFile(outPath, js, 'utf-8');
   }
 
   return { files: tsFiles.length };
