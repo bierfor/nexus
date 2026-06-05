@@ -141,15 +141,13 @@ export function wrapSelfClientIslandMarkers(
       let resolvedComponent: string;
 
       if (rawSrc.startsWith('$lib/')) {
-        const relPath = rawSrc.replace('$lib/', 'src/lib/');
-        resolvedComponent = `/_nexus/external-island?path=${encodeURIComponent(relPath)}`;
+        // $lib/foo.ts → /_nexus/lib/foo.js (served by dev-assets or bundled for prod)
+        resolvedComponent = rawSrc.replace('$lib/', '/_nexus/lib/').replace(/\.ts$/u, '.js');
       } else if (rawSrc.startsWith('/')) {
-        // Absolute filesystem path — encode as abs param
-        resolvedComponent = `/_nexus/external-island?abs=${encodeURIComponent(rawSrc)}`;
+        resolvedComponent = rawSrc.replace(/\.ts$/u, '.js');
       } else if (rawSrc.startsWith('./') || rawSrc.startsWith('../')) {
-        // Relative to the current .nx file
         const resolved = resolve(absFilePath, '..', rawSrc).replace(/\\/g, '/');
-        resolvedComponent = `/_nexus/external-island?abs=${encodeURIComponent(resolved)}`;
+        resolvedComponent = resolved.replace(/\.ts$/u, '.js');
       } else {
         throw new Error(
           `[Nexus Compiler] External island src must start with "$lib/", "/", "./", or "../". Got: "${rawSrc}"`,

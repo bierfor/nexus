@@ -446,81 +446,8 @@ export async function compileIslandClientBundle(
   return { body: clientCode, status: 200 };
 }
 
-const EXTERNAL_ISLAND_PATH = '/_nexus/external-island';
-
-/**
- * Generates a micro-bundle for an external island (standalone .ts/.js file).
- * The browser imports this bundle, which in turn imports the user's file and
- * exposes a standard `mount(el, props)` entrypoint.
- */
-export async function compileExternalIslandBundle(
-  appRoot: string,
-  url: URL,
-): Promise<{ body: string; status: number }> {
-  const pathParam = url.searchParams.get('path');
-  const absParam = url.searchParams.get('abs');
-  const rootReal = resolve(appRoot);
-
-  function isUnderRoot(file: string): boolean {
-    const rel = relative(rootReal, resolve(file));
-    if (rel === '..') return false;
-    if (rel.startsWith(`..${sep}`)) return false;
-    return true;
-  }
-
-  function jsError(msg: string, status: number): { body: string; status: number } {
-    return { body: `throw new Error(${JSON.stringify(`[Nexus] ${msg}`)});`, status };
-  }
-
-  let sourcePath: string | null = null;
-  if (pathParam) {
-    if (pathParam.includes('..') || pathParam.startsWith('/')) {
-      return jsError('External island: invalid path', 400);
-    }
-    const joined = resolve(join(rootReal, normalize(pathParam)));
-    if (!isUnderRoot(joined)) {
-      return jsError('External island: path escapes app root', 400);
-    }
-    sourcePath = joined;
-  } else if (absParam) {
-    const decoded = decodeURIComponent(absParam);
-    const abs = resolve(decoded);
-    if (!isUnderRoot(abs)) {
-      return jsError('External island: invalid abs path', 400);
-    }
-    sourcePath = abs;
-  } else {
-    return jsError('External island: missing path or abs query', 400);
-  }
-
-  try {
-    await stat(sourcePath);
-  } catch {
-    return jsError(`External island source not found: ${sourcePath}`, 404);
-  }
-
-  // Build the $lib import URL for the browser.
-  // Anything under src/lib/ maps to /_nexus/lib/…
-  const relToRoot = relative(rootReal, sourcePath).replace(/\\/g, '/');
-  const libImport = relToRoot.startsWith('src/lib/')
-    ? '/_nexus/lib/' + relToRoot.slice('src/lib/'.length).replace(/\.ts$/u, '.js')
-    : '/_nexus/lib/' + relToRoot.replace(/\.ts$/u, '.js');
-
-  const bundle =
-    `import init from ${JSON.stringify(libImport)};\n` +
-    `export function mount(el, props) {\n` +
-    `  if (typeof init === 'function') {\n` +
-    `    init(el, props);\n` +
-    `  } else if (init && typeof init.mount === 'function') {\n` +
-    `    init.mount(el, props);\n` +
-    `  }\n` +
-    `}\n`;
-
-  return { body: bundle, status: 200 };
-}
-
 export function isIslandClientRequest(pathname: string): boolean {
-  return pathname === ISLAND_CLIENT_PATH || pathname === EXTERNAL_ISLAND_PATH;
+  return pathname === ISLAND_CLIENT_PATH;
 }
 
 const LIB_PREFIX = '/_nexus/lib/';

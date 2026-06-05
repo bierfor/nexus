@@ -32,7 +32,7 @@ describe('wrapSelfClientIslandMarkers', () => {
     const t = `<nexus-island client:load src="$lib/islands/menu.ts"><button>Menu</button></nexus-island>`;
     const r = wrapSelfClientIslandMarkers(t, '/app/src/routes/+page.nx', '/app');
     expect(r.didWrap).toBe(true);
-    expect(r.template).toContain('data-nexus-component="/_nexus/external-island?path=src%2Flib%2Fislands%2Fmenu.ts"');
+    expect(r.template).toContain('data-nexus-component="/_nexus/lib/islands/menu.js"');
     expect(r.template).toContain('data-nexus-island-index="0"');
     expect(r.template).toContain('data-nexus-strategy="client:load"');
     expect(r.template).not.toMatch(/<nexus-island[^>]*\sclient:load/);

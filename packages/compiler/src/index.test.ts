@@ -122,7 +122,7 @@ describe('compile() with external islands', () => {
   it('preserves external island markup and emits correct data-nexus-component', () => {
     const source = `<nexus-island client:load src="$lib/islands/menu.ts"><button>Menu</button></nexus-island>`;
     const result = compile(source, 'src/routes/+page.nx', { appRoot: '/app' });
-    expect(result.serverCode).toContain('data-nexus-component="/_nexus/external-island?path=src%2Flib%2Fislands%2Fmenu.ts"');
+    expect(result.serverCode).toContain('data-nexus-component="/_nexus/lib/islands/menu.js"');
     expect(result.serverCode).toContain('<button>Menu</button>');
     expect(result.serverCode).not.toMatch(/<nexus-island[^>]*\sclient:load/);
   });
