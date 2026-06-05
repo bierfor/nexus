@@ -30,7 +30,12 @@ function transpileTsToEsm(source: string): string {
     isolatedModules: true,
     declaration: false,
   };
-  return ts.transpileModule(source, { compilerOptions }).outputText;
+  let js = ts.transpileModule(source, { compilerOptions }).outputText;
+  // Bundler resolution keeps .ts extensions in relative imports.
+  // Rewrite them to .js so the browser can resolve them at runtime.
+  js = js.replace(/from\s+(['"])\.([^'"]+)\.tsx?\1/g, 'from $1.$2.js$1');
+  js = js.replace(/import\s+(['"])\.([^'"]+)\.tsx?\1/g, 'import $1.$2.js$1');
+  return js;
 }
 
 export async function tryServeLibAsset(
