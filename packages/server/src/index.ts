@@ -23,7 +23,7 @@ import {
   isIslandClientRequest,
   tryServeRuntimeAsset,
 } from './dev-assets.js';
-import { tryServeLibAsset } from './lib-assets.js';
+import { tryServeLibAsset } from './dev-assets.js';
 import { devErrorHtmlPage } from './dev-error-html.js';
 import { broadcastDevHotReload, subscribeDevHotClient } from './dev-hot.js';
 import { renderRoute, renderRouteStreaming } from './renderer.js';
