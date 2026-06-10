@@ -32,6 +32,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Build packages (required for internal type resolution)
+        run: pnpm build
+
       - name: Type check all packages
         run: pnpm typecheck
 
