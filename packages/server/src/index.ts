@@ -565,9 +565,10 @@ export async function createNexusServer(opts: NexusServerOptions) {
 
     // ── Aggregated scoped CSS from all .nx files under src/
     // ── Aggregated scoped CSS from all .nx files under src/
+    // ── Unified stylesheet: global CSS (Tailwind/PostCSS) + scoped .nx styles
     if (url.pathname === '/_nexus/styles.css' && method === 'GET') {
       try {
-        const css  = await buildAggregatedNxStylesheet(opts.root);
+        const css  = await buildAggregatedNxStylesheet(opts.root, opts.cssEntry);
         const etag = getAggregatedCssETag();
 
         // Conditional GET (If-None-Match) — eliminates FOUC on hard refresh
@@ -881,22 +882,19 @@ export async function createNexusServer(opts: NexusServerOptions) {
           } catch (err) {
             console.error('[Nexus] Server action preload failed:', err);
           }
-          // Pre-warm CSS caches and update renderOpts so SSR includes the correct
-          // links. In production this is blocking (fast — single file read) so
-          // the first HTML response already knows whether global.css exists.
+          // Pre-warm the unified stylesheet so the first request is fast and the
+          // HTML already references the correct single CSS file.
           try {
-            const hasGlobal = (await buildGlobalStylesheet(opts.root, opts.cssEntry)) !== null;
-            renderOpts.assets.styles = hasGlobal
-              ? ['/_nexus/global.css', '/_nexus/styles.css']
-              : ['/_nexus/styles.css'];
+            if (dev) {
+              // In dev warm in the background to keep server startup snappy;
+              // dev radar will trigger a reload once the cache is ready.
+              buildAggregatedNxStylesheet(opts.root, opts.cssEntry).catch(() => { /* non-fatal */ });
+            } else {
+              // In production block briefly — this avoids FOUC on the first hit.
+              await buildAggregatedNxStylesheet(opts.root, opts.cssEntry);
+            }
           } catch {
-            renderOpts.assets.styles = ['/_nexus/styles.css'];
-          }
-
-          if (dev) {
-            // In dev also warm the aggregated stylesheet in the background so
-            // the first request is fast (first paint without FOUC).
-            buildAggregatedNxStylesheet(opts.root).catch(() => { /* non-fatal */ });
+            /* non-fatal: the next request will rebuild on demand */
           }
 
           server.listen(port, () => resolve());
@@ -913,16 +911,10 @@ export async function createNexusServer(opts: NexusServerOptions) {
       if (dev) {
         await preloadRegisteredServerActions(opts.root, true);
         refreshShieldAllowlist(opts.root, true);
-        // Re-evaluate whether a global CSS entry appeared/disappeared so SSR
-        // links stay in sync with the filesystem.
-        try {
-          const hasGlobal = (await buildGlobalStylesheet(opts.root, opts.cssEntry)) !== null;
-          renderOpts.assets.styles = hasGlobal
-            ? ['/_nexus/global.css', '/_nexus/styles.css']
-            : ['/_nexus/styles.css'];
-        } catch {
-          renderOpts.assets.styles = ['/_nexus/styles.css'];
-        }
+        // The unified stylesheet always renders with a single link; no need to
+        // toggle between global.css and styles.css because buildAggregatedNxStylesheet
+        // now prepends the global CSS automatically.
+        renderOpts.assets.styles = ['/_nexus/styles.css'];
         // Pre-warm the aggregated CSS cache BEFORE telling the browser to reload.
         // Without this, the sequence is:
         //   1. bustAggregatedStylesCache() empties the cache
@@ -935,7 +927,7 @@ export async function createNexusServer(opts: NexusServerOptions) {
         // reloads.  Step 4 becomes an instant cache-hit → styles apply before
         // first paint, eliminating the flash of unstyled content.
         try {
-          await buildAggregatedNxStylesheet(opts.root);
+          await buildAggregatedNxStylesheet(opts.root, opts.cssEntry);
         } catch {
           // CSS build failures are non-fatal — the browser will just get
           // whatever partial CSS the next request produces.

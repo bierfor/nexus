@@ -285,7 +285,10 @@ async function collectNxFiles(dir: string): Promise<string[]> {
  * compile sweeps.  A generation counter prevents a stale in-flight build from
  * overwriting a cache that was reset while the build was running.
  */
-export async function buildAggregatedNxStylesheet(appRoot: string): Promise<string> {
+export async function buildAggregatedNxStylesheet(
+  appRoot: string,
+  cssEntry?: string,
+): Promise<string> {
   if (aggregatedCssCache         !== null) return aggregatedCssCache;
   if (aggregatedCssBuildInFlight !== null) return aggregatedCssBuildInFlight;
 
@@ -295,9 +298,18 @@ export async function buildAggregatedNxStylesheet(appRoot: string): Promise<stri
   let promise!: Promise<string>;
   promise = (async (): Promise<string> => {
     try {
+      // Build global CSS first (Tailwind / PostCSS / plain CSS). It is prepended
+      // to the aggregated stylesheet so the browser makes a single CSS request.
+      const globalCss = await buildGlobalStylesheet(appRoot, cssEntry);
+
       const srcDir = join(appRoot, 'src');
       const files = await collectNxFiles(srcDir);
-      const parts: string[] = [LAYER_DECL];
+      const parts: string[] = [];
+
+      if (globalCss) {
+        parts.push(globalCss);
+      }
+      parts.push(LAYER_DECL);
 
       for (const filepath of files) {
         // Per-file isolation: a single .nx component with a temporary syntax
