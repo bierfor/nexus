@@ -67,6 +67,19 @@ importers:
         specifier: ^5.7.3
         version: 5.9.3
 
+  examples/with-islands:
+    dependencies:
+      '@nexus_js/server':
+        specifier: workspace:^
+        version: link:../../packages/server
+    devDependencies:
+      '@nexus_js/cli':
+        specifier: workspace:^
+        version: link:../../packages/cli
+      typescript:
+        specifier: ^5.5.0
+        version: 5.9.3
+
   packages/assets:
     dependencies:
       sharp:
@@ -213,7 +226,7 @@ importers:
   packages/create-nexus:
     dependencies:
       '@nexus_js/cli':
-        specifier: ^0.9.22
+        specifier: ^0.9.30
         version: link:../cli
 
   packages/db:
@@ -291,13 +304,13 @@ importers:
   packages/nexus-js:
     dependencies:
       '@nexus_js/cli':
-        specifier: ^0.9.22
+        specifier: ^0.9.30
         version: link:../cli
 
   packages/nexus_js:
     dependencies:
       '@nexus_js/cli':
-        specifier: ^0.9.22
+        specifier: ^0.9.30
         version: link:../cli
 
   packages/router:
