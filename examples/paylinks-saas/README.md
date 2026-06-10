@@ -204,7 +204,7 @@ export NEXUS_SECRET="your-production-secret"
 export DATABASE_URL="postgresql://user:pass@host:5432/paylinks"
 
 # Start
-node .nexus/output/server.js
+nexus start
 ```
 
 ## 📖 API Documentation

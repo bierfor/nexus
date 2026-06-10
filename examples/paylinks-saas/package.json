@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "nexus dev --port 4000",
     "build": "nexus build",
-    "start": "node .nexus/output/server.js",
+    "start": "nexus start",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",

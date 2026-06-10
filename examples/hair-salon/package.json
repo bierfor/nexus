@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "nexus dev --port 3000",
     "build": "nexus build",
-    "start": "node .nexus/output/server.js"
+    "start": "nexus start"
   },
   "dependencies": {
     "@nexus_js/cli": "workspace:*",
