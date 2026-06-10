@@ -881,23 +881,24 @@ export async function createNexusServer(opts: NexusServerOptions) {
           } catch (err) {
             console.error('[Nexus] Server action preload failed:', err);
           }
-          // Pre-warm the aggregated CSS cache in dev mode so that the very
-          // first page load (and Cmd+R with "Disable cache" in DevTools) does
-          // not stall waiting for CSS compilation.  The build runs in the
-          // background — listen() resolves immediately while the CSS compiles
-          // concurrently.  Any errors are swallowed; the first CSS request
-          // will fall back to a normal on-demand build.
-          if (dev) {
-            buildAggregatedNxStylesheet(opts.root).catch(() => { /* non-fatal */ });
-            // Pre-warm global CSS and update renderOpts so SSR includes the link.
-            buildGlobalStylesheet(opts.root, opts.cssEntry)
-              .then((css) => {
-                if (css !== null) {
-                  renderOpts.assets.styles = ['/_nexus/global.css', '/_nexus/styles.css'];
-                }
-              })
-              .catch(() => { /* non-fatal */ });
+          // Pre-warm CSS caches and update renderOpts so SSR includes the correct
+          // links. In production this is blocking (fast — single file read) so
+          // the first HTML response already knows whether global.css exists.
+          try {
+            const hasGlobal = (await buildGlobalStylesheet(opts.root, opts.cssEntry)) !== null;
+            renderOpts.assets.styles = hasGlobal
+              ? ['/_nexus/global.css', '/_nexus/styles.css']
+              : ['/_nexus/styles.css'];
+          } catch {
+            renderOpts.assets.styles = ['/_nexus/styles.css'];
           }
+
+          if (dev) {
+            // In dev also warm the aggregated stylesheet in the background so
+            // the first request is fast (first paint without FOUC).
+            buildAggregatedNxStylesheet(opts.root).catch(() => { /* non-fatal */ });
+          }
+
           server.listen(port, () => resolve());
         })().catch(reject);
       });
