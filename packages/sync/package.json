@@ -1,6 +1,6 @@
 {
   "name": "@nexus_js/sync",
-  "version": "0.9.31",
+  "version": "0.9.32",
   "description": "Nexus Local-First Sync — IndexedDB engine ($localSync) + Byte-Mirror prototype (SQLite WASM worker / OPFS)",
   "type": "module",
   "main": "./dist/index.js",
